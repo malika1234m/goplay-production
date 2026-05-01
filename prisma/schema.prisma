@@ -1,0 +1,313 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  GROUND_OWNER
+  GROUND_WORKER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentMethod {
+  ONLINE
+  ON_ARRIVAL
+}
+
+enum RefundStatus {
+  NONE
+  NEEDED
+  PROCESSED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum FacilityStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  REJECTED
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  name               String
+  email              String   @unique
+  password           String
+  phone              String?
+  avatar             String?
+  role               Role     @default(USER)
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  bookings             FacilityBooking[]
+  reviews              FacilityReview[]
+  notifications        Notification[]
+  groundOwnerProfile   GroundOwnerProfile?
+  providerApplications ProviderApplication[]
+  facilityWorker       FacilityWorker?
+}
+
+model GroundOwnerProfile {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  businessName String?
+  phone        String?
+  address      String?
+  city         String?
+  bio          String?
+
+  // Bank details for payouts
+  bankName          String?
+  bankBranch        String?
+  accountNumber     String?
+  accountHolderName String?
+
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facilities SportsFacility[]
+  payouts    Payout[]
+  earnings   GroundEarning[]
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Payout {
+  id                     String       @id @default(cuid())
+  ownerId                String
+  amount                 Float
+  commission             Float        @default(0)
+  netAmount              Float
+  status                 PayoutStatus @default(PENDING)
+  requestedAt            DateTime     @default(now())
+  processedAt            DateTime?
+  reference              String?
+  notes                  String?
+  isCommissionSettlement Boolean      @default(false)
+
+  owner GroundOwnerProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
+
+model SportsCategory {
+  id           String                @id @default(cuid())
+  name         String                @unique
+  icon         String?
+  facilities   SportsFacility[]
+  applications ProviderApplication[]
+}
+
+model SportsFacility {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  address     String
+  city        String
+  hourlyRate  Float
+  capacity    Int?
+  amenities   String[]
+  images      String[]
+  status      FacilityStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  latitude    Float?
+  longitude   Float?
+
+  categoryId String
+  ownerId    String
+
+  category     SportsCategory       @relation(fields: [categoryId], references: [id])
+  owner        GroundOwnerProfile   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  bookings     FacilityBooking[]
+  availability FacilityAvailability[]
+  blockedDates BlockedDate[]
+  reviews      FacilityReview[]
+  earnings     GroundEarning[]
+  workers      FacilityWorker[]
+}
+
+model FacilityAvailability {
+  id         String  @id @default(cuid())
+  facilityId String
+  dayOfWeek  Int
+  openTime   String
+  closeTime  String
+  isOpen     Boolean @default(true)
+
+  facility SportsFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+}
+
+model BlockedDate {
+  id         String   @id @default(cuid())
+  facilityId String
+  date       DateTime
+  startTime  String?
+  endTime    String?
+  reason     String?
+
+  facility SportsFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+}
+
+model FacilityBooking {
+  id              String        @id @default(cuid())
+  userId          String
+  facilityId      String
+  bookingDate     DateTime
+  startTime       String
+  endTime         String
+  totalHours      Float
+  totalAmount     Float
+  status          BookingStatus @default(PENDING)
+  paymentMethod   PaymentMethod @default(ON_ARRIVAL)
+  paymentStatus   PaymentStatus @default(PENDING)
+  payHereOrderId    String?       @unique
+  specialRequests   String?
+  contactNumber     String?
+  refundStatus      RefundStatus  @default(NONE)
+  refundNote        String?
+  refundProcessedAt DateTime?
+  archivedAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facility SportsFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  review   FacilityReview?
+  earning  GroundEarning?
+}
+
+model FacilityReview {
+  id           String   @id @default(cuid())
+  userId       String
+  facilityId   String
+  bookingId    String   @unique
+  rating       Int
+  reviewText   String?
+  reported     Boolean  @default(false)
+  reportReason String?
+  createdAt    DateTime @default(now())
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facility SportsFacility  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  booking  FacilityBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reply    FacilityReviewReply?
+}
+
+model FacilityReviewReply {
+  id        String   @id @default(cuid())
+  reviewId  String   @unique
+  reply     String
+  repliedAt DateTime @default(now())
+
+  review FacilityReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+}
+
+model ProviderApplication {
+  id     String            @id @default(cuid())
+  userId String
+  status ApplicationStatus @default(PENDING)
+
+  // Personal info (may differ from account)
+  phone   String
+  address String
+  city    String
+
+  // Facility details
+  facilityName        String
+  facilityAddress     String
+  facilityCity        String
+  categoryId          String
+  proposedHourlyRate  Float
+  capacity            Int?
+  amenities           String[]
+  facilityDescription String?
+
+  // Admin review
+  adminNotes      String?
+  rejectionReason String?
+  reviewedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category SportsCategory @relation(fields: [categoryId], references: [id])
+}
+
+model GroundEarning {
+  id            String        @id @default(cuid())
+  bookingId     String        @unique
+  facilityId    String
+  ownerId       String
+  grossAmount   Float
+  platformFee   Float
+  netAmount     Float
+  paymentMethod PaymentMethod
+  cashConfirmed Boolean       @default(false)
+  earnedAt      DateTime      @default(now())
+
+  // Commission collection tracking
+  commissionPaid      Boolean   @default(false)
+  commissionSettledAt DateTime?
+  commissionNote      String?
+
+  booking  FacilityBooking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  facility SportsFacility     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  owner    GroundOwnerProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FacilityWorker {
+  id         String   @id @default(cuid())
+  facilityId String
+  userId     String   @unique
+  addedBy    String
+  createdAt  DateTime @default(now())
+
+  facility SportsFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,179 @@
+import { NextRequest } from "next/server";
+import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
+import { sendSMS } from "@/lib/sms";
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return Response.json({ error: "You must be logged in to book a ground." }, { status: 401 });
+    }
+    if (session.user.role === "GROUND_OWNER") {
+      return Response.json({ error: "Ground owners cannot book sports grounds." }, { status: 403 });
+    }
+
+    const {
+      facilityId,
+      bookingDate,
+      startTime,
+      endTime,
+      contactNumber,
+      specialRequests,
+      paymentMethod = "ON_ARRIVAL",
+    } = await req.json();
+
+    if (!facilityId || !bookingDate || !startTime || !endTime) {
+      return Response.json({ error: "facilityId, bookingDate, startTime and endTime are required." }, { status: 400 });
+    }
+    if (!contactNumber?.trim()) {
+      return Response.json({ error: "Contact number is required." }, { status: 400 });
+    }
+
+    if (!["ONLINE", "ON_ARRIVAL"].includes(paymentMethod)) {
+      return Response.json({ error: "Invalid paymentMethod." }, { status: 400 });
+    }
+
+    const facility = await db.sportsFacility.findUnique({
+      where: { id: facilityId, status: "ACTIVE" },
+      include: { owner: { include: { user: { select: { id: true, name: true } } } } },
+    });
+    if (!facility) {
+      return Response.json({ error: "Facility not found or not available." }, { status: 404 });
+    }
+
+    // Normalize to UTC midnight so date comparisons are timezone-safe
+    const startOfDay = new Date(bookingDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    const endOfDay = new Date(bookingDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
+    const blockedEntries = await db.blockedDate.findMany({
+      where: { facilityId, date: { gte: startOfDay, lte: endOfDay } },
+    });
+
+    const fullDayBlock = blockedEntries.find((b) => !b.startTime || !b.endTime);
+    if (fullDayBlock) {
+      return Response.json({
+        error: fullDayBlock.reason
+          ? `This date is not available: ${fullDayBlock.reason}`
+          : "This date has been blocked by the facility.",
+      }, { status: 409 });
+    }
+
+    const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+    const partialBlock = blockedEntries.find(
+      (b) => b.startTime && b.endTime &&
+             toMins(b.startTime) < toMins(endTime) &&
+             toMins(b.endTime)   > toMins(startTime)
+    );
+    if (partialBlock) {
+      return Response.json({
+        error: partialBlock.reason
+          ? `This time slot is blocked: ${partialBlock.reason}`
+          : "This time slot has been blocked for maintenance.",
+      }, { status: 409 });
+    }
+    const conflict = await db.facilityBooking.findFirst({
+      where: {
+        facilityId,
+        bookingDate: { gte: startOfDay, lte: endOfDay },
+        status: { in: ["CONFIRMED", "PENDING"] },
+        AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
+      },
+    });
+    if (conflict) {
+      return Response.json({ error: "This time slot is already booked. Please choose another." }, { status: 409 });
+    }
+
+    // Calculate total
+    const [sh, sm] = startTime.split(":").map(Number);
+    const [eh, em] = endTime.split(":").map(Number);
+    const totalHours  = (eh * 60 + em - (sh * 60 + sm)) / 60;
+    const totalAmount = totalHours * facility.hourlyRate;
+
+    const booking = await db.facilityBooking.create({
+      data: {
+        userId:          session.user.id,
+        facilityId,
+        bookingDate:     startOfDay,
+        startTime,
+        endTime,
+        totalHours,
+        totalAmount,
+        status:          "PENDING",
+        paymentMethod,
+        paymentStatus:   "PENDING",
+        contactNumber:   contactNumber  || null,
+        specialRequests: specialRequests || null,
+      },
+      include: { facility: { select: { name: true } } },
+    });
+
+    // Notification
+    await db.notification.create({
+      data: {
+        userId:  session.user.id,
+        title:   "Booking Received",
+        message: `Your booking at ${booking.facility.name} on ${bookingDate} from ${startTime} to ${endTime} is pending confirmation.`,
+        type:    "info",
+      },
+    });
+
+    // Notify ground owner of new cash booking (online bookings notify owner via PayHere webhook)
+    if (paymentMethod === "ON_ARRIVAL") {
+      await db.notification.create({
+        data: {
+          userId:  facility.owner.user.id,
+          title:   "New Booking Received",
+          message: `${session.user.name ?? "A player"} has booked ${facility.name} on ${bookingDate} from ${startTime} to ${endTime}. Payment: Cash on Arrival (Rs. ${totalAmount.toLocaleString()}).`,
+          type:    "info",
+        },
+      });
+    }
+
+    // SMS: booking received
+    if (contactNumber) {
+      await sendSMS(
+        contactNumber,
+        `GoPlay: Your booking at ${facility.name} on ${bookingDate} from ${startTime} to ${endTime} has been received. Awaiting confirmation from the ground owner.`
+      );
+    }
+
+    // ── Online payment: return PayHere params for client-side checkout ──
+    if (paymentMethod === "ONLINE") {
+      const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const orderId = booking.id;
+      const hash    = buildPayHereHash(orderId, totalAmount);
+      const user    = session.user;
+
+      const payHereParams = {
+        merchant_id:  PAYHERE_MERCHANT_ID,
+        return_url:   `${appUrl}/booking-success?bookingId=${booking.id}`,
+        cancel_url:   `${appUrl}/booking-cancelled?bookingId=${booking.id}`,
+        notify_url:   `${appUrl}/api/payhere/notify`,
+        order_id:     orderId,
+        items:        `Booking at ${facility.name} on ${bookingDate} ${startTime}-${endTime}`,
+        currency:     "LKR",
+        amount:       totalAmount.toFixed(2),
+        first_name:   (user.name ?? "").split(" ")[0] || "Customer",
+        last_name:    (user.name ?? "").split(" ").slice(1).join(" ") || "-",
+        email:        user.email ?? "",
+        phone:        contactNumber || "0771234567",
+        address:      facility.address,
+        city:         facility.city,
+        country:      "Sri Lanka",
+        hash,
+        checkout_url: PAYHERE_CHECKOUT_URL,
+      };
+
+      return Response.json({ booking, payHereParams }, { status: 201 });
+    }
+
+    return Response.json({ booking, message: "Booking created. Pay at the ground." }, { status: 201 });
+  } catch (err) {
+    console.error("[POST /api/bookings]", err);
+    return Response.json({ error: "Failed to create booking." }, { status: 500 });
+  }
+}
