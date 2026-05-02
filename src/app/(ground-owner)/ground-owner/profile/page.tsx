@@ -157,7 +157,7 @@ export default function GroundOwnerProfilePage() {
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
 
         {/* Banner */}
-        <div className="bg-gradient-to-br from-green-700 to-emerald-500 px-8 py-8">
+        <div className="bg-gradient-to-br from-green-700 to-emerald-500 px-5 sm:px-8 py-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
             {/* Avatar */}
             <div className={`w-20 h-20 bg-gradient-to-br ${avatarColor(name)} rounded-2xl flex items-center justify-center text-white text-3xl font-black ring-4 ring-white/30 shrink-0 shadow-lg`}>
@@ -185,7 +185,7 @@ export default function GroundOwnerProfilePage() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-5 gap-2 mt-7 pt-6 border-t border-white/20">
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-7 pt-6 border-t border-white/20">
             {[
               { label: "Grounds",     value: stats?.totalGrounds   ?? 0, icon: Building2 },
               { label: "Active",      value: stats?.activeGrounds  ?? 0, icon: CheckCircle },

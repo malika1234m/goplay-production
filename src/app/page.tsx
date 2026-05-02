@@ -45,14 +45,14 @@ export default function HomePage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-green-950 text-white py-24 px-4">
+      <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-green-950 text-white py-14 sm:py-24 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="max-w-3xl">
-            <h1 className="text-5xl sm:text-6xl font-bold leading-tight mb-6">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-5 sm:mb-6">
               Book Sports Grounds{" "}
               <span className="text-green-400">Instantly</span>
             </h1>
-            <p className="text-xl text-slate-300 mb-10 leading-relaxed">
+            <p className="text-base sm:text-xl text-slate-300 mb-8 sm:mb-10 leading-relaxed">
               Find the best cricket, football, tennis and more grounds near you.
               Real-time availability, instant confirmation.
             </p>
@@ -88,12 +88,12 @@ export default function HomePage() {
 
       {/* Categories */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Browse by Sport</h2>
             <p className="text-slate-500 mt-1 text-sm">Find grounds for your favourite sport</p>
           </div>
-          <Link href="/grounds" className="flex items-center gap-1 text-sm font-medium text-green-600 hover:text-green-700">
+          <Link href="/grounds" className="flex items-center gap-1 text-sm font-medium text-green-600 hover:text-green-700 shrink-0">
             View all <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
@@ -207,7 +207,7 @@ export default function HomePage() {
               Browse as Player
             </Link>
           </div>
-          <div className="flex items-center justify-center gap-6 mt-8 text-green-100 text-sm">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-8 text-green-100 text-sm">
             <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" /> No listing fee</span>
             <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" /> Easy dashboard</span>
             <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" /> 24/7 support</span>

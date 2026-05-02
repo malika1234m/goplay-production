@@ -4,9 +4,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { useState } from "react";
 import {
   LayoutDashboard, Building2, CalendarCheck, Clock,
-  DollarSign, Star, LogOut, User, TrendingUp, Wrench, Wallet, CalendarDays, Users,
+  DollarSign, Star, LogOut, User, TrendingUp, Wrench,
+  Wallet, CalendarDays, Users, Menu, X,
 } from "lucide-react";
 
 const navItems = [
@@ -22,21 +24,26 @@ const navItems = [
   { href: "/ground-owner/workers",      label: "Workers",      icon: Users },
 ];
 
-export default function GroundOwnerSidebar() {
+function SidebarContent({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { data: session } = useSession();
 
   return (
-    <aside className="w-64 h-screen sticky top-0 bg-slate-900 flex flex-col">
+    <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-slate-800">
-        <Link href="/" className="flex items-center gap-2">
+      <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2" onClick={onClose}>
           <Image src="/logo.jpeg" alt="GoPlay" width={34} height={34} className="rounded-lg object-contain bg-white" />
-          <span className="text-lg font-bold text-white">
-            Go<span className="text-green-400">Play</span>
-          </span>
+          <div>
+            <span className="text-lg font-bold text-white">Go<span className="text-green-400">Play</span></span>
+            <p className="text-xs text-slate-500">Ground Owner Portal</p>
+          </div>
         </Link>
-        <p className="text-xs text-slate-500 mt-1 ml-10">Ground Owner Portal</p>
+        {onClose && (
+          <button onClick={onClose} className="text-slate-400 hover:text-white lg:hidden">
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Nav */}
@@ -47,10 +54,9 @@ export default function GroundOwnerSidebar() {
             <Link
               key={href}
               href={href}
+              onClick={onClose}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                active
-                  ? "bg-green-600 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-slate-800"
+                active ? "bg-green-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-800"
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -60,10 +66,11 @@ export default function GroundOwnerSidebar() {
         })}
       </nav>
 
-      {/* User footer */}
+      {/* Footer */}
       <div className="px-3 py-4 border-t border-slate-800">
         <Link
           href="/ground-owner/profile"
+          onClick={onClose}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-sm transition-colors mb-1"
         >
           <User className="w-4 h-4 shrink-0" />
@@ -86,6 +93,40 @@ export default function GroundOwnerSidebar() {
           Sign out
         </button>
       </div>
-    </aside>
+    </div>
+  );
+}
+
+export default function GroundOwnerSidebar() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-64 h-screen sticky top-0 bg-slate-900 flex-col shrink-0">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile top bar */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-slate-900 border-b border-slate-800 h-14 flex items-center px-4 gap-3">
+        <button onClick={() => setOpen(true)} className="text-slate-400 hover:text-white">
+          <Menu className="w-5 h-5" />
+        </button>
+        <Link href="/" className="flex items-center gap-2">
+          <Image src="/logo.jpeg" alt="GoPlay" width={28} height={28} className="rounded-md object-contain bg-white" />
+          <span className="text-base font-bold text-white">Go<span className="text-green-400">Play</span></span>
+        </Link>
+      </div>
+
+      {/* Mobile drawer overlay */}
+      {open && (
+        <div className="lg:hidden fixed inset-0 z-40 flex">
+          <div className="fixed inset-0 bg-black/60" onClick={() => setOpen(false)} />
+          <aside className="relative w-72 bg-slate-900 h-full shadow-2xl z-50 flex flex-col">
+            <SidebarContent onClose={() => setOpen(false)} />
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

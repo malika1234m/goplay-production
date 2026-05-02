@@ -87,7 +87,7 @@ export default function WorkerMaintenancePage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <div className="w-10 h-10 bg-orange-50 text-orange-500 rounded-xl flex items-center justify-center mb-3"><CalendarX className="w-5 h-5" /></div>
           <p className="text-2xl font-bold text-slate-900">{upcoming.length}</p>

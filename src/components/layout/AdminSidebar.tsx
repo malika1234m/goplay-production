@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
   LayoutDashboard, Users, MapPin, DollarSign, BarChart2,
-  LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed,
+  LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed, Menu, X,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
@@ -29,6 +29,7 @@ export default function AdminSidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [collapsed,       setCollapsed]       = useState(false);
+  const [mobileOpen,      setMobileOpen]      = useState(false);
   const [pendingCount,    setPendingCount]    = useState(0);
   const [commissionDebt,  setCommissionDebt]  = useState(0);
   const [refundNeeded,    setRefundNeeded]    = useState(0);
@@ -80,16 +81,22 @@ export default function AdminSidebar() {
     });
   };
 
-  return (
+  const sidebarContent = (onClose?: () => void) => (
     <aside
-      className={`fixed left-0 top-0 h-screen flex flex-col z-50 transition-all duration-300 ${
-        collapsed ? "w-20" : "w-64"
+      className={`h-screen flex flex-col transition-all duration-300 ${
+        onClose ? "w-72" : collapsed ? "w-20" : "w-64"
       }`}
       style={{ background: "linear-gradient(180deg,#1e293b 0%,#0f172a 100%)" }}
     >
+      {/* Mobile close button */}
+      {onClose && (
+        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white lg:hidden z-10">
+          <X className="w-5 h-5" />
+        </button>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-5 border-b border-white/10 min-h-[72px]">
-        {!collapsed && (
+        {(!collapsed || onClose) && (
           <Link href="/" className="flex items-center gap-2.5">
             <Image src="/logo.jpeg" alt="GoPlay" width={36} height={36} className="rounded-lg bg-white p-0.5 object-contain shrink-0" />
             <div className="flex flex-col leading-tight">
@@ -98,17 +105,19 @@ export default function AdminSidebar() {
             </div>
           </Link>
         )}
-        {collapsed && (
+        {collapsed && !onClose && (
           <Link href="/" className="mx-auto">
             <Image src="/logo.jpeg" alt="GoPlay" width={36} height={36} className="rounded-lg bg-white p-0.5 object-contain" />
           </Link>
         )}
-        <button
-          onClick={toggle}
-          className="bg-white/10 hover:bg-white/20 text-slate-300 rounded-lg w-8 h-8 flex items-center justify-center transition-colors shrink-0"
-        >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
+        {!onClose && (
+          <button
+            onClick={toggle}
+            className="bg-white/10 hover:bg-white/20 text-slate-300 rounded-lg w-8 h-8 flex items-center justify-center transition-colors shrink-0"
+          >
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
+        )}
       </div>
 
       {/* Nav */}
@@ -121,11 +130,13 @@ export default function AdminSidebar() {
               id === "commissions"  && commissionDebt  > 0 ? commissionDebt  :
               id === "refunds"      && refundNeeded    > 0 ? refundNeeded    :
               id === "reviews"      && reportedReviews > 0 ? reportedReviews : 0;
+            const showLabel = !collapsed || onClose;
             return (
               <li key={id}>
                 <Link
                   href={href}
-                  title={collapsed ? label : undefined}
+                  onClick={onClose}
+                  title={collapsed && !onClose ? label : undefined}
                   className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${
                     active
                       ? "bg-blue-600/20 text-white font-semibold border-l-4 border-blue-500 pl-2"
@@ -134,16 +145,14 @@ export default function AdminSidebar() {
                 >
                   <div className="relative shrink-0">
                     <Icon className="w-5 h-5" />
-                    {badge > 0 && collapsed && (
+                    {badge > 0 && !showLabel && (
                       <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full text-[9px] font-bold text-slate-900 flex items-center justify-center">
                         {badge > 9 ? "9+" : badge}
                       </span>
                     )}
                   </div>
-                  {!collapsed && (
-                    <span className="text-sm whitespace-nowrap flex-1">{label}</span>
-                  )}
-                  {!collapsed && badge > 0 && (
+                  {showLabel && <span className="text-sm whitespace-nowrap flex-1">{label}</span>}
+                  {showLabel && badge > 0 && (
                     <span className="ml-auto bg-yellow-400 text-slate-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                       {badge}
                     </span>
@@ -159,10 +168,10 @@ export default function AdminSidebar() {
             <button
               onClick={() => signOut({ callbackUrl: "/" })}
               className="flex items-center gap-3 px-3 py-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all w-full"
-              title={collapsed ? "Sign out" : undefined}
+              title={collapsed && !onClose ? "Sign out" : undefined}
             >
               <LogOut className="w-5 h-5 shrink-0" />
-              {!collapsed && <span className="text-sm">Sign out</span>}
+              {(!collapsed || onClose) && <span className="text-sm">Sign out</span>}
             </button>
           </li>
         </ul>
@@ -174,7 +183,7 @@ export default function AdminSidebar() {
           <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
             {session?.user?.name?.[0]?.toUpperCase() ?? "A"}
           </div>
-          {!collapsed && (
+          {(!collapsed || onClose) && (
             <div className="min-w-0">
               <p className="text-sm font-semibold text-white truncate">{session?.user?.name ?? "Admin"}</p>
               <p className="text-xs text-slate-400">Super Admin</p>
@@ -183,5 +192,36 @@ export default function AdminSidebar() {
         </div>
       </div>
     </aside>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <div className="hidden lg:block fixed left-0 top-0 z-50 h-screen" style={{ width: collapsed ? "80px" : "256px", transition: "width 0.3s" }}>
+        {sidebarContent()}
+      </div>
+
+      {/* Mobile top bar */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 flex items-center px-4 gap-3 border-b border-white/10"
+        style={{ background: "linear-gradient(90deg,#1e293b,#0f172a)" }}>
+        <button onClick={() => setMobileOpen(true)} className="text-slate-400 hover:text-white">
+          <Menu className="w-5 h-5" />
+        </button>
+        <Link href="/" className="flex items-center gap-2">
+          <Image src="/logo.jpeg" alt="GoPlay" width={28} height={28} className="rounded-md bg-white p-0.5 object-contain" />
+          <span className="text-base font-bold text-white">GoPlay <span className="text-xs text-slate-400 font-normal">Admin</span></span>
+        </Link>
+      </div>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-40 flex">
+          <div className="fixed inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
+          <div className="relative z-50 h-full">
+            {sidebarContent(() => setMobileOpen(false))}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

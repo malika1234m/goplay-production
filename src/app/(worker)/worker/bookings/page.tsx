@@ -521,7 +521,7 @@ export default function WorkerBookingsPage() {
       </div>
 
       {/* Stats strip */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
         {[
           { label: "Past Due",  value: pastDue.length,           color: "text-amber-600" },
           { label: "Pending",   value: pendingUpcoming.length,   color: "text-amber-500" },

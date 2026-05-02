@@ -58,7 +58,7 @@ export default async function UserDashboard() {
   return (
     <div className="flex flex-col gap-7">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">My Dashboard</h1>
           <p className="text-slate-500 text-sm mt-1">
@@ -67,7 +67,7 @@ export default async function UserDashboard() {
         </div>
         <Link
           href="/grounds"
-          className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+          className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors shrink-0"
         >
           Book a Ground
         </Link>
@@ -122,13 +122,13 @@ export default async function UserDashboard() {
                 categoryEmoji[b.facility.category.name] ??
                 "🏟️";
               return (
-                <div key={b.id} className="flex items-center gap-4 px-6 py-4">
+                <div key={b.id} className="flex items-center gap-4 px-4 sm:px-6 py-4 flex-wrap sm:flex-nowrap">
                   <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center text-xl shrink-0">
                     {icon}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 truncate">{b.facility.name}</p>
-                    <div className="flex items-center gap-1 text-xs text-slate-400 mt-0.5">
+                    <div className="flex flex-wrap items-center gap-x-1 text-xs text-slate-400 mt-0.5">
                       <MapPin className="w-3 h-3" />
                       {b.facility.city}
                       <span className="mx-1">·</span>

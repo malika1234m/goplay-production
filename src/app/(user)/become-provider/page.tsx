@@ -203,7 +203,7 @@ export default function BecomeProviderPage() {
       </div>
 
       {/* Step content */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-8 flex flex-col gap-5 shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-100 p-5 sm:p-8 flex flex-col gap-5 shadow-sm">
         {/* ── Step 1: Personal Info ── */}
         {step === 1 && (
           <>

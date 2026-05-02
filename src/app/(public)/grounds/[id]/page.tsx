@@ -51,6 +51,13 @@ export default async function GroundDetailsPage({
 
   const todayDow = new Date().getDay();
 
+  const availabilityProps = ground.availability.map((a) => ({
+    dayOfWeek: a.dayOfWeek,
+    isOpen:    a.isOpen,
+    openTime:  a.openTime,
+    closeTime: a.closeTime,
+  }));
+
   return (
     <div className="bg-slate-50 min-h-screen">
       {/* Back breadcrumb */}
@@ -63,20 +70,28 @@ export default async function GroundDetailsPage({
         </Link>
       </div>
 
+      {/*
+        Grid layout strategy:
+        - Mobile (1 col): DOM order = gallery → header → booking form → amenities → hours → map → reviews
+        - Desktop (3 cols): booking panel is explicitly placed at col 3, rows 1–6 (sticky);
+          all other sections auto-fill cols 1–2 in DOM order
+      */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left — Details */}
-          <div className="lg:col-span-2 flex flex-col gap-6">
-            {/* Hero / Gallery */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+
+          {/* ── 1. Gallery ── cols 1-2 on desktop */}
+          <div className="lg:col-span-2">
             <GroundImageGallery
               images={ground.images}
               categoryIcon={categoryIcon}
               altText={ground.name}
             />
+          </div>
 
-            {/* Header card */}
+          {/* ── 2. Header card ── cols 1-2 on desktop */}
+          <div className="lg:col-span-2">
             <div className="bg-white rounded-2xl border border-slate-100 p-6">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xs font-medium bg-green-50 text-green-700 border border-green-100 px-2.5 py-1 rounded-full">
@@ -121,9 +136,25 @@ export default async function GroundDetailsPage({
                 <p className="text-slate-600 text-sm leading-relaxed mt-4">{ground.description}</p>
               )}
             </div>
+          </div>
 
-            {/* Amenities */}
-            {ground.amenities.length > 0 && (
+          {/* ── 3. Booking panel ──
+               Mobile: flows here in DOM order (after gallery + header)
+               Desktop: explicitly placed at col 3, rows 1–6 (sticky) */}
+          <div className="lg:col-start-3 lg:row-start-1 lg:row-span-6">
+            <div className="bg-white rounded-2xl border border-slate-100 p-6 lg:sticky lg:top-24">
+              <h2 className="text-base font-semibold text-slate-900 mb-5">Book This Ground</h2>
+              <BookingForm
+                facilityId={ground.id}
+                hourlyRate={ground.hourlyRate}
+                availability={availabilityProps}
+              />
+            </div>
+          </div>
+
+          {/* ── 4. Amenities ── cols 1-2 on desktop */}
+          {ground.amenities.length > 0 && (
+            <div className="lg:col-span-2">
               <div className="bg-white rounded-2xl border border-slate-100 p-6">
                 <h2 className="text-base font-semibold text-slate-900 mb-4">Amenities</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -135,17 +166,19 @@ export default async function GroundDetailsPage({
                   ))}
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Opening hours */}
-            {ground.availability.length > 0 && (
+          {/* ── 5. Opening hours ── cols 1-2 on desktop */}
+          {ground.availability.length > 0 && (
+            <div className="lg:col-span-2">
               <div className="bg-white rounded-2xl border border-slate-100 p-6">
                 <h2 className="text-base font-semibold text-slate-900 mb-4">Opening Hours</h2>
                 <div className="flex flex-col gap-1.5">
                   {DAYS.map((dayName, dow) => {
-                    const entry     = ground.availability.find((a) => a.dayOfWeek === dow);
-                    const isOpen    = entry?.isOpen ?? false;
-                    const isToday   = dow === todayDow;
+                    const entry   = ground.availability.find((a) => a.dayOfWeek === dow);
+                    const isOpen  = entry?.isOpen ?? false;
+                    const isToday = dow === todayDow;
                     return (
                       <div
                         key={dow}
@@ -167,10 +200,12 @@ export default async function GroundDetailsPage({
                   })}
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Location map */}
-            {ground.latitude && ground.longitude && (
+          {/* ── 6. Location map ── cols 1-2 on desktop */}
+          {ground.latitude && ground.longitude && (
+            <div className="lg:col-span-2">
               <div className="bg-white rounded-2xl border border-slate-100 p-6">
                 <h2 className="text-base font-semibold text-slate-900 mb-4">Location</h2>
                 <FacilityMapWrapper
@@ -180,9 +215,11 @@ export default async function GroundDetailsPage({
                   address={`${ground.address}, ${ground.city}`}
                 />
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Reviews */}
+          {/* ── 7. Reviews ── cols 1-2 on desktop */}
+          <div className="lg:col-span-2">
             <div className="bg-white rounded-2xl border border-slate-100 p-6">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-base font-semibold text-slate-900">
@@ -245,22 +282,6 @@ export default async function GroundDetailsPage({
             </div>
           </div>
 
-          {/* Right — Booking panel */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl border border-slate-100 p-6 sticky top-24">
-              <h2 className="text-base font-semibold text-slate-900 mb-5">Book This Ground</h2>
-              <BookingForm
-                facilityId={ground.id}
-                hourlyRate={ground.hourlyRate}
-                availability={ground.availability.map((a) => ({
-                  dayOfWeek: a.dayOfWeek,
-                  isOpen:    a.isOpen,
-                  openTime:  a.openTime,
-                  closeTime: a.closeTime,
-                }))}
-              />
-            </div>
-          </div>
         </div>
       </div>
     </div>

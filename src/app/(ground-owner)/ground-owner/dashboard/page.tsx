@@ -225,14 +225,14 @@ export default function GroundOwnerDashboard() {
     <div className="flex flex-col gap-7">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
           <p className="text-slate-500 text-sm mt-0.5">Your ground business overview</p>
         </div>
         <Link
           href="/ground-owner/grounds/new"
-          className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
+          className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors shrink-0"
         >
           + Add Ground
         </Link>
