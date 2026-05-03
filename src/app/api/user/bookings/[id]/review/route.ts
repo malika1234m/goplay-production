@@ -40,7 +40,7 @@ export async function POST(
 
     const booking = await db.facilityBooking.findUnique({
       where: { id },
-      select: { userId: true, facilityId: true, status: true },
+      select: { userId: true, facilityId: true, status: true, specialRequests: true },
     });
 
     if (!booking) return Response.json({ error: "Booking not found." }, { status: 404 });
