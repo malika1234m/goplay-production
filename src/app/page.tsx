@@ -1,8 +1,9 @@
 import Link from "next/link";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import HomeSearch from "@/components/home/HomeSearch";
 import {
-  Search, MapPin, Star, Clock, Shield, ChevronRight,
+  Search, Star, Clock, Shield, ChevronRight,
   Zap, Users, CheckCircle, LifeBuoy, Building2,
 } from "lucide-react";
 
@@ -58,30 +59,7 @@ export default function HomePage() {
             </p>
 
             {/* Search bar */}
-            <div className="bg-white rounded-2xl p-2 flex flex-col sm:flex-row gap-2 max-w-2xl shadow-2xl">
-              <div className="flex items-center gap-3 flex-1 px-4 py-2 bg-slate-50 rounded-xl">
-                <Search className="w-5 h-5 text-slate-400 shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Search by sport or ground name..."
-                  className="bg-transparent text-slate-900 placeholder-slate-400 text-sm w-full outline-none"
-                />
-              </div>
-              <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 rounded-xl sm:w-44">
-                <MapPin className="w-5 h-5 text-slate-400 shrink-0" />
-                <input
-                  type="text"
-                  placeholder="City"
-                  className="bg-transparent text-slate-900 placeholder-slate-400 text-sm w-full outline-none"
-                />
-              </div>
-              <Link
-                href="/grounds"
-                className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors shrink-0 text-center"
-              >
-                Search
-              </Link>
-            </div>
+            <HomeSearch />
           </div>
         </div>
       </section>

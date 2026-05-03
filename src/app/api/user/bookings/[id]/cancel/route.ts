@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { sendBookingCancelledEmail } from "@/lib/email";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -15,8 +16,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       where: { id },
       include: {
         facility: {
-          select: { name: true },
-          include: { owner: { include: { user: { select: { id: true } } } } },
+          select: {
+            name:  true,
+            owner: { select: { user: { select: { id: true } } } },
+          },
         },
       },
     });
@@ -80,6 +83,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         })),
       });
     }
+
+    void sendBookingCancelledEmail({
+      to:           session.user.email ?? "",
+      name:         session.user.name  ?? "Player",
+      facilityName: booking.facility.name,
+      date:         dateStr,
+      startTime:    booking.startTime,
+      endTime:      booking.endTime,
+      cancelledBy:  "player",
+      refundNeeded: needsRefund,
+    });
 
     return Response.json({ message: "Booking cancelled successfully." });
   } catch (err) {

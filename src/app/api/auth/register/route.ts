@@ -1,9 +1,16 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { sendWelcomeEmail } from "@/lib/email";
+import { isAllowed, getClientIp } from "@/lib/rateLimiter";
 
 export async function POST(req: NextRequest) {
   try {
+    // 5 registrations per hour per IP
+    if (!isAllowed(`register:${getClientIp(req)}`, 5, 60 * 60_000)) {
+      return Response.json({ error: "Too many registration attempts. Please try again later." }, { status: 429 });
+    }
+
     const { name, email, password, phone, role } = await req.json();
 
     if (!name || !email || !password) {
@@ -37,6 +44,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    void sendWelcomeEmail(user.email, user.name ?? "there");
     return Response.json({ message: "Account created successfully.", userId: user.id }, { status: 201 });
   } catch (err) {
     console.error("[register]", err);

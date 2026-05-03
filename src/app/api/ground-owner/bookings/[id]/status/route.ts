@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { sendSMS } from "@/lib/sms";
+import { sendBookingConfirmedEmail, sendBookingCancelledEmail } from "@/lib/email";
 import { getCommissionRate } from "@/lib/settings";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -31,7 +32,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       where: { id, facilityId: { in: facilityIds } },
       include: {
         facility: { select: { name: true } },
-        user:     { select: { id: true, name: true } },
+        user:     { select: { id: true, name: true, email: true } },
       },
     });
     if (!booking) return Response.json({ error: "Booking not found." }, { status: 404 });
@@ -134,10 +135,37 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       },
     });
 
-    if (booking.contactNumber) {
-      const dateStr = new Date(booking.bookingDate).toLocaleDateString("en-US", {
-        weekday: "short", month: "short", day: "numeric",
+    const dateStr = new Date(booking.bookingDate).toLocaleDateString("en-US", {
+      weekday: "short", month: "short", day: "numeric",
+    });
+
+    // Email for CONFIRMED and CANCELLED (fire-and-forget)
+    if (status === "CONFIRMED") {
+      void sendBookingConfirmedEmail({
+        to:            booking.user.email ?? "",
+        name:          booking.user.name  ?? "Player",
+        facilityName:  booking.facility.name,
+        date:          dateStr,
+        startTime:     booking.startTime,
+        endTime:       booking.endTime,
+        totalAmount:   booking.totalAmount,
+        paymentMethod: booking.paymentMethod,
+        bookingId:     booking.id,
       });
+    } else if (status === "CANCELLED") {
+      void sendBookingCancelledEmail({
+        to:           booking.user.email ?? "",
+        name:         booking.user.name  ?? "Player",
+        facilityName: booking.facility.name,
+        date:         dateStr,
+        startTime:    booking.startTime,
+        endTime:      booking.endTime,
+        cancelledBy:  "owner",
+        refundNeeded: booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID",
+      });
+    }
+
+    if (booking.contactNumber) {
       const smsMessages: Record<string, string> = {
         CONFIRMED: `GoPlay: Your booking at ${booking.facility.name} on ${dateStr} from ${booking.startTime} to ${booking.endTime} has been confirmed. See you there!`,
         CANCELLED: `GoPlay: Your booking at ${booking.facility.name} on ${dateStr} was cancelled by the owner. Contact support if needed.`,

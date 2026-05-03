@@ -12,6 +12,18 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+/tests/e2e/.auth
+/tests/
+/playwright.config.ts
+
+# docs (internal)
+/docs/
+
+# env exports
+.env.vercel
+.env.test.example
 
 # next.js
 /.next/

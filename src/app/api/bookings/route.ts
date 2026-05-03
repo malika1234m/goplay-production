@@ -3,9 +3,16 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
 import { sendSMS } from "@/lib/sms";
+import { sendBookingReceivedEmail, sendNewBookingAlertEmail } from "@/lib/email";
+import { isAllowed, getClientIp } from "@/lib/rateLimiter";
 
 export async function POST(req: NextRequest) {
   try {
+    // 10 booking attempts per minute per IP
+    if (!isAllowed(`book:${getClientIp(req)}`, 10, 60_000)) {
+      return Response.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+    }
+
     const session = await auth();
     if (!session?.user) {
       return Response.json({ error: "You must be logged in to book a ground." }, { status: 401 });
@@ -37,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     const facility = await db.sportsFacility.findUnique({
       where: { id: facilityId, status: "ACTIVE" },
-      include: { owner: { include: { user: { select: { id: true, name: true } } } } },
+      include: { owner: { include: { user: { select: { id: true, name: true, email: true } } } } },
     });
     if (!facility) {
       return Response.json({ error: "Facility not found or not available." }, { status: 404 });
@@ -140,6 +147,31 @@ export async function POST(req: NextRequest) {
         `GoPlay: Your booking at ${facility.name} on ${bookingDate} from ${startTime} to ${endTime} has been received. Awaiting confirmation from the ground owner.`
       );
     }
+
+    // Email notifications (fire-and-forget — won't fail the booking if email errors)
+    const dateLabel = new Date(bookingDate).toLocaleDateString("en-US", {
+      weekday: "short", month: "short", day: "numeric",
+    });
+    const emailOpts = {
+      facilityName:  facility.name,
+      date:          dateLabel,
+      startTime,
+      endTime,
+      totalAmount,
+      paymentMethod,
+      bookingId:     booking.id,
+    };
+    void sendBookingReceivedEmail({
+      to:   session.user.email ?? "",
+      name: session.user.name ?? "Player",
+      ...emailOpts,
+    });
+    void sendNewBookingAlertEmail({
+      to:         facility.owner.user.email ?? "",
+      ownerName:  facility.owner.user.name  ?? "Owner",
+      playerName: session.user.name ?? "A player",
+      ...emailOpts,
+    });
 
     // ── Online payment: return PayHere params for client-side checkout ──
     if (paymentMethod === "ONLINE") {

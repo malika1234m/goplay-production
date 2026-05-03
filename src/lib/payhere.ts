@@ -81,5 +81,3 @@ export function verifyPayHereNotify(params: {
   const expected = crypto.createHash("md5").update(raw).digest("hex").toUpperCase();
   return expected === params.md5sig.toUpperCase();
 }
-.md5sig.toUpperCase();
-}
