@@ -26,7 +26,9 @@ export default function LoginPage() {
 
     setLoading(false);
 
-    if (result?.error) {
+    if (result?.error === "rate_limit") {
+      setError("Too many login attempts. Please wait 15 minutes and try again.");
+    } else if (result?.error) {
       setError("Invalid email or password. Please try again.");
     } else {
       const session = await getSession();

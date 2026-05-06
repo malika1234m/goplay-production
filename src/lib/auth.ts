@@ -1,7 +1,12 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { isAllowed } from "@/lib/rateLimiter";
+
+class RateLimitError extends CredentialsSignin {
+  code = "rate_limit";
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET,
@@ -16,7 +21,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
+        // 5 login attempts per 15 minutes per IP
+        const ip =
+          request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+          request.headers.get("x-real-ip") ??
+          "unknown";
+
+        if (!isAllowed(`login:${ip}`, 5, 15 * 60_000)) {
+          throw new RateLimitError();
+        }
+
         if (!credentials?.email || !credentials?.password) return null;
 
         const user = await db.user.findUnique({
