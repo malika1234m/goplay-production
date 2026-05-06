@@ -37,6 +37,10 @@ export async function POST(req: NextRequest) {
     if (!contactNumber?.trim()) {
       return Response.json({ error: "Contact number is required." }, { status: 400 });
     }
+    const cleanedPhone = contactNumber.replace(/[\s\-().]/g, "");
+    if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleanedPhone)) {
+      return Response.json({ error: "Enter a valid Sri Lankan mobile number (e.g. 077 123 4567 or +94 77 123 4567)." }, { status: 400 });
+    }
 
     if (!["ONLINE", "ON_ARRIVAL"].includes(paymentMethod)) {
       return Response.json({ error: "Invalid paymentMethod." }, { status: 400 });
@@ -82,6 +86,21 @@ export async function POST(req: NextRequest) {
           : "This time slot has been blocked for maintenance.",
       }, { status: 409 });
     }
+    // Release expired unpaid online bookings for this slot before checking conflicts
+    const expiryCutoff = new Date(Date.now() - 30 * 60 * 1000);
+    await db.facilityBooking.updateMany({
+      where: {
+        facilityId,
+        bookingDate:   { gte: startOfDay, lte: endOfDay },
+        status:        "PENDING",
+        paymentMethod: "ONLINE",
+        paymentStatus: "PENDING",
+        createdAt:     { lt: expiryCutoff },
+        AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
+      },
+      data: { status: "CANCELLED" },
+    });
+
     const conflict = await db.facilityBooking.findFirst({
       where: {
         facilityId,

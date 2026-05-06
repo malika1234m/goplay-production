@@ -47,6 +47,7 @@ export default function BookingForm({
   const [submitting,      setSubmitting]      = useState(false);
   const [success,         setSuccess]         = useState(false);
   const [error,           setError]           = useState("");
+  const [phoneError,      setPhoneError]      = useState("");
 
   useEffect(() => {
     if (!date) return;
@@ -82,6 +83,14 @@ export default function BookingForm({
 
   const totalAmount = hourlyRate * duration;
 
+  const validatePhone = (raw: string): string | null => {
+    const cleaned = raw.replace(/[\s\-().]/g, "");
+    if (!cleaned) return "Contact number is required.";
+    if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned))
+      return "Enter a valid Sri Lankan mobile number (e.g. 077 123 4567 or +94 77 123 4567).";
+    return null;
+  };
+
   const selectedDow    = date ? new Date(date + "T00:00:00").getDay() : -1;
   const selectedSched  = availability.find((d) => d.dayOfWeek === selectedDow);
   const isClosedDay    = availability.length > 0 && (!selectedSched || !selectedSched.isOpen);
@@ -91,10 +100,13 @@ export default function BookingForm({
     e.preventDefault();
     if (!session) { router.push("/login"); return; }
     if (!selectedSlot) { setError("Please select a time slot."); return; }
-    if (!contactNumber.trim()) { setError("Contact number is required."); return; }
+
+    const phoneErr = validatePhone(contactNumber);
+    if (phoneErr) { setPhoneError(phoneErr); return; }
 
     setSubmitting(true);
     setError("");
+    setPhoneError("");
 
     const res = await fetch("/api/bookings", {
       method:  "POST",
@@ -319,18 +331,25 @@ export default function BookingForm({
         <label className="block text-xs font-medium text-slate-600 mb-1.5">
           Contact Number <span className="text-red-500">*</span>
         </label>
-        <div className="flex items-center gap-2 w-full px-4 py-3 rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-green-500 transition">
-          <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+        <div className={`flex items-center gap-2 w-full px-4 py-3 rounded-xl border focus-within:ring-2 transition ${
+          phoneError
+            ? "border-red-300 focus-within:ring-red-300"
+            : "border-slate-200 focus-within:ring-green-500"
+        }`}>
+          <Phone className={`w-4 h-4 shrink-0 ${phoneError ? "text-red-400" : "text-slate-400"}`} />
           <input
             type="tel"
             value={contactNumber}
-            onChange={(e) => setContactNumber(e.target.value)}
+            onChange={(e) => { setContactNumber(e.target.value); if (phoneError) setPhoneError(""); }}
             placeholder="+94 77 123 4567"
             required
             className="bg-transparent w-full outline-none text-sm text-slate-900 placeholder-slate-400"
           />
         </div>
-        <p className="text-xs text-slate-400 mt-1">We'll send booking updates to this number via SMS.</p>
+        {phoneError
+          ? <p className="text-xs text-red-500 mt-1">{phoneError}</p>
+          : <p className="text-xs text-slate-400 mt-1">We'll send booking updates to this number via SMS.</p>
+        }
       </div>
 
       {/* Special requests */}
