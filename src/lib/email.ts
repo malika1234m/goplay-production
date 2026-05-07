@@ -151,7 +151,26 @@ export async function sendBookingConfirmedEmail(opts: {
   await send(opts.to, `Booking Confirmed — ${opts.facilityName} on ${opts.date}`, html);
 }
 
-// ── 5. Booking cancelled (to player) ──────────────────────────────────────
+// ── 5. Password reset ─────────────────────────────────────────────────────
+export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string) {
+  const html = layout(`
+    <h2 style="margin:0 0 8px;color:#0f172a;font-size:20px">Reset Your Password</h2>
+    <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 8px">
+      Hi ${name}, we received a request to reset the password for your GoPlay account.
+    </p>
+    <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 24px">
+      Click the button below to choose a new password. This link expires in <strong>1 hour</strong>.
+    </p>
+    ${button(resetUrl, "Reset My Password")}
+    <p style="color:#94a3b8;font-size:12px;margin-top:24px;line-height:1.6">
+      If you didn't request this, you can safely ignore this email — your password will not change.<br>
+      For security, this link can only be used once.
+    </p>
+  `);
+  await send(to, "Reset your GoPlay password", html);
+}
+
+// ── 6. Booking cancelled (to player) ──────────────────────────────────────
 export async function sendBookingCancelledEmail(opts: {
   to: string; name: string; facilityName: string;
   date: string; startTime: string; endTime: string;
