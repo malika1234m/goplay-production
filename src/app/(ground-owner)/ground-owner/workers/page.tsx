@@ -55,7 +55,11 @@ export default function WorkersPage() {
   }, [facilityId]);
 
   const invite = async () => {
-    if (!email.trim()) { setInviteError("Email is required."); return; }
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) { setInviteError("Email is required."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setInviteError("Please enter a valid email address."); return; }
+    if (workerName.trim() && workerName.trim().length < 2) { setInviteError("Worker name must be at least 2 characters."); return; }
+    if (workerName.trim().length > 50) { setInviteError("Worker name must be under 50 characters."); return; }
     setInviteError(""); setInviting(true);
     try {
       const res  = await fetch("/api/ground-owner/workers",{

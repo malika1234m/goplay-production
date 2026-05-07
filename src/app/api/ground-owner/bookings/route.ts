@@ -72,8 +72,17 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    if ((playerName as string).trim().length < 2) {
+      return Response.json({ error: "Player name must be at least 2 characters." }, { status: 400 });
+    }
     if (startTime >= endTime) {
       return Response.json({ error: "End time must be after start time." }, { status: 400 });
+    }
+    if (contactNumber?.trim()) {
+      const cleaned = (contactNumber as string).replace(/[\s\-().]/g, "");
+      if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned)) {
+        return Response.json({ error: "Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)." }, { status: 400 });
+      }
     }
     const dateObj = new Date(bookingDate);
     dateObj.setUTCHours(0, 0, 0, 0);

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
 import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Building2 } from "lucide-react";
+import NotificationBell from "@/components/layout/NotificationBell";
 
 export default function Navbar() {
   const { data: session } = useSession();
@@ -42,6 +43,7 @@ export default function Navbar() {
 
           {/* Right side */}
           <div className="hidden md:flex items-center gap-3">
+            {session && <NotificationBell />}
             {session ? (
               <div className="relative">
                 <button

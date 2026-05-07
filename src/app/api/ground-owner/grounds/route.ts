@@ -63,17 +63,31 @@ export async function POST(req: NextRequest) {
 
     const { name, description, address, city, hourlyRate, capacity, amenities, categoryId, images } = await req.json();
 
-    if (!name || !address || !city || !hourlyRate || !categoryId) {
-      return Response.json({ error: "name, address, city, hourlyRate and categoryId are required." }, { status: 400 });
+    const trimmedName    = (name    ?? "").trim();
+    const trimmedAddress = (address ?? "").trim();
+    const trimmedCity    = (city    ?? "").trim();
+
+    if (!trimmedName || trimmedName.length < 3)       return Response.json({ error: "Ground name must be at least 3 characters." }, { status: 400 });
+    if (trimmedName.length > 100)                     return Response.json({ error: "Ground name must be under 100 characters." }, { status: 400 });
+    if (!trimmedAddress || trimmedAddress.length < 5) return Response.json({ error: "Address must be at least 5 characters." }, { status: 400 });
+    if (!trimmedCity || trimmedCity.length < 2)       return Response.json({ error: "City must be at least 2 characters." }, { status: 400 });
+    if (!categoryId)                                  return Response.json({ error: "Sport category is required." }, { status: 400 });
+    const rate = Number(hourlyRate);
+    if (!hourlyRate || rate < 1)                      return Response.json({ error: "Hourly rate must be at least Rs. 1." }, { status: 400 });
+    if (rate > 100000)                                return Response.json({ error: "Hourly rate cannot exceed Rs. 100,000." }, { status: 400 });
+    if (capacity !== undefined && capacity !== null) {
+      const cap = Number(capacity);
+      if (cap < 1)   return Response.json({ error: "Capacity must be at least 1 player." }, { status: 400 });
+      if (cap > 500) return Response.json({ error: "Capacity cannot exceed 500 players." }, { status: 400 });
     }
 
     const ground = await db.sportsFacility.create({
       data: {
-        name,
+        name:        trimmedName,
         description: description || null,
-        address,
-        city,
-        hourlyRate: Number(hourlyRate),
+        address:     trimmedAddress,
+        city:        trimmedCity,
+        hourlyRate:  rate,
         capacity: capacity ? Number(capacity) : null,
         amenities: amenities || [],
         images:    Array.isArray(images) ? images : [],

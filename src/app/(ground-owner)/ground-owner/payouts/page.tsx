@@ -120,6 +120,14 @@ export default function GroundOwnerPayoutsPage() {
   useEffect(() => { load().finally(() => setLoading(false)); }, []);
 
   const saveBank = async () => {
+    if (!bank.bankName.trim())          { setError("Bank name is required."); return; }
+    if (bank.bankName.trim().length > 50) { setError("Bank name must be under 50 characters."); return; }
+    if (!bank.accountNumber.trim())     { setError("Account number is required."); return; }
+    if (bank.accountNumber.trim().length < 5)  { setError("Account number must be at least 5 characters."); return; }
+    if (bank.accountNumber.trim().length > 20) { setError("Account number must be under 20 characters."); return; }
+    if (!bank.accountHolderName.trim()) { setError("Account holder name is required."); return; }
+    if (bank.accountHolderName.trim().length < 2)  { setError("Account holder name must be at least 2 characters."); return; }
+    if (bank.accountHolderName.trim().length > 50) { setError("Account holder name must be under 50 characters."); return; }
     setSavingBank(true);
     setError("");
     const res  = await fetch("/api/ground-owner/bank-details", {

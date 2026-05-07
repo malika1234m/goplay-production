@@ -1,25 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, getSession } from "next-auth/react";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, CheckCircle } from "lucide-react";
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [form, setForm] = useState({ email: "", password: "" });
+function LoginForm() {
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const registered   = searchParams.get("registered") === "1";
+
+  const [form,         setForm]         = useState({ email: "", password: "" });
+  const [touched,      setTouched]      = useState({ email: false, password: false });
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState("");
+
+  const emailError    = touched.email    && !form.email.trim()    ? "Email address is required."  : "";
+  const passwordError = touched.password && !form.password.trim() ? "Password is required."       : "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTouched({ email: true, password: true });
+    if (!form.email.trim() || !form.password.trim()) return;
+
     setLoading(true);
     setError("");
 
     const result = await signIn("credentials", {
-      email: form.email,
+      email:    form.email,
       password: form.password,
       redirect: false,
     });
@@ -28,18 +38,36 @@ export default function LoginPage() {
 
     if (result?.error === "rate_limit") {
       setError("Too many login attempts. Please wait 15 minutes and try again.");
-    } else if (result?.error) {
-      setError("Invalid email or password. Please try again.");
-    } else {
-      const session = await getSession();
-      const role = session?.user?.role;
-      if (role === "ADMIN")              router.push("/admin/dashboard");
-      else if (role === "GROUND_OWNER")  router.push("/ground-owner/dashboard");
-      else if (role === "GROUND_WORKER") router.push("/worker/dashboard");
-      else                               router.push("/dashboard");
-      router.refresh();
+      return;
     }
+    if (result?.error) {
+      setError("Invalid email or password. Please try again.");
+      return;
+    }
+
+    const session = await getSession();
+    const role    = session?.user?.role;
+    const mustChange = session?.user?.mustChangePassword;
+
+    if (mustChange) {
+      router.push("/force-change-password");
+      return;
+    }
+
+    if      (role === "ADMIN")         router.push("/admin/dashboard");
+    else if (role === "GROUND_OWNER")  router.push("/ground-owner/dashboard");
+    else if (role === "GROUND_WORKER") router.push("/worker/dashboard");
+    else                               router.push("/dashboard");
+
+    router.refresh();
   };
+
+  const inputClass = (err: string) =>
+    `w-full px-4 py-3 rounded-xl border text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 transition ${
+      err
+        ? "border-red-300 focus:ring-red-300"
+        : "border-slate-200 focus:ring-green-500 focus:border-transparent"
+    }`;
 
   return (
     <div className="w-full max-w-md">
@@ -49,19 +77,30 @@ export default function LoginPage() {
           <p className="text-slate-500 text-sm mt-1">Sign in to your GoPlay account</p>
         </div>
 
+        {/* Registered success banner */}
+        {registered && (
+          <div className="flex items-center gap-2.5 bg-green-50 border border-green-100 text-green-700 text-sm rounded-xl px-4 py-3 mb-5">
+            <CheckCircle className="w-4 h-4 shrink-0" />
+            Account created! Sign in to get started.
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Email address</label>
             <input
               type="email"
-              required
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onBlur={() => setTouched((t) => ({ ...t, email: true }))}
               placeholder="you@example.com"
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+              className={inputClass(emailError)}
             />
+            {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
           </div>
 
+          {/* Password */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-sm font-medium text-slate-700">Password</label>
@@ -72,11 +111,11 @@ export default function LoginPage() {
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
-                required
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
+                onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 pr-11 rounded-xl border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                className={inputClass(passwordError) + " pr-11"}
               />
               <button
                 type="button"
@@ -86,6 +125,7 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            {passwordError && <p className="text-xs text-red-500 mt-1">{passwordError}</p>}
           </div>
 
           {error && (
@@ -112,5 +152,13 @@ export default function LoginPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-md h-80 bg-white rounded-2xl animate-pulse" />}>
+      <LoginForm />
+    </Suspense>
   );
 }

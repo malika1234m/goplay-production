@@ -7,9 +7,9 @@ import Image from "next/image";
 import { Eye, EyeOff, Loader2, ShieldCheck, Lock, CheckCircle } from "lucide-react";
 
 const REQUIREMENTS = [
-  { label: "At least 8 characters",         test: (p: string) => p.length >= 8 },
-  { label: "At least one uppercase letter",  test: (p: string) => /[A-Z]/.test(p) },
-  { label: "At least one number",            test: (p: string) => /\d/.test(p) },
+  { label: "At least 8 characters",     test: (p: string) => p.length >= 8 },
+  { label: "At least one letter",       test: (p: string) => /[a-zA-Z]/.test(p) },
+  { label: "At least one number",       test: (p: string) => /\d/.test(p) },
 ];
 
 export default function ForceChangePasswordPage() {

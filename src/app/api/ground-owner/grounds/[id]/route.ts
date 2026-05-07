@@ -50,6 +50,30 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { name, description, address, city, hourlyRate, capacity, amenities, images } = await req.json();
 
+    if (name !== undefined) {
+      const n = (name ?? "").trim();
+      if (!n || n.length < 3)  return Response.json({ error: "Ground name must be at least 3 characters." }, { status: 400 });
+      if (n.length > 100)      return Response.json({ error: "Ground name must be under 100 characters." }, { status: 400 });
+    }
+    if (address !== undefined) {
+      const a = (address ?? "").trim();
+      if (!a || a.length < 5)  return Response.json({ error: "Address must be at least 5 characters." }, { status: 400 });
+    }
+    if (city !== undefined) {
+      const c = (city ?? "").trim();
+      if (!c || c.length < 2)  return Response.json({ error: "City must be at least 2 characters." }, { status: 400 });
+    }
+    if (hourlyRate !== undefined) {
+      const r = Number(hourlyRate);
+      if (r < 1)     return Response.json({ error: "Hourly rate must be at least Rs. 1." }, { status: 400 });
+      if (r > 100000) return Response.json({ error: "Hourly rate cannot exceed Rs. 100,000." }, { status: 400 });
+    }
+    if (capacity !== undefined && capacity !== null) {
+      const cap = Number(capacity);
+      if (cap < 1)   return Response.json({ error: "Capacity must be at least 1 player." }, { status: 400 });
+      if (cap > 500) return Response.json({ error: "Capacity cannot exceed 500 players." }, { status: 400 });
+    }
+
     const updated = await db.sportsFacility.update({
       where: { id },
       data: {

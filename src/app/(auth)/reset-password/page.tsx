@@ -24,8 +24,10 @@ function ResetPasswordForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirm) { setError("Passwords do not match."); return; }
-    if (password.length < 8)  { setError("Password must be at least 8 characters."); return; }
+    if (password !== confirm)          { setError("Passwords do not match."); return; }
+    if (password.length < 8)           { setError("Password must be at least 8 characters."); return; }
+    if (!/[a-zA-Z]/.test(password))    { setError("Password must contain at least one letter."); return; }
+    if (!/[0-9]/.test(password))       { setError("Password must contain at least one number."); return; }
 
     setLoading(true);
     setError("");
@@ -110,6 +112,7 @@ function ResetPasswordForm() {
               {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
+          <p className="text-xs text-slate-400 mt-1">Min 8 characters, at least one letter and one number.</p>
         </div>
 
         {/* Confirm password */}

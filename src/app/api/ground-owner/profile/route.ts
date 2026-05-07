@@ -52,7 +52,21 @@ export async function PUT(req: NextRequest) {
     }
 
     const { name, phone, businessName, bio, address, city } = await req.json();
-    if (!name?.trim()) return Response.json({ error: "Name is required." }, { status: 400 });
+    const trimmedName = (name ?? "").trim();
+    if (!trimmedName || trimmedName.length < 2) return Response.json({ error: "Full name must be at least 2 characters." }, { status: 400 });
+    if (trimmedName.length > 50)               return Response.json({ error: "Full name must be under 50 characters." }, { status: 400 });
+    if (phone?.trim()) {
+      const cleaned = (phone as string).replace(/[\s\-().]/g, "");
+      if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned)) {
+        return Response.json({ error: "Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)." }, { status: 400 });
+      }
+    }
+    if (businessName?.trim() && (businessName as string).trim().length > 100) {
+      return Response.json({ error: "Business name must be under 100 characters." }, { status: 400 });
+    }
+    if (bio?.trim() && (bio as string).trim().length > 500) {
+      return Response.json({ error: "Bio must be under 500 characters." }, { status: 400 });
+    }
 
     await db.user.update({
       where: { id: session.user.id },

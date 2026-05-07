@@ -16,6 +16,9 @@ export async function PUT(req: NextRequest) {
     if (newPassword.length < 8) {
       return Response.json({ error: "New password must be at least 8 characters." }, { status: 400 });
     }
+    if (!/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      return Response.json({ error: "Password must contain at least one letter and one number." }, { status: 400 });
+    }
 
     const user = await db.user.findUnique({ where: { id: session.user.id }, select: { password: true } });
     if (!user) return Response.json({ error: "User not found." }, { status: 404 });

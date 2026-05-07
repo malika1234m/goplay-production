@@ -414,6 +414,15 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
       setError("Please fill in all required fields.");
       return;
     }
+    if (playerName.trim().length < 2) { setError("Player name must be at least 2 characters."); return; }
+    if (startTime >= endTime)         { setError("Start time must be before end time."); return; }
+    if (contactNumber.trim()) {
+      const cleaned = contactNumber.replace(/[\s\-().]/g, "");
+      if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned)) {
+        setError("Enter a valid Sri Lankan mobile number (e.g. 077 123 4567).");
+        return;
+      }
+    }
     setSaving(true);
     const res  = await fetch("/api/ground-owner/bookings", {
       method:  "POST",

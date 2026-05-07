@@ -82,7 +82,22 @@ export default function NewGroundPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.categoryId) { setError("Please select a sport category."); return; }
+    const name    = form.name.trim();
+    const address = form.address.trim();
+    const city    = form.city.trim();
+    if (!name || name.length < 3)         { setError("Ground name must be at least 3 characters."); return; }
+    if (name.length > 100)                { setError("Ground name must be under 100 characters."); return; }
+    if (!address || address.length < 5)   { setError("Address must be at least 5 characters."); return; }
+    if (!city || city.length < 2)         { setError("City must be at least 2 characters."); return; }
+    if (!form.categoryId)                 { setError("Please select a sport category."); return; }
+    const rate = Number(form.hourlyRate);
+    if (!form.hourlyRate || rate < 1)     { setError("Hourly rate must be at least Rs. 1."); return; }
+    if (rate > 100000)                    { setError("Hourly rate cannot exceed Rs. 100,000."); return; }
+    if (form.capacity) {
+      const cap = Number(form.capacity);
+      if (cap < 1)   { setError("Capacity must be at least 1 player."); return; }
+      if (cap > 500) { setError("Capacity cannot exceed 500 players."); return; }
+    }
     setSubmitting(true);
     setError("");
 

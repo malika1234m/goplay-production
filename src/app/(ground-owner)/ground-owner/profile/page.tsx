@@ -104,6 +104,14 @@ export default function GroundOwnerProfilePage() {
 
   const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!pForm.name.trim() || pForm.name.trim().length < 2) { setPError("Full name must be at least 2 characters."); return; }
+    if (pForm.name.trim().length > 50) { setPError("Full name must be under 50 characters."); return; }
+    if (pForm.phone.trim()) {
+      const cleaned = pForm.phone.replace(/[\s\-().]/g, "");
+      if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned)) { setPError("Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)."); return; }
+    }
+    if (bForm.businessName.trim().length > 100) { setPError("Business name must be under 100 characters."); return; }
+    if (bForm.bio.trim().length > 500)           { setPError("Bio must be under 500 characters."); return; }
     setPSaving(true); setPError("");
     const res  = await fetch("/api/ground-owner/profile", {
       method: "PUT", headers: { "Content-Type": "application/json" },
@@ -120,6 +128,8 @@ export default function GroundOwnerProfilePage() {
     e.preventDefault();
     if (pwForm.next !== pwForm.confirm) { setPwError("Passwords do not match."); return; }
     if (pwForm.next.length < 8)        { setPwError("Password must be at least 8 characters."); return; }
+    if (!/[a-zA-Z]/.test(pwForm.next)) { setPwError("Password must contain at least one letter."); return; }
+    if (!/[0-9]/.test(pwForm.next))    { setPwError("Password must contain at least one number."); return; }
     setPwSaving(true); setPwError("");
     const res  = await fetch("/api/user/password", {
       method: "PUT", headers: { "Content-Type": "application/json" },

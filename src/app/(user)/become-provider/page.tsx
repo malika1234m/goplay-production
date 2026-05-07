@@ -58,9 +58,11 @@ export default function BecomeProviderPage() {
 
   const validateStep = () => {
     if (step === 1) {
-      if (!form.phone.trim())   { setError("Phone number is required."); return false; }
-      if (!form.address.trim()) { setError("Address is required."); return false; }
-      if (!form.city.trim())    { setError("City is required."); return false; }
+      if (!form.phone.trim()) { setError("Phone number is required."); return false; }
+      const cleaned = form.phone.replace(/[\s\-().]/g, "");
+      if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned)) { setError("Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)."); return false; }
+      if (!form.address.trim() || form.address.trim().length < 5) { setError("Please enter a valid address (at least 5 characters)."); return false; }
+      if (!form.city.trim() || form.city.trim().length < 2) { setError("Please enter a valid city name."); return false; }
     }
     if (step === 2) {
       if (!form.facilityName.trim())    { setError("Facility name is required."); return false; }

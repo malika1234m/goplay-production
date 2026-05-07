@@ -13,12 +13,26 @@ export async function POST(req: NextRequest) {
 
     const { name, email, password, phone, role } = await req.json();
 
-    if (!name || !email || !password) {
+    if (!name?.trim() || !email?.trim() || !password) {
       return Response.json({ error: "Name, email and password are required." }, { status: 400 });
     }
-
+    if (name.trim().length < 2 || name.trim().length > 50) {
+      return Response.json({ error: "Name must be between 2 and 50 characters." }, { status: 400 });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return Response.json({ error: "Enter a valid email address." }, { status: 400 });
+    }
     if (password.length < 8) {
       return Response.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+    }
+    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      return Response.json({ error: "Password must contain at least one letter and one number." }, { status: 400 });
+    }
+    if (phone?.trim()) {
+      const cleaned = phone.replace(/[\s\-().]/g, "");
+      if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned)) {
+        return Response.json({ error: "Enter a valid Sri Lankan mobile number." }, { status: 400 });
+      }
     }
 
     const existing = await db.user.findUnique({ where: { email } });

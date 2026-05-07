@@ -59,6 +59,14 @@ export async function POST(req: NextRequest) {
     if (!facilityId || !email) {
       return Response.json({ error: "facilityId and email are required." }, { status: 400 });
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return Response.json({ error: "Please enter a valid email address." }, { status: 400 });
+    }
+    if (name) {
+      const n = name.trim();
+      if (n.length < 2)  return Response.json({ error: "Worker name must be at least 2 characters." }, { status: 400 });
+      if (n.length > 50) return Response.json({ error: "Worker name must be under 50 characters." }, { status: 400 });
+    }
 
     const ownedIds = await getOwnedFacilityIds(session.user.id);
     if (!ownedIds.includes(facilityId)) return Response.json({ error: "Not found" }, { status: 404 });

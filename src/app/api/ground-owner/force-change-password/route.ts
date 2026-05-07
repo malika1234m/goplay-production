@@ -18,6 +18,12 @@ export async function PUT(req: NextRequest) {
     if (newPassword.length < 8) {
       return Response.json({ error: "New password must be at least 8 characters." }, { status: 400 });
     }
+    if (!/[a-zA-Z]/.test(newPassword)) {
+      return Response.json({ error: "Password must contain at least one letter." }, { status: 400 });
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      return Response.json({ error: "Password must contain at least one number." }, { status: 400 });
+    }
     if (newPassword !== confirmPassword) {
       return Response.json({ error: "New passwords do not match." }, { status: 400 });
     }
