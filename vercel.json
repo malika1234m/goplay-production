@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/release-pending-slots",
-      "schedule": "0 * * * *"
+      "schedule": "0 2 * * *"
     }
   ]
 }
