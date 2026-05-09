@@ -13,12 +13,13 @@ export default async function WorkerLayout({ children }: { children: React.React
   const [dbUser, workerRecord] = await Promise.all([
     db.user.findUnique({
       where:  { id: session.user.id },
-      select: { role: true, mustChangePassword: true },
+      select: { role: true, mustChangePassword: true, isActive: true },
     }),
     db.facilityWorker.findUnique({ where: { userId: session.user.id } }),
   ]);
 
   if (!dbUser || dbUser.role !== "GROUND_WORKER") redirect("/");
+  if (!dbUser.isActive) redirect("/login");
   if (!workerRecord) redirect("/");
   if (dbUser.mustChangePassword) redirect("/force-change-password");
 

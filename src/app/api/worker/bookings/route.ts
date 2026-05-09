@@ -91,6 +91,14 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const currentUser = await db.user.findUnique({
+    where:  { id: session.user.id },
+    select: { isActive: true },
+  });
+  if (!currentUser?.isActive) {
+    return Response.json({ error: "Your account has been deactivated. Please contact support." }, { status: 403 });
+  }
+
   const facilityId = await getWorkerFacilityId(session.user.id);
   if (!facilityId) return Response.json({ error: "No facility assigned." }, { status: 404 });
 

@@ -10,8 +10,9 @@ export default async function GroundOwnerLayout({ children }: { children: React.
 
   const user = await db.user.findUnique({
     where:  { id: session.user.id },
-    select: { mustChangePassword: true },
+    select: { mustChangePassword: true, isActive: true },
   });
+  if (!user?.isActive) redirect("/login");
   if (user?.mustChangePassword) redirect("/force-change-password");
 
   return (

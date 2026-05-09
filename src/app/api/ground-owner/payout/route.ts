@@ -123,6 +123,11 @@ export async function POST() {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const actor = await db.user.findUnique({ where: { id: session.user.id }, select: { isActive: true } });
+    if (!actor?.isActive) {
+      return Response.json({ error: "Your account has been deactivated. Please contact support." }, { status: 403 });
+    }
+
     const profile = await db.groundOwnerProfile.findUnique({
       where: { userId: session.user.id },
       include: {
