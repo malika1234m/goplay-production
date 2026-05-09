@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Bell, BellOff, CheckCircle, AlertTriangle, AlertCircle, Info,
   Trash2, CheckCheck, Loader2, ChevronLeft, ChevronRight,
-  Inbox, Sparkles,
+  Inbox, Sparkles, ArrowLeft,
 } from "lucide-react";
 
 type NotifType = "info" | "success" | "warning" | "error";
@@ -192,6 +193,15 @@ export default function NotificationsPage() {
       {/* ── Hero header ─────────────────────────────────────── */}
       <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+          {/* Back link */}
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm font-medium mb-6 transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+            Back to Home
+          </Link>
+
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center ring-1 ring-white/20">

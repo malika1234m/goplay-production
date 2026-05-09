@@ -277,21 +277,25 @@ function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBook
               : null;
           })()}
 
-          {b.contactNumber && (
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs text-slate-500 flex items-center gap-1.5">
-                <PhoneCall className="w-3 h-3 text-slate-400" />
-                {b.contactNumber}
-              </span>
-              <a
-                href={`tel:${b.contactNumber}`}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-green-500 hover:bg-green-600 px-2.5 py-1 rounded-lg transition-colors"
-              >
-                <PhoneCall className="w-3 h-3" />
-                Call
-              </a>
-            </div>
-          )}
+          {(() => {
+            const isWalkIn = b.specialRequests?.startsWith("[Walk-in]");
+            const phone = b.contactNumber ?? (!isWalkIn ? b.user.phone : null);
+            return phone ? (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-slate-500 flex items-center gap-1.5">
+                  <PhoneCall className="w-3 h-3 text-slate-400" />
+                  {phone}
+                </span>
+                <a
+                  href={`tel:${phone}`}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-green-500 hover:bg-green-600 px-2.5 py-1 rounded-lg transition-colors"
+                >
+                  <PhoneCall className="w-3 h-3" />
+                  Call
+                </a>
+              </div>
+            ) : null;
+          })()}
         </div>
 
         {/* Status + actions */}

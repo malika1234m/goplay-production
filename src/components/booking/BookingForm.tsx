@@ -101,6 +101,9 @@ export default function BookingForm({
     if (!session) { router.push("/login"); return; }
     if (!selectedSlot) { setError("Please select a time slot."); return; }
 
+    // REMOVE this line once PayHere registration is complete:
+    if ((paymentMethod as string) === "ONLINE") { router.push("/payment/coming-soon"); return; }
+
     const phoneErr = validatePhone(contactNumber);
     if (phoneErr) { setPhoneError(phoneErr); return; }
 

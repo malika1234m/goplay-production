@@ -138,19 +138,23 @@ function BookingRow({
           </div>
 
           {/* Contact */}
-          {b.contactNumber && (
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-slate-400 flex items-center gap-1">
-                <Phone className="w-3 h-3" /> {b.contactNumber}
-              </span>
-              <a
-                href={`tel:${b.contactNumber}`}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blue-500 hover:bg-blue-600 px-2.5 py-1 rounded-lg transition-colors"
-              >
-                <Phone className="w-3 h-3" /> Call
-              </a>
-            </div>
-          )}
+          {(() => {
+            const isWalkIn = b.specialRequests?.startsWith("[Walk-in]");
+            const phone = b.contactNumber ?? (!isWalkIn ? b.playerPhone : null);
+            return phone ? (
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs text-slate-400 flex items-center gap-1">
+                  <Phone className="w-3 h-3" /> {phone}
+                </span>
+                <a
+                  href={`tel:${phone}`}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blue-500 hover:bg-blue-600 px-2.5 py-1 rounded-lg transition-colors"
+                >
+                  <Phone className="w-3 h-3" /> Call
+                </a>
+              </div>
+            ) : null;
+          })()}
         </div>
 
         {/* Actions */}
