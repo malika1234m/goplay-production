@@ -14,7 +14,13 @@ async function getGrounds(q: string, city: string, category: string) {
   const grounds = await db.sportsFacility.findMany({
     where: {
       status: "ACTIVE",
-      ...(q    && { name: { contains: q,    mode: "insensitive" } }),
+      ...(q && {
+        OR: [
+          { name:     { contains: q, mode: "insensitive" } },
+          { city:     { contains: q, mode: "insensitive" } },
+          { category: { name: { contains: q, mode: "insensitive" } } },
+        ],
+      }),
       ...(city && { city: { contains: city, mode: "insensitive" } }),
       ...(category && category !== "All" && {
         category: { name: { equals: category, mode: "insensitive" } },

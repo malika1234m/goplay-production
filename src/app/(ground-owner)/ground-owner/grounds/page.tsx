@@ -5,8 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Plus, MapPin, Star, Eye, Pencil, Trash2,
-  CheckCircle, Clock, XCircle, Loader2, Grid3X3,
+  CheckCircle, Clock, XCircle, Loader2, Grid3X3, QrCode,
 } from "lucide-react";
+import QRModal from "@/components/ground-owner/QRModal";
 
 interface Ground {
   id:            string;
@@ -41,6 +42,7 @@ export default function GroundOwnerGrounds() {
   const [loading,   setLoading]   = useState(true);
   const [deleting,  setDeleting]  = useState<string | null>(null);
   const [error,     setError]     = useState("");
+  const [qrGround,  setQrGround]  = useState<Ground | null>(null);
 
   useEffect(() => {
     fetch("/api/ground-owner/grounds")
@@ -169,6 +171,13 @@ export default function GroundOwnerGrounds() {
 
                       {/* Actions */}
                       <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => setQrGround(g)}
+                          className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+                          title="QR Code"
+                        >
+                          <QrCode className="w-4 h-4" />
+                        </button>
                         <Link
                           href={`/grounds/${g.id}`}
                           className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
@@ -256,6 +265,16 @@ export default function GroundOwnerGrounds() {
             );
           })}
         </div>
+      )}
+
+      {qrGround && (
+        <QRModal
+          groundId={qrGround.id}
+          groundName={qrGround.name}
+          city={qrGround.city}
+          address={qrGround.address}
+          onClose={() => setQrGround(null)}
+        />
       )}
     </div>
   );

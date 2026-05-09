@@ -154,7 +154,7 @@ export default function EditGroundPage() {
 
     if (!res.ok) { setError(data.error ?? "Failed to save."); return; }
     setSuccess(true);
-    setTimeout(() => setSuccess(false), 3000);
+    setTimeout(() => router.push("/ground-owner/grounds"), 1000);
   };
 
   if (loading) {
