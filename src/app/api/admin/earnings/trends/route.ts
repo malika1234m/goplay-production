@@ -37,12 +37,9 @@ export async function GET(req: NextRequest) {
       map.set(key, (map.get(key) ?? 0) + b.totalAmount);
     }
 
-    const labels  = Array.from(map.keys()).map((d) =>
-      new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-    );
-    const revenue = Array.from(map.values());
+    const trends = Array.from(map.entries()).map(([date, revenue]) => ({ date, revenue }));
 
-    return Response.json({ trends: { labels, revenue } });
+    return Response.json({ trends });
   } catch (err) {
     console.error("[GET /api/admin/earnings/trends]", err);
     return Response.json({ error: "Failed to fetch trends." }, { status: 500 });

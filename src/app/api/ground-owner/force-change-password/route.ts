@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 export async function PUT(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user || !["GROUND_OWNER", "GROUND_WORKER"].includes(session.user.role)) {
+    if (!session?.user || !["ADMIN", "GROUND_OWNER", "GROUND_WORKER"].includes(session.user.role ?? "")) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 

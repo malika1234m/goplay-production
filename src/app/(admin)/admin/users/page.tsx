@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Users, Search, Loader2, UserCheck, UserX, Building2, Shield } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Users, Search, Loader2, UserCheck, UserX, Building2, Shield, Ban, CircleCheck } from "lucide-react";
 
 interface User {
   id:            string;
@@ -9,6 +10,7 @@ interface User {
   email:         string;
   phone:         string | null;
   role:          string;
+  isActive:      boolean;
   createdAt:     string;
   totalBookings: number;
 }
@@ -26,10 +28,12 @@ const ROLE_ICON: Record<string, React.ElementType> = {
 };
 
 export default function AdminUsersPage() {
-  const [users,   setUsers]   = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [q,       setQ]       = useState("");
-  const [role,    setRole]    = useState("");
+  const { data: session } = useSession();
+  const [users,    setUsers]    = useState<User[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [q,        setQ]        = useState("");
+  const [role,     setRole]     = useState("");
+  const [toggling, setToggling] = useState<string | null>(null);
 
   const load = useCallback(async (query: string, roleFilter: string) => {
     setLoading(true);
@@ -43,6 +47,21 @@ export default function AdminUsersPage() {
   }, []);
 
   useEffect(() => { load("", ""); }, [load]);
+
+  const toggleActive = async (u: User) => {
+    setToggling(u.id);
+    const res = await fetch(`/api/admin/users/${u.id}/status`, {
+      method:  "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ isActive: !u.isActive }),
+    });
+    setToggling(null);
+    if (res.ok) {
+      setUsers((prev) =>
+        prev.map((x) => x.id === u.id ? { ...x, isActive: !u.isActive } : x)
+      );
+    }
+  };
 
   const totals = {
     all:    users.length,
@@ -142,6 +161,8 @@ export default function AdminUsersPage() {
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Phone</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Joined</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Bookings</th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Status</th>
+                  <th className="px-6 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -174,6 +195,41 @@ export default function AdminUsersPage() {
                         <span className="text-xs font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full">
                           {u.totalBookings}
                         </span>
+                      </td>
+                      <td className="px-6 py-3.5">
+                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                          u.isActive
+                            ? "bg-green-50 text-green-700"
+                            : "bg-red-50 text-red-600"
+                        }`}>
+                          {u.isActive ? (
+                            <><CircleCheck className="w-3 h-3" /> Active</>
+                          ) : (
+                            <><Ban className="w-3 h-3" /> Deactivated</>
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3.5 text-right">
+                        {u.role !== "ADMIN" && u.id !== session?.user?.id && (
+                          <button
+                            onClick={() => toggleActive(u)}
+                            disabled={toggling === u.id}
+                            title={u.isActive ? "Deactivate user" : "Activate user"}
+                            className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
+                              u.isActive
+                                ? "border-red-200 text-red-600 hover:bg-red-50"
+                                : "border-green-200 text-green-600 hover:bg-green-50"
+                            }`}
+                          >
+                            {toggling === u.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : u.isActive ? (
+                              <><Ban className="w-3 h-3" /> Deactivate</>
+                            ) : (
+                              <><CircleCheck className="w-3 h-3" /> Activate</>
+                            )}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

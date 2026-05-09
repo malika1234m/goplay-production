@@ -50,7 +50,12 @@ export default function ForceChangePasswordPage() {
     }
 
     setDone(true);
-    const dest = session?.user?.role === "GROUND_WORKER" ? "/worker/dashboard" : "/ground-owner/dashboard";
+    const role = session?.user?.role;
+    const dest = role === "ADMIN"
+      ? "/admin/dashboard"
+      : role === "GROUND_WORKER"
+      ? "/worker/dashboard"
+      : "/ground-owner/dashboard";
     setTimeout(() => router.push(dest), 2500);
   };
 
@@ -92,6 +97,8 @@ export default function ForceChangePasswordPage() {
                 <p className="text-green-100 text-sm mt-1 leading-relaxed">
                   {session?.user?.role === "GROUND_WORKER"
                     ? "You've been added as a Ground Worker. Please set a new password to secure your account before continuing."
+                    : session?.user?.role === "ADMIN"
+                    ? "Please set a new password to secure your admin account before continuing."
                     : "Congratulations on becoming a Ground Owner! Please set a new password to secure your upgraded account before continuing."}
                 </p>
               </div>

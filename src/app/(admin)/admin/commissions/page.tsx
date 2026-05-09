@@ -52,9 +52,10 @@ function OwnerCard({ owner, onSettle }: { owner: OwnerCommission; onSettle: (o: 
 
   return (
     <div className={`border rounded-2xl overflow-hidden ${hasDebt ? "border-orange-200" : "border-slate-100 bg-white"}`}>
-      <button
+      <div
+        role="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50/50 transition-colors text-left"
+        className="w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50/50 transition-colors text-left cursor-pointer"
       >
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
@@ -96,7 +97,7 @@ function OwnerCard({ owner, onSettle }: { owner: OwnerCommission; onSettle: (o: 
           )}
           {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
         </div>
-      </button>
+      </div>
 
       {open && (
         <div className="border-t border-slate-100">
