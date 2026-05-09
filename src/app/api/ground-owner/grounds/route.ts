@@ -19,7 +19,7 @@ export async function GET() {
       include: {
         category: true,
         reviews: { select: { rating: true } },
-        _count: { select: { bookings: true } },
+        _count: { select: { bookings: true, courts: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -36,6 +36,7 @@ export async function GET() {
       category:      g.category.name,
       categoryIcon:  g.category.icon,
       totalBookings: g._count.bookings,
+      courtCount:    g._count.courts,
       avgRating:     g.reviews.length > 0
         ? Math.round((g.reviews.reduce((s, r) => s + r.rating, 0) / g.reviews.length) * 10) / 10
         : null,

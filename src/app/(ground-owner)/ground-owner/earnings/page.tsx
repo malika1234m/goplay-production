@@ -28,6 +28,7 @@ interface EarningRecord {
     paymentStatus:   string;
     specialRequests: string | null;
     user:            { name: string; email: string };
+    court:           { name: string } | null;
   };
   facility: { id: string; name: string; city: string };
 }
@@ -180,6 +181,11 @@ function FacilityBlock({
                       {fmtDate(e.booking.bookingDate)} · {e.booking.startTime}–{e.booking.endTime}
                       {" "}({e.booking.totalHours} hr{e.booking.totalHours !== 1 ? "s" : ""})
                     </p>
+                    {e.booking.court && (
+                      <span className="mt-1 inline-flex items-center text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full">
+                        {e.booking.court.name}
+                      </span>
+                    )}
                   </div>
 
                   {/* Payment method — hidden on mobile */}

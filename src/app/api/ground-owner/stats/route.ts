@@ -51,8 +51,9 @@ export async function GET() {
           status: { in: ["CONFIRMED", "PENDING"] },
         },
         include: {
-          user: { select: { name: true } },
+          user:     { select: { name: true } },
           facility: { select: { name: true } },
+          court:    { select: { name: true } },
         },
         orderBy: { startTime: "asc" },
       }),
@@ -77,6 +78,7 @@ export async function GET() {
         id:            b.id,
         userName:      b.user.name,
         facilityName:  b.facility.name,
+        courtName:     b.court?.name ?? null,
         startTime:     b.startTime,
         endTime:       b.endTime,
         totalAmount:   b.totalAmount,

@@ -15,6 +15,7 @@ export async function GET() {
           category:     { select: { name: true } },
           availability: { orderBy: { dayOfWeek: "asc" } },
           owner:        { include: { user: { select: { name: true, email: true } } } },
+          courts:       { where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, name: true } },
         },
       },
     },
@@ -35,6 +36,7 @@ export async function GET() {
       hourlyRate:   f.hourlyRate,
       category:     f.category.name,
       ownerName:    f.owner.user.name,
+      courts:       f.courts.map((c) => ({ id: c.id, name: c.name })),
       availability: f.availability.map((a) => ({
         dayOfWeek: a.dayOfWeek,
         isOpen:    a.isOpen,

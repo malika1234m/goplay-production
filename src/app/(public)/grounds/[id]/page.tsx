@@ -19,6 +19,11 @@ async function getGround(id: string) {
     include: {
       category: true,
       availability: { orderBy: { dayOfWeek: "asc" } },
+      courts: {
+        where:   { isActive: true },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select:  { id: true, name: true, description: true },
+      },
       reviews: {
         include: { user: { select: { name: true } } },
         orderBy: { createdAt: "desc" },
@@ -148,6 +153,7 @@ export default async function GroundDetailsPage({
                 facilityId={ground.id}
                 hourlyRate={ground.hourlyRate}
                 availability={availabilityProps}
+                courts={ground.courts}
               />
             </div>
           </div>
@@ -169,7 +175,36 @@ export default async function GroundDetailsPage({
             </div>
           )}
 
-          {/* ── 5. Opening hours ── cols 1-2 on desktop */}
+          {/* ── 5. Courts / Fields ── cols 1-2 on desktop */}
+          {ground.courts.length > 0 && (
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-2xl border border-slate-100 p-6">
+                <h2 className="text-base font-semibold text-slate-900 mb-4">
+                  Courts &amp; Fields
+                  <span className="ml-2 text-xs font-normal text-slate-400">
+                    ({ground.courts.length} available — select one when booking)
+                  </span>
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {ground.courts.map((c) => (
+                    <div key={c.id} className="flex items-start gap-3 bg-green-50 border border-green-100 rounded-xl px-4 py-3">
+                      <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5">
+                        {c.name[0].toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800">{c.name}</p>
+                        {c.description && (
+                          <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{c.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── 7. Opening hours ── cols 1-2 on desktop */}
           {ground.availability.length > 0 && (
             <div className="lg:col-span-2">
               <div className="bg-white rounded-2xl border border-slate-100 p-6">

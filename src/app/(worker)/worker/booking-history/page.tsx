@@ -22,6 +22,7 @@ interface Booking {
   playerName: string;
   playerEmail: string;
   playerPhone: string | null;
+  courtName: string | null;
 }
 
 const STATUS_META: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -101,9 +102,10 @@ export default function WorkerBookingHistoryPage() {
 
   function exportCsv() {
     const rows = [
-      ["Date", "Player", "Contact", "Start", "End", "Hours", "Amount", "Status", "Payment"],
+      ["Date", "Court", "Player", "Contact", "Start", "End", "Hours", "Amount", "Status", "Payment"],
       ...filtered.map((b) => [
         fmtDate(b.bookingDate),
+        b.courtName ?? "",
         displayName(b),
         b.contactNumber ?? b.playerPhone ?? "",
         fmtTime(b.startTime),
@@ -250,7 +252,7 @@ export default function WorkerBookingHistoryPage() {
               return (
                 <div key={b.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
                   <div className="flex flex-wrap items-start gap-4">
-                    {/* Date + time */}
+                    {/* Date + time + court */}
                     <div className="min-w-[130px]">
                       <p className="text-white text-sm font-semibold">{fmtDate(b.bookingDate)}</p>
                       <p className="text-slate-400 text-xs mt-0.5 flex items-center gap-1">
@@ -258,6 +260,11 @@ export default function WorkerBookingHistoryPage() {
                         {fmtTime(b.startTime)} – {fmtTime(b.endTime)}
                       </p>
                       <p className="text-slate-500 text-xs mt-0.5">{b.totalHours}h · Rs. {b.totalAmount.toLocaleString()}</p>
+                      {b.courtName && (
+                        <span className="mt-1 inline-flex items-center text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.5 rounded-full">
+                          {b.courtName}
+                        </span>
+                      )}
                     </div>
 
                     {/* Player */}

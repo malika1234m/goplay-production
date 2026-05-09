@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Building2, CalendarCheck, Clock, Loader2, MapPin, Tag, User } from "lucide-react";
+import { Building2, CalendarCheck, Clock, Grid3X3, Loader2, MapPin, Tag, User } from "lucide-react";
 
 interface Facility {
   id: string; name: string; address: string; city: string;
   hourlyRate: number; category: string; ownerName: string;
+  courts: { id: string; name: string }[];
   availability: { dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string }[];
 }
 interface Booking {
   id: string; startTime: string; endTime: string; status: string;
   totalAmount: number; playerName: string; specialRequests: string | null;
+  courtName: string | null;
 }
 
 const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -80,6 +82,12 @@ export default function WorkerDashboard() {
               <span className="flex items-center gap-1 text-xs text-slate-500">
                 <User className="w-3 h-3" />Owner: {facility.ownerName}
               </span>
+              {facility.courts.length > 0 && (
+                <span className="flex items-center gap-1 text-xs text-indigo-600">
+                  <Grid3X3 className="w-3 h-3" />
+                  {facility.courts.length} court{facility.courts.length !== 1 ? "s" : ""}
+                </span>
+              )}
             </div>
           </div>
           <div className="text-right shrink-0">
@@ -152,6 +160,11 @@ export default function WorkerDashboard() {
                         ? b.specialRequests.replace("[Walk-in] ", "Walk-in · ")
                         : b.playerName}
                     </p>
+                    {b.courtName && (
+                      <span className="mt-0.5 inline-flex items-center text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full">
+                        {b.courtName}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">

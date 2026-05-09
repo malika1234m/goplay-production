@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Plus, MapPin, Star, Eye, Pencil, Trash2,
-  CheckCircle, Clock, XCircle, Loader2,
+  CheckCircle, Clock, XCircle, Loader2, Grid3X3,
 } from "lucide-react";
 
 interface Ground {
@@ -21,6 +21,7 @@ interface Ground {
   totalBookings: number;
   avgRating:     number | null;
   totalReviews:  number;
+  courtCount:    number;
 }
 
 const categoryEmoji: Record<string, string> = {
@@ -176,6 +177,18 @@ export default function GroundOwnerGrounds() {
                           <Eye className="w-4 h-4" />
                         </Link>
                         <Link
+                          href={`/ground-owner/grounds/${g.id}/courts`}
+                          className="relative p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          title="Manage Courts"
+                        >
+                          <Grid3X3 className="w-4 h-4" />
+                          {g.courtCount > 0 && (
+                            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-indigo-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                              {g.courtCount}
+                            </span>
+                          )}
+                        </Link>
+                        <Link
                           href={`/ground-owner/grounds/${g.id}/edit`}
                           className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                           title="Edit"
@@ -204,6 +217,10 @@ export default function GroundOwnerGrounds() {
                         <p className="text-sm font-semibold text-slate-900">
                           Rs. {g.hourlyRate.toLocaleString()}/hr
                         </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400">Courts</p>
+                        <p className="text-sm font-semibold text-slate-900">{g.courtCount || "—"}</p>
                       </div>
                       {g.status === "ACTIVE" && (
                         <>

@@ -21,6 +21,7 @@ interface Booking {
   specialRequests: string | null;
   user: { name: string; email: string; phone: string | null };
   facility: { name: string; city: string };
+  court: { name: string } | null;
 }
 
 const STATUS_META: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -101,10 +102,11 @@ export default function BookingHistoryPage() {
 
   function exportCsv() {
     const rows = [
-      ["Date", "Facility", "Player", "Contact", "Start", "End", "Hours", "Amount", "Status", "Payment"],
+      ["Date", "Facility", "Court", "Player", "Contact", "Start", "End", "Hours", "Amount", "Status", "Payment"],
       ...filtered.map((b) => [
         fmtDate(b.bookingDate),
         `${b.facility.name} (${b.facility.city})`,
+        b.court?.name ?? "",
         displayName(b),
         b.contactNumber ?? "",
         fmtTime(b.startTime),
@@ -262,10 +264,15 @@ export default function BookingHistoryPage() {
                       <p className="text-slate-500 text-xs mt-0.5">{b.totalHours}h · Rs. {b.totalAmount.toLocaleString()}</p>
                     </div>
 
-                    {/* Facility */}
+                    {/* Facility + Court */}
                     <div className="min-w-[140px]">
                       <p className="text-slate-300 text-sm font-medium">{b.facility.name}</p>
                       <p className="text-slate-500 text-xs">{b.facility.city}</p>
+                      {b.court && (
+                        <span className="mt-1 inline-flex items-center text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.5 rounded-full">
+                          {b.court.name}
+                        </span>
+                      )}
                     </div>
 
                     {/* Player */}

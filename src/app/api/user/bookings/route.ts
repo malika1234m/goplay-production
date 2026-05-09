@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
         facility: {
           select: { name: true, city: true, address: true, category: { select: { name: true, icon: true } } },
         },
+        court:  { select: { name: true } },
         review: { select: { id: true } },
       },
       orderBy: { createdAt: "desc" },

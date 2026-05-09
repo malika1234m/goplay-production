@@ -26,6 +26,7 @@ interface TodayBooking {
   id:            string;
   userName:      string;
   facilityName:  string;
+  courtName:     string | null;
   startTime:     string;
   endTime:       string;
   totalAmount:   number;
@@ -343,6 +344,11 @@ export default function GroundOwnerDashboard() {
                         <Clock className="w-3 h-3" />
                         {b.startTime} – {b.endTime}
                       </div>
+                      {b.courtName && (
+                        <span className="mt-0.5 inline-flex items-center text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full">
+                          {b.courtName}
+                        </span>
+                      )}
                     </div>
                     <div className="shrink-0 text-right">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${statusStyles[b.status] ?? ""}`}>

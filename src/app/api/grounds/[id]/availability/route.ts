@@ -14,9 +14,10 @@ function minutesToTime(mins: number) {
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
+    const { id: facilityId } = await params;
     const { searchParams } = new URL(req.url);
     const dateStr = searchParams.get("date");
+    const courtId = searchParams.get("courtId") ?? undefined;
 
     if (!dateStr) {
       return Response.json({ error: "date query param required (YYYY-MM-DD)" }, { status: 400 });
@@ -29,19 +30,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const dayOfWeek = startOfDay.getUTCDay();
 
     const schedule = await db.facilityAvailability.findFirst({
-      where: { facilityId: id, dayOfWeek, isOpen: true },
+      where: { facilityId, dayOfWeek, isOpen: true },
     });
 
     if (!schedule) {
       return Response.json({ slots: [], message: "Facility is closed on this day." });
     }
 
-    // Fetch all blocked entries for this date
+    // Facility-wide full-day blocks (no courtId) OR court-specific blocks
     const blockedEntries = await db.blockedDate.findMany({
-      where: { facilityId: id, date: { gte: startOfDay, lte: endOfDay } },
+      where: {
+        facilityId,
+        date: { gte: startOfDay, lte: endOfDay },
+        OR: [
+          { courtId: null },
+          ...(courtId ? [{ courtId }] : []),
+        ],
+      },
     });
 
-    // Full-day block (no times set) — return immediately with no slots
     const fullDayBlock = blockedEntries.find((b) => !b.startTime || !b.endTime);
     if (fullDayBlock) {
       return Response.json({
@@ -52,20 +59,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       });
     }
 
-    // Partial blocks — list of time ranges to mark as blocked
     const partialBlocks = blockedEntries.filter((b) => b.startTime && b.endTime);
 
-    // Existing bookings
+    // Bookings: filter by courtId when provided, otherwise facility-wide
     const bookings = await db.facilityBooking.findMany({
       where: {
-        facilityId:  id,
+        facilityId,
         bookingDate: { gte: startOfDay, lte: endOfDay },
         status:      { in: ["CONFIRMED", "PENDING"] },
+        ...(courtId ? { courtId } : {}),
       },
       select: { startTime: true, endTime: true },
     });
 
-    // Generate hourly slots
     const openMins  = timeToMinutes(schedule.openTime);
     const closeMins = timeToMinutes(schedule.closeTime);
 
@@ -78,7 +84,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       const booked = bookings.some(
         (b) => timeToMinutes(b.startTime) < m + 60 && timeToMinutes(b.endTime) > m
       );
-
       const blockEntry = partialBlocks.find(
         (b) => timeToMinutes(b.startTime!) < m + 60 && timeToMinutes(b.endTime!) > m
       );

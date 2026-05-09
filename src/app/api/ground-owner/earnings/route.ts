@@ -82,6 +82,7 @@ export async function GET(req: NextRequest) {
             paymentStatus:   true,
             specialRequests: true,
             user:            { select: { name: true, email: true } },
+            court:           { select: { name: true } },
           },
         },
       },

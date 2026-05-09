@@ -7,6 +7,7 @@ import { Calendar, Phone, Clock, Loader2, CheckCircle, CreditCard, Banknote } fr
 
 interface Slot { start: string; end: string; available: boolean; blocked?: boolean; blockReason?: string }
 interface DaySchedule { dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string }
+interface Court { id: string; name: string; description?: string | null }
 
 type PaymentMethod = "ON_ARRIVAL" | "ONLINE";
 
@@ -27,20 +28,24 @@ export default function BookingForm({
   facilityId,
   hourlyRate,
   availability = [],
+  courts = [],
 }: {
   facilityId:   string;
   hourlyRate:   number;
   availability?: DaySchedule[];
+  courts?:       Court[];
 }) {
   const { data: session } = useSession();
   const router = useRouter();
 
-  const today = new Date().toISOString().split("T")[0];
+  const today   = new Date().toISOString().split("T")[0];
+  const maxDate = (() => { const d = new Date(); d.setDate(d.getDate() + 60); return d.toISOString().split("T")[0]; })();
   const [date,            setDate]            = useState(() => firstOpenDate(availability));
   const [duration,        setDuration]        = useState(1);
   const [selectedSlot,    setSelectedSlot]    = useState<string | null>(null);
   const [contactNumber,   setContactNumber]   = useState("");
   const [specialRequests, setSpecialRequests] = useState("");
+  const [selectedCourt,   setSelectedCourt]   = useState<string | null>(courts.length === 1 ? courts[0].id : null);
   const [paymentMethod,   setPaymentMethod]   = useState<PaymentMethod>("ON_ARRIVAL");
   const [slots,           setSlots]           = useState<Slot[]>([]);
   const [loadingSlots,    setLoadingSlots]    = useState(false);
@@ -51,14 +56,17 @@ export default function BookingForm({
 
   useEffect(() => {
     if (!date) return;
+    // If facility has courts but none selected yet, don't fetch slots
+    if (courts.length > 0 && !selectedCourt) { setSlots([]); return; }
     setSelectedSlot(null);
     setLoadingSlots(true);
-    fetch(`/api/grounds/${facilityId}/availability?date=${date}`)
+    const courtParam = selectedCourt ? `&courtId=${selectedCourt}` : "";
+    fetch(`/api/grounds/${facilityId}/availability?date=${date}${courtParam}`)
       .then((r) => r.json())
       .then((d) => setSlots(d.slots ?? []))
       .catch(() => setSlots([]))
       .finally(() => setLoadingSlots(false));
-  }, [date, facilityId]);
+  }, [date, facilityId, selectedCourt, courts.length]);
 
   const toMins = (t: string) => {
     const [h, m] = t.split(":").map(Number);
@@ -99,6 +107,7 @@ export default function BookingForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session) { router.push("/login"); return; }
+    if (courts.length > 0 && !selectedCourt) { setError("Please select a court."); return; }
     if (!selectedSlot) { setError("Please select a time slot."); return; }
 
     // REMOVE this line once PayHere registration is complete:
@@ -116,6 +125,7 @@ export default function BookingForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         facilityId,
+        courtId:         selectedCourt || undefined,
         bookingDate:     date,
         startTime:       selectedSlot,
         endTime:         endTime(selectedSlot, duration),
@@ -197,6 +207,46 @@ export default function BookingForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {/* Court selection — only shown when facility has courts */}
+      {courts.length > 0 && (
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-2">
+            Select Court / Field <span className="text-red-500">*</span>
+          </label>
+          <div className="flex flex-col gap-2">
+            {courts.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => { setSelectedCourt(c.id); setSelectedSlot(null); }}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all ${
+                  selectedCourt === c.id
+                    ? "border-green-500 bg-green-50"
+                    : "border-slate-200 hover:border-slate-300 bg-white"
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
+                  selectedCourt === c.id ? "bg-green-600 text-white" : "bg-slate-100 text-slate-500"
+                }`}>
+                  {c.name[0].toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-sm font-semibold ${selectedCourt === c.id ? "text-green-700" : "text-slate-700"}`}>
+                    {c.name}
+                  </p>
+                  {c.description && (
+                    <p className="text-xs text-slate-400 truncate">{c.description}</p>
+                  )}
+                </div>
+                {selectedCourt === c.id && (
+                  <CheckCircle className="w-4 h-4 text-green-500 ml-auto shrink-0" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Date */}
       <div>
         <label className="block text-xs font-medium text-slate-600 mb-1.5">Date</label>
@@ -206,6 +256,7 @@ export default function BookingForm({
             type="date"
             value={date}
             min={today}
+            max={maxDate}
             onChange={(e) => setDate(e.target.value)}
             className="bg-transparent w-full outline-none text-sm text-slate-900"
           />
@@ -241,11 +292,21 @@ export default function BookingForm({
       {/* Time slots */}
       <div>
         <label className="block text-xs font-medium text-slate-600 mb-2">
-          Available Slots{selectedSlot && (
+          Available Slots
+          {courts.length > 0 && selectedCourt && (
+            <span className="text-slate-400 ml-1">
+              — {courts.find((c) => c.id === selectedCourt)?.name}
+            </span>
+          )}
+          {selectedSlot && (
             <span className="text-green-600 ml-1">— {selectedSlot} to {endTime(selectedSlot, duration)}</span>
           )}
         </label>
-        {loadingSlots ? (
+        {courts.length > 0 && !selectedCourt ? (
+          <p className="text-xs text-slate-400 text-center py-4 bg-slate-50 rounded-xl border border-slate-100">
+            Select a court above to see available slots.
+          </p>
+        ) : loadingSlots ? (
           <div className="flex items-center justify-center py-6 text-slate-400 gap-2 text-sm">
             <Loader2 className="w-4 h-4 animate-spin" /> Loading slots...
           </div>

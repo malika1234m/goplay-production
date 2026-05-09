@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       endOfDay.setHours(23, 59, 59, 999);
       bookings = await db.facilityBooking.findMany({
         where: { facilityId, bookingDate: { gte: startOfDay, lte: endOfDay } },
-        include: { user: { select: { name: true, email: true, phone: true } } },
+        include: { user: { select: { name: true, email: true, phone: true } }, court: { select: { name: true } } },
         orderBy: [{ bookingDate: "asc" }, { startTime: "asc" }],
       });
     } else {
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
           ...(statusFilter && { status: statusFilter as any }),
           ...(Object.keys(dateFilter).length > 0 && { bookingDate: dateFilter }),
         },
-        include: { user: { select: { name: true, email: true, phone: true } } },
+        include: { user: { select: { name: true, email: true, phone: true } }, court: { select: { name: true } } },
         orderBy: [{ bookingDate: "asc" }, { startTime: "asc" }],
       });
     }
@@ -75,6 +75,7 @@ export async function GET(req: NextRequest) {
         playerPhone:     b.user.phone,
         contactNumber:   b.contactNumber,
         specialRequests: b.specialRequests,
+        courtName:       (b as any).court?.name ?? null,
       })),
     });
   } catch (err) {
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
   const facilityId = await getWorkerFacilityId(session.user.id);
   if (!facilityId) return Response.json({ error: "No facility assigned." }, { status: 404 });
 
-  const { bookingDate, startTime, endTime, playerName, contactNumber, specialRequests } =
+  const { courtId, bookingDate, startTime, endTime, playerName, contactNumber, specialRequests } =
     await req.json();
 
   if (!bookingDate || !startTime || !endTime || !playerName?.trim()) {
@@ -117,14 +118,28 @@ export async function POST(req: NextRequest) {
   if (bookingDateObj < today) {
     return Response.json({ error: "Booking date cannot be in the past." }, { status: 400 });
   }
+  const maxAdvance = new Date(); maxAdvance.setUTCHours(0, 0, 0, 0);
+  maxAdvance.setDate(maxAdvance.getDate() + 60);
+  if (bookingDateObj > maxAdvance) {
+    return Response.json({ error: "Bookings can only be made up to 60 days in advance." }, { status: 400 });
+  }
 
   const facility = await db.sportsFacility.findUnique({
-    where: { id: facilityId, status: "ACTIVE" },
+    where:   { id: facilityId, status: "ACTIVE" },
     include: {
-      owner: { include: { user: { select: { id: true } } } },
+      owner:  { include: { user: { select: { id: true } } } },
+      courts: { where: { isActive: true }, select: { id: true } },
     },
   });
   if (!facility) return Response.json({ error: "Facility not found." }, { status: 404 });
+
+  const resolvedCourtId = courtId || null;
+  if (facility.courts.length > 0 && !resolvedCourtId) {
+    return Response.json({ error: "Please select a court for this walk-in booking." }, { status: 400 });
+  }
+  if (resolvedCourtId && !facility.courts.some((c) => c.id === resolvedCourtId)) {
+    return Response.json({ error: "Selected court is not valid." }, { status: 400 });
+  }
 
   // Check conflicts — use date range to be timezone-safe
   const startOfDay = new Date(bookingDate); startOfDay.setUTCHours(0, 0, 0, 0);
@@ -133,6 +148,7 @@ export async function POST(req: NextRequest) {
   const conflict = await db.facilityBooking.findFirst({
     where: {
       facilityId,
+      ...(resolvedCourtId ? { courtId: resolvedCourtId } : {}),
       bookingDate: { gte: startOfDay, lte: endOfDay },
       status:      { in: ["CONFIRMED", "PENDING"] },
       AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
@@ -173,6 +189,7 @@ export async function POST(req: NextRequest) {
     data: {
       userId:          session.user.id,
       facilityId,
+      courtId:         resolvedCourtId,
       bookingDate:     bookingDateObj,
       startTime,
       endTime,

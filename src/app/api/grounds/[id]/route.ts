@@ -10,6 +10,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       include: {
         category: true,
         availability: { orderBy: { dayOfWeek: "asc" } },
+        courts: {
+          where:   { isActive: true },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          select:  { id: true, name: true, description: true },
+        },
         reviews: {
           include: { user: { select: { name: true } }, reply: true },
           orderBy: { createdAt: "desc" },
@@ -43,6 +48,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         images: ground.images,
         category: ground.category.name,
         categoryIcon: ground.category.icon,
+        courts: ground.courts,
         availability: ground.availability,
         reviews: ground.reviews.map((r) => ({
           id: r.id,

@@ -7,6 +7,7 @@ import {
   CheckCircle2, Clock3, XCircle, User, Phone,
   StickyNote, Calendar, Clock, MapPin, BadgeInfo, History,
 } from "lucide-react";
+import { TimeRangePicker } from "@/components/booking/TimeRangePicker";
 
 interface Booking {
   id:              string;
@@ -22,12 +23,15 @@ interface Booking {
   playerPhone:     string | null;
   contactNumber:   string | null;
   specialRequests: string | null;
+  courtName:       string | null;
 }
 
 interface FacilityInfo {
+  id:         string;
   name:       string;
   city:       string;
   hourlyRate: number;
+  courts:     { id: string; name: string }[];
   availability: { dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string }[];
 }
 
@@ -131,6 +135,11 @@ function BookingRow({
               <Clock className="w-3 h-3 text-slate-400" />
               {b.startTime} – {b.endTime}
             </span>
+            {b.courtName && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full">
+                {b.courtName}
+              </span>
+            )}
             <span className="font-semibold text-slate-800">Rs. {b.totalAmount.toLocaleString()}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${b.paymentMethod === "ONLINE" ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"}`}>
               {b.paymentMethod === "ONLINE" ? "Online" : "Cash"}
@@ -201,7 +210,10 @@ interface WalkInModalProps {
 }
 
 function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
-  const today = isoDate(new Date());
+  const today   = isoDate(new Date());
+  const maxDate = isoDate(new Date(Date.now() + 60 * 24 * 60 * 60 * 1000));
+  const courts = facility?.courts ?? [];
+  const [courtId,       setCourtId]       = useState(() => courts.length === 1 ? courts[0].id : "");
   const [bookingDate,   setBookingDate]   = useState(today);
   const [startTime,     setStartTime]     = useState("08:00");
   const [endTime,       setEndTime]       = useState("09:00");
@@ -230,6 +242,7 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
     setError("");
     if (!bookingDate || !startTime || !endTime || !playerName.trim()) { setError("Please fill in all required fields."); return; }
     if (playerName.trim().length < 2) { setError("Player name must be at least 2 characters."); return; }
+    if (courts.length > 0 && !courtId) { setError("Please select a court."); return; }
     if (startTime >= endTime) { setError("Start time must be before end time."); return; }
     if (contactNumber.trim()) {
       const cleaned = contactNumber.replace(/[\s\-().]/g, "");
@@ -243,7 +256,7 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
       const res = await fetch("/api/worker/bookings", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ bookingDate, startTime, endTime, playerName: playerName.trim(), contactNumber: contactNumber.trim() || undefined, specialRequests: notes.trim() || undefined }),
+        body:    JSON.stringify({ courtId: courtId || undefined, bookingDate, startTime, endTime, playerName: playerName.trim(), contactNumber: contactNumber.trim() || undefined, specialRequests: notes.trim() || undefined }),
       });
       const d = await res.json();
       if (res.ok) { onCreated(); }
@@ -253,81 +266,104 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
-              <Plus className="w-4 h-4 text-blue-600" />
+        <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 sticky top-0 bg-white z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+              <Plus className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-base">Add Phone Booking</h3>
-              <p className="text-xs text-slate-400">{facility ? `${facility.name} · ${facility.city}` : "Loading…"}</p>
+              <h3 className="font-bold text-slate-900 text-lg">Add Phone Booking</h3>
+              <p className="text-sm text-slate-400">{facility ? `${facility.name} · ${facility.city}` : "Loading…"}</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1.5"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        <div className="px-8 py-6 space-y-6">
+
+          {/* Court selector — only when facility has courts */}
+          {courts.length > 0 && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Court / Field</p>
+              <div className="grid grid-cols-2 gap-3">
+                {courts.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setCourtId(c.id)}
+                    className={`flex items-center gap-3 px-4 py-3.5 rounded-xl border text-sm font-medium transition-all text-left ${
+                      courtId === c.id
+                        ? "border-blue-400 bg-blue-50 text-blue-700"
+                        : "border-slate-200 text-slate-600 hover:border-slate-300"
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                      courtId === c.id ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"
+                    }`}>
+                      {c.name[0].toUpperCase()}
+                    </div>
+                    <span className="truncate">{c.name}</span>
+                  </button>
+                ))}
+              </div>
+              {courts.length > 0 && !courtId && (
+                <p className="text-sm text-amber-600 mt-2 ml-0.5">Select a court to continue</p>
+              )}
+            </div>
+          )}
+
+          {courts.length > 0 && <div className="border-t border-slate-100" />}
+
           {/* Booking Time */}
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3">Booking Time</p>
-            <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Booking Time</p>
+            <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5 mb-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-blue-500" /> Date *
+                <label className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
+                  <Calendar className="w-4 h-4 text-blue-500" /> Date *
                 </label>
                 <div className="relative">
-                  <input type="date" value={bookingDate} min={today} onChange={(e) => setBookingDate(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input type="date" value={bookingDate} min={today} max={maxDate} onChange={(e) => setBookingDate(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-blue-500" />
                   {(isToday || isTomorrow) && (
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full pointer-events-none">
                       {isToday ? "Today" : "Tomorrow"}
                     </span>
                   )}
                 </div>
-                {bookingDate && <p className="text-xs text-slate-400 mt-1">{fmtShort(bookingDate)}</p>}
+                {bookingDate && <p className="text-sm text-slate-400 mt-1.5">{fmtShort(bookingDate)}</p>}
                 {daySchedule?.closed && (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <p className="text-sm text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-4 py-2.5 mt-2 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
                     Facility is normally closed on this day.
                   </p>
                 )}
                 {daySchedule && !daySchedule.closed && (
-                  <p className="text-xs text-slate-400 mt-1">Operating hours: {daySchedule.openTime} – {daySchedule.closeTime}</p>
+                  <p className="text-sm text-slate-400 mt-1.5">Operating hours: {daySchedule.openTime} – {daySchedule.closeTime}</p>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5 mb-1.5">
-                    <Clock className="w-3.5 h-3.5 text-blue-500" /> Start Time *
-                  </label>
-                  <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5 mb-1.5">
-                    <Clock className="w-3.5 h-3.5 text-blue-500" /> End Time *
-                  </label>
-                  <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-              </div>
-              {durationMins > 0 && (
+              <TimeRangePicker
+                openTime={daySchedule && !daySchedule.closed ? daySchedule.openTime  : undefined}
+                closeTime={daySchedule && !daySchedule.closed ? daySchedule.closeTime : undefined}
+                startTime={startTime}
+                endTime={endTime}
+                onChange={(s, e) => { setStartTime(s); setEndTime(e); }}
+                accent="blue"
+              />
+              {durationMins > 0 && facility && (
                 <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm text-blue-700">
                     <Clock3 className="w-4 h-4" />
                     <span className="font-semibold">
                       {durationHrs % 1 === 0 ? `${durationHrs} hr${durationHrs !== 1 ? "s" : ""}` : `${durationHrs.toFixed(1)} hrs`}
                     </span>
-                    <span className="text-blue-400 text-xs">· {startTime} to {endTime}</span>
                   </div>
-                  {facility && (
-                    <div className="text-right">
-                      <p className="text-xs text-blue-400">Estimated</p>
-                      <p className="text-sm font-bold text-blue-700">Rs. {estimatedAmt.toLocaleString()}</p>
-                    </div>
-                  )}
+                  <div className="text-right">
+                    <p className="text-xs text-blue-400">Estimated</p>
+                    <p className="text-sm font-bold text-blue-700">Rs. {estimatedAmt.toLocaleString()}</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -337,28 +373,28 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
 
           {/* Player Details */}
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3">Player Details</p>
-            <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Player Details</p>
+            <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5 mb-1.5">
-                  <User className="w-3.5 h-3.5 text-blue-500" /> Player Name *
+                <label className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
+                  <User className="w-4 h-4 text-blue-500" /> Player Name *
                 </label>
                 <input type="text" value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="e.g. Ashan Fernando"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-300" />
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-300" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5 mb-1.5">
-                  <Phone className="w-3.5 h-3.5 text-blue-500" /> Contact Number
+                <label className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
+                  <Phone className="w-4 h-4 text-blue-500" /> Contact Number
                 </label>
                 <input type="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} placeholder="07X XXX XXXX"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-300" />
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-300" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5 mb-1.5">
-                  <StickyNote className="w-3.5 h-3.5 text-blue-500" /> Notes
+                <label className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
+                  <StickyNote className="w-4 h-4 text-blue-500" /> Notes
                 </label>
                 <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Any special requests…"
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-300 resize-none" />
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-300 resize-none" />
               </div>
             </div>
           </div>
@@ -368,20 +404,21 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
             <>
               <div className="border-t border-slate-100" />
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3">Booking Summary</p>
-                <div className="bg-slate-50 rounded-xl border border-slate-100 divide-y divide-slate-100 text-sm overflow-hidden">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Booking Summary</p>
+                <div className="bg-slate-50 rounded-xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">
                   {[
                     { icon: MapPin,    label: "Ground",   value: facility ? `${facility.name}, ${facility.city}` : "—" },
+                    ...(courtId ? [{ icon: BadgeInfo, label: "Court", value: courts.find((c) => c.id === courtId)?.name ?? courtId }] : []),
                     { icon: User,      label: "Player",   value: playerName.trim() },
                     { icon: Calendar,  label: "Date",     value: bookingDate ? fmtShort(bookingDate) : "—" },
                     { icon: Clock,     label: "Time",     value: `${startTime} – ${endTime}` },
                     { icon: Clock3,    label: "Duration", value: durationHrs % 1 === 0 ? `${durationHrs} hr${durationHrs !== 1 ? "s" : ""}` : `${durationHrs.toFixed(1)} hrs` },
                     { icon: BadgeInfo, label: "Amount",   value: facility ? `Rs. ${estimatedAmt.toLocaleString()} (cash on arrival)` : "—" },
                   ].map(({ icon: Icon, label, value }) => (
-                    <div key={label} className="flex items-center gap-3 px-4 py-2.5">
-                      <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="text-slate-400 w-20 shrink-0">{label}</span>
-                      <span className="font-medium text-slate-800 truncate">{value}</span>
+                    <div key={label} className="flex items-center gap-3 px-5 py-3">
+                      <Icon className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span className="text-sm text-slate-400 w-20 shrink-0">{label}</span>
+                      <span className="text-sm font-medium text-slate-800 truncate">{value}</span>
                     </div>
                   ))}
                 </div>
@@ -390,16 +427,16 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
           )}
 
           {error && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 flex items-center gap-2">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />{error}
             </p>
           )}
 
           <div className="flex gap-3 pb-1">
-            <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:border-slate-300 transition-colors">Cancel</button>
+            <button onClick={onClose} className="flex-1 py-3.5 border border-slate-200 rounded-xl text-base text-slate-600 font-medium hover:border-slate-300 transition-colors">Cancel</button>
             <button onClick={handleSubmit} disabled={submitting}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors">
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-base font-semibold rounded-xl transition-colors">
+              {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
               Confirm Booking
             </button>
           </div>

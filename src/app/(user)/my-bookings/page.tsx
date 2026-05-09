@@ -20,6 +20,7 @@ interface Booking {
   specialRequests: string | null;
   createdAt: string;
   hasReview: boolean;
+  court: { name: string } | null;
   facility: {
     name: string;
     city: string;
@@ -320,6 +321,11 @@ export default function MyBookingsPage() {
                           ({b.totalHours} {b.totalHours === 1 ? "hr" : "hrs"})
                         </span>
                       </div>
+                      {b.court && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full">
+                          {b.court.name}
+                        </span>
+                      )}
                       <span className="font-semibold text-slate-900 ml-auto">
                         Rs. {b.totalAmount.toLocaleString()}
                       </span>

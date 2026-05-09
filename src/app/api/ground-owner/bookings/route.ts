@@ -42,8 +42,9 @@ export async function GET(req: NextRequest) {
         ...(Object.keys(dateFilter).length > 0 && { bookingDate: dateFilter }),
       },
       include: {
-        user: { select: { name: true, email: true, phone: true } },
+        user:     { select: { name: true, email: true, phone: true } },
         facility: { select: { name: true, city: true } },
+        court:    { select: { name: true } },
       },
       orderBy: [{ bookingDate: "desc" }, { startTime: "asc" }],
     });
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { facilityId, bookingDate, startTime, endTime, playerName, contactNumber, notes } =
+    const { facilityId, courtId, bookingDate, startTime, endTime, playerName, contactNumber, notes } =
       await req.json();
 
     if (!facilityId || !bookingDate || !startTime || !endTime || !playerName?.trim()) {
@@ -102,9 +103,19 @@ export async function POST(req: NextRequest) {
     }
 
     const facility = await db.sportsFacility.findUnique({
-      where: { id: facilityId, status: "ACTIVE" },
+      where:   { id: facilityId, status: "ACTIVE" },
+      include: { courts: { where: { isActive: true }, select: { id: true } } },
     });
     if (!facility) return Response.json({ error: "Facility is not active." }, { status: 404 });
+
+    // Validate courtId when facility has courts
+    const resolvedCourtId = courtId || null;
+    if (facility.courts.length > 0 && !resolvedCourtId) {
+      return Response.json({ error: "Please select a court for this walk-in booking." }, { status: 400 });
+    }
+    if (resolvedCourtId && !facility.courts.some((c) => c.id === resolvedCourtId)) {
+      return Response.json({ error: "Selected court is not valid." }, { status: 400 });
+    }
 
     // Conflict check — use date range (not exact equality) to be timezone-safe
     const startOfDay = new Date(bookingDate); startOfDay.setUTCHours(0, 0, 0, 0);
@@ -112,6 +123,7 @@ export async function POST(req: NextRequest) {
     const conflict = await db.facilityBooking.findFirst({
       where: {
         facilityId,
+        ...(resolvedCourtId ? { courtId: resolvedCourtId } : {}),
         bookingDate: { gte: startOfDay, lte: endOfDay },
         status: { in: ["CONFIRMED", "PENDING"] },
         AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
@@ -146,6 +158,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId:          session.user.id,
         facilityId,
+        courtId:         resolvedCourtId,
         bookingDate:     dateObj,
         startTime,
         endTime,
@@ -160,6 +173,7 @@ export async function POST(req: NextRequest) {
       include: {
         user:     { select: { name: true, email: true, phone: true } },
         facility: { select: { name: true, city: true } },
+        court:    { select: { name: true } },
       },
     });
 

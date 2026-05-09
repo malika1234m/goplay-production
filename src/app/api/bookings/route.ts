@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
 
     const {
       facilityId,
+      courtId,
       bookingDate,
       startTime,
       endTime,
@@ -33,6 +34,15 @@ export async function POST(req: NextRequest) {
 
     if (!facilityId || !bookingDate || !startTime || !endTime) {
       return Response.json({ error: "facilityId, bookingDate, startTime and endTime are required." }, { status: 400 });
+    }
+
+    const maxAdvance = new Date();
+    maxAdvance.setUTCHours(0, 0, 0, 0);
+    maxAdvance.setDate(maxAdvance.getDate() + 60);
+    const requestedDate = new Date(bookingDate);
+    requestedDate.setUTCHours(0, 0, 0, 0);
+    if (requestedDate > maxAdvance) {
+      return Response.json({ error: "Bookings can only be made up to 60 days in advance." }, { status: 400 });
     }
     if (!contactNumber?.trim()) {
       return Response.json({ error: "Contact number is required." }, { status: 400 });
@@ -48,10 +58,24 @@ export async function POST(req: NextRequest) {
 
     const facility = await db.sportsFacility.findUnique({
       where: { id: facilityId, status: "ACTIVE" },
-      include: { owner: { include: { user: { select: { id: true, name: true, email: true } } } } },
+      include: {
+        owner:  { include: { user: { select: { id: true, name: true, email: true } } } },
+        courts: { where: { isActive: true }, select: { id: true } },
+      },
     });
     if (!facility) {
       return Response.json({ error: "Facility not found or not available." }, { status: 404 });
+    }
+
+    // Validate courtId when the facility has courts defined
+    if (facility.courts.length > 0) {
+      if (!courtId) {
+        return Response.json({ error: "Please select a court to book." }, { status: 400 });
+      }
+      const validCourt = facility.courts.find((c) => c.id === courtId);
+      if (!validCourt) {
+        return Response.json({ error: "Selected court is not available." }, { status: 400 });
+      }
     }
 
     // Normalize to UTC midnight so date comparisons are timezone-safe
@@ -91,6 +115,7 @@ export async function POST(req: NextRequest) {
     await db.facilityBooking.updateMany({
       where: {
         facilityId,
+        ...(courtId ? { courtId } : {}),
         bookingDate:   { gte: startOfDay, lte: endOfDay },
         status:        "PENDING",
         paymentMethod: "ONLINE",
@@ -104,6 +129,7 @@ export async function POST(req: NextRequest) {
     const conflict = await db.facilityBooking.findFirst({
       where: {
         facilityId,
+        ...(courtId ? { courtId } : {}),
         bookingDate: { gte: startOfDay, lte: endOfDay },
         status: { in: ["CONFIRMED", "PENDING"] },
         AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
@@ -123,6 +149,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId:          session.user.id,
         facilityId,
+        courtId:         courtId || null,
         bookingDate:     startOfDay,
         startTime,
         endTime,
@@ -134,15 +161,20 @@ export async function POST(req: NextRequest) {
         contactNumber:   contactNumber  || null,
         specialRequests: specialRequests || null,
       },
-      include: { facility: { select: { name: true } } },
+      include: {
+        facility: { select: { name: true } },
+        court:    { select: { name: true } },
+      },
     });
+
+    const courtLabel = booking.court ? ` — ${booking.court.name}` : "";
 
     // Notification
     await db.notification.create({
       data: {
         userId:  session.user.id,
         title:   "Booking Received",
-        message: `Your booking at ${booking.facility.name} on ${bookingDate} from ${startTime} to ${endTime} is pending confirmation.`,
+        message: `Your booking at ${booking.facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime} is pending confirmation.`,
         type:    "info",
       },
     });
@@ -153,7 +185,7 @@ export async function POST(req: NextRequest) {
         data: {
           userId:  facility.owner.user.id,
           title:   "New Booking Received",
-          message: `${session.user.name ?? "A player"} has booked ${facility.name} on ${bookingDate} from ${startTime} to ${endTime}. Payment: Cash on Arrival (Rs. ${totalAmount.toLocaleString()}).`,
+          message: `${session.user.name ?? "A player"} has booked ${facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime}. Payment: Cash on Arrival (Rs. ${totalAmount.toLocaleString()}).`,
           type:    "info",
         },
       });
