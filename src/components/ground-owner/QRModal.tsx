@@ -70,8 +70,8 @@ export default function QRModal({ groundId, groundName, city, address, onClose }
     <div class="tagline">Book Sports Grounds Instantly</div>
     <div class="qr-wrap"><img src="${dataUrl}" alt="QR Code"/></div>
     <div class="ground-name">${groundName}</div>
-    <div class="ground-loc">📍 ${address}, ${city}</div>
-    <div class="cta">📱 Scan to Book Your Slot</div>
+    <div class="ground-loc">${address}, ${city}</div>
+    <div class="cta">Scan to Book Your Slot</div>
     <div class="url">${groundUrl}</div>
   </div>
   <script>window.onload=()=>{window.print();}<\/script>
@@ -114,9 +114,9 @@ export default function QRModal({ groundId, groundName, city, address, onClose }
             <canvas ref={canvasRef} className="block" />
           </div>
           <p className="text-sm font-semibold text-slate-900">{groundName}</p>
-          <p className="text-xs text-slate-500 mt-0.5">📍 {city}</p>
+          <p className="text-xs text-slate-500 mt-0.5">{city}</p>
           <div className="mt-3 bg-green-600 text-white text-xs font-bold px-4 py-2 rounded-lg inline-block">
-            📱 Scan to Book Your Slot
+            Scan to Book Your Slot
           </div>
         </div>
 
