@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import HomeSearch from "@/components/home/HomeSearch";
@@ -8,12 +9,12 @@ import {
 } from "lucide-react";
 
 const categories = [
-  { name: "Cricket",    emoji: "🏏", color: "bg-orange-50 text-orange-700 border-orange-100" },
-  { name: "Football",   emoji: "⚽", color: "bg-green-50 text-green-700 border-green-100" },
-  { name: "Basketball", emoji: "🏀", color: "bg-amber-50 text-amber-700 border-amber-100" },
-  { name: "Tennis",     emoji: "🎾", color: "bg-lime-50 text-lime-700 border-lime-100" },
-  { name: "Badminton",  emoji: "🏸", color: "bg-sky-50 text-sky-700 border-sky-100" },
-  { name: "Volleyball", emoji: "🏐", color: "bg-purple-50 text-purple-700 border-purple-100" },
+  { name: "Cricket",    image: "/sports/cricket.png"    },
+  { name: "Football",   image: "/sports/football.png"   },
+  { name: "Basketball", image: "/sports/basketball.png" },
+  { name: "Tennis",     image: "/sports/tennis.png"     },
+  { name: "Badminton",  image: "/sports/badminton.png"  },
+  { name: "Volleyball", image: "/sports/volleyball.png" },
 ];
 
 const features = [
@@ -75,15 +76,31 @@ export default function HomePage() {
             View all <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="flex gap-4 overflow-x-auto py-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {categories.map((cat) => (
             <Link
               key={cat.name}
               href={`/grounds?category=${cat.name.toLowerCase()}`}
-              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border ${cat.color} hover:shadow-md transition-all hover:-translate-y-0.5`}
+              className="group relative flex-shrink-0 w-52 h-72 overflow-hidden rounded-2xl shadow-lg transition-all duration-300 ease-out hover:scale-110 hover:shadow-2xl hover:z-10 z-0"
             >
-              <span className="text-3xl">{cat.emoji}</span>
-              <span className="text-sm font-medium">{cat.name}</span>
+              <Image
+                src={cat.image}
+                alt={cat.name}
+                fill
+                sizes="208px"
+                className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+              />
+              {/* gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
+              {/* sport label */}
+              <div className="absolute bottom-0 left-0 right-0 px-4 py-4">
+                <span className="text-white text-base font-bold tracking-wide drop-shadow">
+                  {cat.name}
+                </span>
+                <p className="text-white/70 text-xs mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  Book a slot →
+                </p>
+              </div>
             </Link>
           ))}
         </div>
