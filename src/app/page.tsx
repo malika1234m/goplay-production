@@ -3,6 +3,8 @@ import Image from "next/image";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import HomeSearch from "@/components/home/HomeSearch";
+import HeroImageSlider from "@/components/home/HeroImageSlider";
+import ListGroundButton from "@/components/home/ListGroundButton";
 import {
   Search, Star, Clock, Shield, ChevronRight,
   Zap, Users, CheckCircle, LifeBuoy, Building2,
@@ -47,8 +49,18 @@ export default function HomePage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-green-950 text-white py-14 sm:py-24 px-4">
-        <div className="max-w-7xl mx-auto">
+      <section className="relative overflow-hidden text-white py-14 sm:py-24 px-4 min-h-[520px] sm:min-h-[600px] flex items-center">
+
+        {/* Full-bleed background slider */}
+        <div className="absolute inset-0">
+          <HeroImageSlider />
+        </div>
+
+        {/* Dark overlay so text stays readable */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/85 via-slate-800/70 to-green-950/60" />
+
+        {/* Content */}
+        <div className="relative z-10 max-w-7xl mx-auto w-full">
           <div className="max-w-3xl">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-5 sm:mb-6">
               Book Sports Grounds{" "}
@@ -58,11 +70,10 @@ export default function HomePage() {
               Find the best cricket, football, tennis and more grounds near you.
               Real-time availability, instant confirmation.
             </p>
-
-            {/* Search bar */}
             <HomeSearch />
           </div>
         </div>
+
       </section>
 
       {/* Categories */}
@@ -181,31 +192,47 @@ export default function HomePage() {
       </section>
 
       {/* CTA — Ground Owner */}
-      <section className="bg-gradient-to-r from-green-600 to-green-700 py-16 px-4">
-        <div className="max-w-4xl mx-auto text-center text-white">
-          <h2 className="text-3xl font-bold mb-4">Own a Sports Ground?</h2>
-          <p className="text-green-100 mb-8 text-lg">
-            List your facility on GoPlay and reach thousands of players in your city.
-            Free to join, easy to manage.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link
-              href="/register?role=ground_owner"
-              className="bg-white text-green-700 font-semibold px-8 py-3 rounded-xl hover:bg-green-50 transition-colors"
-            >
-              List Your Ground — Free
-            </Link>
-            <Link
-              href="/grounds"
-              className="border border-white/50 text-white font-semibold px-8 py-3 rounded-xl hover:bg-white/10 transition-colors"
-            >
-              Browse as Player
-            </Link>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-8 text-green-100 text-sm">
-            <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" /> No listing fee</span>
-            <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" /> Easy dashboard</span>
-            <span className="flex items-center gap-2"><CheckCircle className="w-4 h-4" /> 24/7 support</span>
+      <section className="relative overflow-hidden min-h-[580px] sm:min-h-[640px] flex items-center px-4">
+        {/* background image */}
+        <Image
+          src="/sports/goplay-ground.png"
+          alt="GoPlay Sports Ground"
+          fill
+          sizes="100vw"
+          className="object-cover object-center"
+          priority
+        />
+        {/* light green overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-green-900/60 to-green-800/40" />
+
+        <div className="relative z-10 max-w-3xl mx-auto text-center text-white">
+          {/* frosted card behind all content */}
+          <div className="bg-black/40 backdrop-blur-sm rounded-3xl px-8 py-12 sm:px-14 sm:py-14 ring-1 ring-white/10 shadow-2xl">
+
+            <h2 className="text-4xl sm:text-5xl font-extrabold mb-5 drop-shadow-lg">
+              Own a Sports Ground?
+            </h2>
+            <p className="text-white text-lg sm:text-xl font-medium mb-10 leading-relaxed drop-shadow">
+              List your facility on GoPlay and reach thousands of players in your city.
+              Free to join, easy to manage.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
+              <ListGroundButton />
+              <Link
+                href="/grounds"
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/60 text-white font-bold px-10 py-4 rounded-xl transition-colors text-base"
+              >
+                Browse as Player
+              </Link>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-white font-semibold text-sm">
+              <span className="flex items-center gap-2 drop-shadow"><CheckCircle className="w-4 h-4 text-green-400" /> No listing fee</span>
+              <span className="flex items-center gap-2 drop-shadow"><CheckCircle className="w-4 h-4 text-green-400" /> Easy dashboard</span>
+              <span className="flex items-center gap-2 drop-shadow"><CheckCircle className="w-4 h-4 text-green-400" /> 24/7 support</span>
+            </div>
+
           </div>
         </div>
       </section>
