@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
   LayoutDashboard, Users, MapPin, DollarSign, BarChart2,
-  LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed, Menu, X,
+  LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed, Menu, X, UserCircle,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
@@ -23,6 +23,7 @@ const NAV = [
   { id: "geocode",       href: "/admin/geocode",        label: "Geocode Facilities", icon: LocateFixed },
   { id: "analytics",    href: "/admin/analytics",     label: "Analytics",         icon: BarChart2 },
   { id: "settings",     href: "/admin/settings",      label: "Settings",           icon: Settings },
+  { id: "profile",      href: "/admin/profile",       label: "My Profile",         icon: UserCircle },
 ];
 
 export default function AdminSidebar() {
@@ -179,17 +180,17 @@ export default function AdminSidebar() {
 
       {/* Footer */}
       <div className="border-t border-white/10 p-4">
-        <div className="flex items-center gap-3">
+        <Link href="/admin/profile" onClick={onClose} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
             {session?.user?.name?.[0]?.toUpperCase() ?? "A"}
           </div>
           {(!collapsed || onClose) && (
             <div className="min-w-0">
               <p className="text-sm font-semibold text-white truncate">{session?.user?.name ?? "Admin"}</p>
-              <p className="text-xs text-slate-400">Super Admin</p>
+              <p className="text-xs text-slate-400">Super Admin · Edit profile</p>
             </div>
           )}
-        </div>
+        </Link>
       </div>
     </aside>
   );
