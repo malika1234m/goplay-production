@@ -19,8 +19,8 @@ export default function Footer() {
               The easiest way to find and book sports grounds near you. Play more, worry less.
             </p>
             <div className="flex flex-col gap-2 mt-6 text-sm">
-              <a href="mailto:malikanishnatha4@gmail.com" className="flex items-center gap-2 hover:text-white transition-colors">
-                <Mail className="w-4 h-4" /> malikanishnatha4@gmail.com
+              <a href="mailto:official.goplay.support@gmail.com" className="flex items-center gap-2 hover:text-white transition-colors">
+                <Mail className="w-4 h-4" /> official.goplay.support@gmail.com
               </a>
               <a href="tel:+94740984416" className="flex items-center gap-2 hover:text-white transition-colors">
                 <Phone className="w-4 h-4" /> +94 74 098 4416

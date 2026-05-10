@@ -114,7 +114,7 @@ export default function TermsPage() {
           <Section title="12. Contact">
             <p>For questions about these Terms of Service:</p>
             <ul className="list-none space-y-1.5">
-              <li>📧 <a href="mailto:malikanishnatha4@gmail.com" className="text-green-600 hover:underline">malikanishnatha4@gmail.com</a></li>
+              <li>📧 <a href="mailto:official.goplay.support@gmail.com" className="text-green-600 hover:underline">official.goplay.support@gmail.com</a></li>
               <li>📞 <a href="tel:+94740984416" className="text-green-600 hover:underline">+94 74 098 4416</a></li>
             </ul>
           </Section>

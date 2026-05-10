@@ -144,7 +144,7 @@ export default function RefundPolicyPage() {
           <Section title="9. Contact Us">
             <p>For any refund-related queries, reach out to our support team:</p>
             <ul className="list-none space-y-1.5">
-              <li>📧 <a href="mailto:malikanishnatha4@gmail.com" className="text-green-600 hover:underline">malikanishnatha4@gmail.com</a></li>
+              <li>📧 <a href="mailto:official.goplay.support@gmail.com" className="text-green-600 hover:underline">official.goplay.support@gmail.com</a></li>
               <li>🌐 <Link href="/support" className="text-green-600 hover:underline">goplay.lk/support</Link></li>
             </ul>
           </Section>

@@ -84,18 +84,26 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Stats */}
+      {/* Momentum section */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-bold text-slate-900 mb-3">Just Getting Started</h2>
+          <p className="text-slate-500 max-w-xl mx-auto">
+            GoPlay is launching across Sri Lanka — starting in Colombo and expanding city by city.
+            Here's what's on the horizon.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center">
           {[
-            { value: "500+", label: "Bookings Made" },
-            { value: "20+",  label: "Facilities Listed" },
-            { value: "9",    label: "Cities Covered" },
-            { value: "4.8★", label: "Average Rating" },
-          ].map(({ value, label }) => (
+            { value: "Colombo",        label: "Launching First",              sub: "More cities coming soon" },
+            { value: "Instant",        label: "Booking Confirmation",         sub: "No calls. No waiting." },
+            { value: "Free",           label: "To List Your Facility",        sub: "Ground owners pay nothing upfront" },
+            { value: "24/7",           label: "Bookings Stay Open",           sub: "Players can book any time" },
+          ].map(({ value, label, sub }) => (
             <div key={label} className="bg-slate-50 rounded-2xl border border-slate-100 py-8 px-4">
               <p className="text-3xl font-extrabold text-green-600 mb-1">{value}</p>
-              <p className="text-sm text-slate-500">{label}</p>
+              <p className="text-sm font-semibold text-slate-700">{label}</p>
+              <p className="text-xs text-slate-400 mt-1">{sub}</p>
             </div>
           ))}
         </div>
@@ -107,8 +115,8 @@ export default function AboutPage() {
           <h2 className="text-2xl font-bold mb-3">Get in Touch</h2>
           <p className="text-green-100 mb-8">Have a question, partnership idea, or want to list your facility? We'd love to hear from you.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm font-medium">
-            <a href="mailto:malikanishnatha4@gmail.com" className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 px-5 py-3 rounded-xl transition-colors">
-              <Mail className="w-4 h-4" /> malikanishnatha4@gmail.com
+            <a href="mailto:official.goplay.support@gmail.com" className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 px-5 py-3 rounded-xl transition-colors">
+              <Mail className="w-4 h-4" /> official.goplay.support@gmail.com
             </a>
             <a href="tel:+94740984416" className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 px-5 py-3 rounded-xl transition-colors">
               <Phone className="w-4 h-4" /> +94 74 098 4416

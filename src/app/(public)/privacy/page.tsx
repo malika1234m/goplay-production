@@ -89,7 +89,7 @@ export default function PrivacyPage() {
               <li>Request deletion of your account and associated data</li>
               <li>Opt out of non-essential communications</li>
             </ul>
-            <p>To exercise these rights, contact us at <a href="mailto:malikanishnatha4@gmail.com" className="text-green-600 hover:underline">malikanishnatha4@gmail.com</a>.</p>
+            <p>To exercise these rights, contact us at <a href="mailto:official.goplay.support@gmail.com" className="text-green-600 hover:underline">official.goplay.support@gmail.com</a>.</p>
           </Section>
 
           <Section title="8. Third-Party Links">
@@ -103,7 +103,7 @@ export default function PrivacyPage() {
           <Section title="10. Contact Us">
             <p>If you have any questions or concerns about this Privacy Policy, please reach out:</p>
             <ul className="list-none space-y-1.5">
-              <li>📧 <a href="mailto:malikanishnatha4@gmail.com" className="text-green-600 hover:underline">malikanishnatha4@gmail.com</a></li>
+              <li>📧 <a href="mailto:official.goplay.support@gmail.com" className="text-green-600 hover:underline">official.goplay.support@gmail.com</a></li>
               <li>📞 <a href="tel:+94740984416" className="text-green-600 hover:underline">+94 74 098 4416</a></li>
             </ul>
           </Section>

@@ -154,10 +154,10 @@ export default function SupportPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href="mailto:malikanishnatha4@gmail.com"
+              href="mailto:official.goplay.support@gmail.com"
               className="flex items-center gap-2 bg-white text-green-700 font-semibold px-5 py-3 rounded-xl hover:bg-green-50 transition-colors text-sm"
             >
-              <Mail className="w-4 h-4" /> malikanishnatha4@gmail.com
+              <Mail className="w-4 h-4" /> official.goplay.support@gmail.com
             </a>
             <a
               href="tel:+94740984416"
