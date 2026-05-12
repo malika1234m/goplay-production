@@ -25,8 +25,8 @@ export default function WorkerDashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/worker/facility").then((r) => r.json()),
-      fetch(`/api/worker/bookings?date=${new Date().toISOString().split("T")[0]}`).then((r) => r.json()),
+      fetch("/api/worker/facility").then((r) => r.json()).catch(() => ({ error: "Network error." })),
+      fetch(`/api/worker/bookings?date=${new Date().toISOString().split("T")[0]}`).then((r) => r.json()).catch(() => ({ bookings: [] })),
     ]).then(([facData, bkData]) => {
       if (facData.error) { setError(facData.error); return; }
       setFacility(facData.facility);

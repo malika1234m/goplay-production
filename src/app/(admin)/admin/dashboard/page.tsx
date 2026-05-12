@@ -44,18 +44,22 @@ export default function AdminDashboardPage() {
   const [loading,    setLoading]    = useState(true);
 
   const loadChart = useCallback(async (days: number) => {
-    const res  = await fetch(`/api/admin/earnings/trends?days=${days}`);
-    const data = await res.json();
-    const labels:  string[] = data.trends?.labels  ?? [];
-    const revenue: number[] = data.trends?.revenue ?? [];
-    setChartData(labels.map((l, i) => ({ label: l, revenue: revenue[i] ?? 0 })));
+    try {
+      const res  = await fetch(`/api/admin/earnings/trends?days=${days}`);
+      const data = await res.json();
+      const labels:  string[] = data.trends?.labels  ?? [];
+      const revenue: number[] = data.trends?.revenue ?? [];
+      setChartData(labels.map((l, i) => ({ label: l, revenue: revenue[i] ?? 0 })));
+    } catch {
+      // keep existing chart data on network error
+    }
   }, []);
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/admin/stats").then((r) => r.json()),
-      fetch("/api/admin/users?role=").then((r) => r.json()),
-      fetch("/api/admin/earnings/trends?days=30").then((r) => r.json()),
+      fetch("/api/admin/stats").then((r) => r.json()).catch(() => ({})),
+      fetch("/api/admin/users?role=").then((r) => r.json()).catch(() => ({})),
+      fetch("/api/admin/earnings/trends?days=30").then((r) => r.json()).catch(() => ({})),
     ]).then(([s, u, t]) => {
       setStats(s.stats ?? null);
       setRecentUsers((u.users ?? []).slice(0, 8));

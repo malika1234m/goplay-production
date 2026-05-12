@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { BookingStatus } from "@prisma/client";
+
+const VALID_BOOKING_STATUSES = new Set<string>(Object.values(BookingStatus));
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,7 +13,8 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const status  = searchParams.get("status");
+    const statusRaw = searchParams.get("status");
+    const status    = statusRaw && VALID_BOOKING_STATUSES.has(statusRaw) ? (statusRaw as BookingStatus) : undefined;
     const history = searchParams.get("history") === "true";
     const from    = searchParams.get("from");   // YYYY-MM-DD
     const to      = searchParams.get("to");     // YYYY-MM-DD
@@ -38,7 +42,7 @@ export async function GET(req: NextRequest) {
       where: {
         facilityId:  { in: facilityIds },
         archivedAt:  null,
-        ...(status && { status: status as any }),
+        ...(status && { status }),
         ...(Object.keys(dateFilter).length > 0 && { bookingDate: dateFilter }),
       },
       include: {
@@ -47,6 +51,7 @@ export async function GET(req: NextRequest) {
         court:    { select: { name: true } },
       },
       orderBy: [{ bookingDate: "desc" }, { startTime: "asc" }],
+      take: 500,
     });
 
     return Response.json({ bookings });

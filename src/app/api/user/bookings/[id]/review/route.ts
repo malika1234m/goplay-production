@@ -37,6 +37,9 @@ export async function POST(
     if (!rating || rating < 1 || rating > 5) {
       return Response.json({ error: "Rating must be between 1 and 5." }, { status: 400 });
     }
+    if (reviewText && reviewText.length > 1000) {
+      return Response.json({ error: "Review must be under 1000 characters." }, { status: 400 });
+    }
 
     const booking = await db.facilityBooking.findUnique({
       where: { id },

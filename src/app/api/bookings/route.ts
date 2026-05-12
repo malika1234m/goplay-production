@@ -44,6 +44,18 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "facilityId, bookingDate, startTime and endTime are required." }, { status: 400 });
     }
 
+    const TIME_RE = /^\d{2}:\d{2}$/;
+    if (!TIME_RE.test(startTime) || !TIME_RE.test(endTime)) {
+      return Response.json({ error: "Times must be in HH:MM format." }, { status: 400 });
+    }
+    const toMinsValidation = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+    if (toMinsValidation(startTime) >= toMinsValidation(endTime)) {
+      return Response.json({ error: "Start time must be before end time." }, { status: 400 });
+    }
+    if (specialRequests && specialRequests.length > 500) {
+      return Response.json({ error: "Special requests must be under 500 characters." }, { status: 400 });
+    }
+
     const maxAdvance = new Date();
     maxAdvance.setUTCHours(0, 0, 0, 0);
     maxAdvance.setDate(maxAdvance.getDate() + 60);

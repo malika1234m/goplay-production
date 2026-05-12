@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { BookingStatus } from "@prisma/client";
+
+const VALID_BOOKING_STATUSES = new Set<string>(Object.values(BookingStatus));
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,13 +13,14 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
+    const statusRaw = searchParams.get("status");
+    const status    = statusRaw && VALID_BOOKING_STATUSES.has(statusRaw) ? (statusRaw as BookingStatus) : undefined;
 
     const [bookings, statusCounts] = await Promise.all([
       db.facilityBooking.findMany({
         where: {
           userId: session.user.id,
-          ...(status && { status: status as any }),
+          ...(status && { status }),
         },
         include: {
           facility: {

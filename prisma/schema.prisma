@@ -132,6 +132,8 @@ model Payout {
   isCommissionSettlement Boolean      @default(false)
 
   owner GroundOwnerProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, status])
 }
 
 model SportsCategory {
@@ -173,6 +175,11 @@ model SportsFacility {
   earnings     GroundEarning[]
   workers      FacilityWorker[]
   courts       FacilityCourt[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([city])
+  @@index([status, city])
 }
 
 model FacilityCourt {
@@ -211,6 +218,8 @@ model BlockedDate {
 
   facility SportsFacility  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   court    FacilityCourt?  @relation(fields: [courtId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId, date])
 }
 
 model FacilityBooking {
@@ -246,6 +255,13 @@ model FacilityBooking {
   court    FacilityCourt?  @relation(fields: [courtId], references: [id])
   review   FacilityReview?
   earning  GroundEarning?
+
+  @@index([userId])
+  @@index([facilityId])
+  @@index([status])
+  @@index([bookingDate])
+  @@index([userId, status])
+  @@index([facilityId, bookingDate])
 }
 
 model FacilityReview {
@@ -263,6 +279,9 @@ model FacilityReview {
   facility SportsFacility  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   booking  FacilityBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   reply    FacilityReviewReply?
+
+  @@index([facilityId])
+  @@index([userId])
 }
 
 model FacilityReviewReply {
@@ -303,6 +322,9 @@ model ProviderApplication {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([createdAt])
 }
 
 model GroundEarning {
@@ -325,6 +347,10 @@ model GroundEarning {
   booking  FacilityBooking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   facility SportsFacility     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   owner    GroundOwnerProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([facilityId])
+  @@index([earnedAt])
 }
 
 model PlatformSetting {
@@ -354,4 +380,6 @@ model FacilityWorker {
 
   facility SportsFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([facilityId])
 }

@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { ApplicationStatus } from "@prisma/client";
+
+const VALID_APP_STATUSES = new Set<string>(Object.values(ApplicationStatus));
 
 export async function GET(req: NextRequest) {
   try {
@@ -8,12 +11,13 @@ export async function GET(req: NextRequest) {
     if (!session?.user || session.user.role !== "ADMIN") return Response.json({ error: "Forbidden" }, { status: 403 });
 
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status") ?? "";
-    const q      = searchParams.get("q")      ?? "";
+    const statusRaw = searchParams.get("status") ?? "";
+    const q         = searchParams.get("q")      ?? "";
+    const status    = VALID_APP_STATUSES.has(statusRaw) ? (statusRaw as ApplicationStatus) : undefined;
 
     const applications = await db.providerApplication.findMany({
       where: {
-        ...(status && { status: status as any }),
+        ...(status && { status }),
         ...(q && {
           user: {
             OR: [

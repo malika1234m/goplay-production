@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { Role } from "@prisma/client";
+
+const VALID_ROLES = new Set<string>(Object.values(Role));
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,8 +13,9 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const q    = searchParams.get("q") ?? "";
-    const role = searchParams.get("role") ?? "";
+    const q       = searchParams.get("q")    ?? "";
+    const roleRaw = searchParams.get("role") ?? "";
+    const role    = VALID_ROLES.has(roleRaw) ? (roleRaw as Role) : undefined;
 
     const users = await db.user.findMany({
       where: {
@@ -19,7 +23,7 @@ export async function GET(req: NextRequest) {
           { name:  { contains: q, mode: "insensitive" } },
           { email: { contains: q, mode: "insensitive" } },
         ]}),
-        ...(role && { role: role as "USER" | "GROUND_OWNER" | "ADMIN" }),
+        ...(role && { role }),
       },
       select: {
         id:        true,
@@ -32,6 +36,7 @@ export async function GET(req: NextRequest) {
         _count: { select: { bookings: true } },
       },
       orderBy: { createdAt: "desc" },
+      take: 200,
     });
 
     return Response.json({

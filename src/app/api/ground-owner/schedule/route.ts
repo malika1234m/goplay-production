@@ -26,6 +26,10 @@ export async function GET(req: NextRequest) {
     if (!facilityId || !from || !to) {
       return Response.json({ error: "facilityId, from, and to are required." }, { status: 400 });
     }
+    const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    if (!DATE_RE.test(from) || !DATE_RE.test(to)) {
+      return Response.json({ error: "from and to must be in YYYY-MM-DD format." }, { status: 400 });
+    }
 
     const facilityIds = await getOwnedFacilityIds(session.user.id);
     if (!facilityIds.includes(facilityId)) {

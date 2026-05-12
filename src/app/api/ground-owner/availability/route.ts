@@ -59,6 +59,24 @@ export async function PUT(req: NextRequest) {
     if (!facilityId || !Array.isArray(schedule)) {
       return Response.json({ error: "facilityId and schedule array are required." }, { status: 400 });
     }
+    if (schedule.length > 7) {
+      return Response.json({ error: "Schedule cannot have more than 7 days." }, { status: 400 });
+    }
+
+    const TIME_RE = /^\d{2}:\d{2}$/;
+    for (const day of schedule) {
+      if (typeof day.dayOfWeek !== "number" || day.dayOfWeek < 0 || day.dayOfWeek > 6) {
+        return Response.json({ error: "dayOfWeek must be between 0 (Sun) and 6 (Sat)." }, { status: 400 });
+      }
+      if (day.isOpen) {
+        if (!TIME_RE.test(day.openTime) || !TIME_RE.test(day.closeTime)) {
+          return Response.json({ error: "openTime and closeTime must be in HH:MM format." }, { status: 400 });
+        }
+        if (day.openTime >= day.closeTime) {
+          return Response.json({ error: "closeTime must be after openTime." }, { status: 400 });
+        }
+      }
+    }
 
     const profile = await getProfile(session.user.id);
     if (!profile) return Response.json({ error: "Profile not found" }, { status: 404 });
@@ -73,8 +91,8 @@ export async function PUT(req: NextRequest) {
         facilityId,
         dayOfWeek: day.dayOfWeek,
         isOpen:    day.isOpen,
-        openTime:  day.openTime,
-        closeTime: day.closeTime,
+        openTime:  day.openTime  || "06:00",
+        closeTime: day.closeTime || "22:00",
       })),
     });
 

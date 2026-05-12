@@ -4,8 +4,8 @@ import { db } from "@/lib/db";
 // Archives COMPLETED and CANCELLED bookings older than 2 years.
 // Triggered by Vercel Cron (vercel.json) or any HTTP GET with the secret header.
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get("x-cron-secret");
-  if (secret !== process.env.CRON_SECRET) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || req.headers.get("x-cron-secret") !== cronSecret) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

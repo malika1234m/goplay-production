@@ -1,10 +1,19 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { isAllowed, getClientIp } from "@/lib/rateLimiter";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
+    // 3 attempts per hour per IP
+    if (!isAllowed(`forgot-pwd:${getClientIp(req)}`, 3, 60 * 60 * 1000)) {
+      return Response.json(
+        { message: "If that email is registered, a reset link has been sent." },
+        { status: 200 }
+      );
+    }
+
     const { email } = await req.json();
     if (!email?.trim()) {
       return Response.json({ error: "Email is required." }, { status: 400 });

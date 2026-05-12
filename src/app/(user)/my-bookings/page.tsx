@@ -256,11 +256,21 @@ export default function MyBookingsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const url = statusFilter ? `/api/user/bookings?status=${statusFilter}` : "/api/user/bookings";
-    const res  = await fetch(url);
-    const data = await res.json();
-    setBookings(data.bookings ?? []);
-    setLoading(false);
+    setError("");
+    try {
+      const url = statusFilter ? `/api/user/bookings?status=${statusFilter}` : "/api/user/bookings";
+      const res  = await fetch(url);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to load bookings.");
+      } else {
+        setBookings(data.bookings ?? []);
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   }, [statusFilter]);
 
   useEffect(() => { load(); }, [load]);

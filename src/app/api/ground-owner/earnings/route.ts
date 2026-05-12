@@ -11,7 +11,11 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const range = searchParams.get("range") ?? "all"; // "30d" | "90d" | "month" | "all"
+    const rangeRaw = searchParams.get("range") ?? "all";
+    const VALID_RANGES = ["30d", "90d", "month", "all"] as const;
+    const range = (VALID_RANGES as readonly string[]).includes(rangeRaw)
+      ? rangeRaw as typeof VALID_RANGES[number]
+      : "all";
 
     const profile = await db.groundOwnerProfile.findUnique({
       where: { userId: session.user.id },

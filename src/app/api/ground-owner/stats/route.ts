@@ -24,22 +24,22 @@ export async function GET() {
     const now        = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [allBookings, monthBookings, reviews, todayBookings] = await Promise.all([
-      db.facilityBooking.findMany({
+    const [totalBookings, monthRevenueAgg, reviewStats, todayBookings] = await Promise.all([
+      db.facilityBooking.count({
         where: { facilityId: { in: facilityIds }, status: "COMPLETED" },
-        select: { totalAmount: true },
       }),
-      db.facilityBooking.findMany({
+      db.facilityBooking.aggregate({
         where: {
           facilityId: { in: facilityIds },
           status: "COMPLETED",
           bookingDate: { gte: monthStart },
         },
-        select: { totalAmount: true },
+        _sum: { totalAmount: true },
       }),
-      db.facilityReview.findMany({
+      db.facilityReview.aggregate({
         where: { facilityId: { in: facilityIds } },
-        select: { rating: true },
+        _avg:   { rating: true },
+        _count: { rating: true },
       }),
       db.facilityBooking.findMany({
         where: {
@@ -59,11 +59,11 @@ export async function GET() {
       }),
     ]);
 
-    const monthlyRevenue = monthBookings.reduce((sum, b) => sum + b.totalAmount, 0);
-    const totalBookings  = allBookings.length; // only COMPLETED bookings count as earned
-    const avgRating      = reviews.length > 0
-      ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
+    const monthlyRevenue = monthRevenueAgg._sum.totalAmount ?? 0;
+    const avgRating      = reviewStats._avg.rating
+      ? Math.round(reviewStats._avg.rating * 10) / 10
       : null;
+    const totalReviews   = reviewStats._count.rating;
 
     return Response.json({
       stats: {
@@ -71,8 +71,8 @@ export async function GET() {
         totalBookings,
         activeGrounds: activeCount,
         totalGrounds: profile.facilities.length,
-        avgRating: avgRating ? Math.round(avgRating * 10) / 10 : null,
-        totalReviews: reviews.length,
+        avgRating,
+        totalReviews,
       },
       todayBookings: todayBookings.map((b) => ({
         id:            b.id,

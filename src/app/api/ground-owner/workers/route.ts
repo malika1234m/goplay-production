@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 async function getOwnedFacilityIds(userId: string) {
   const profile = await db.groundOwnerProfile.findUnique({
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     let user = await db.user.findUnique({ where: { email } });
 
-    const tempPassword = Math.random().toString(36).slice(-8);
+    const tempPassword = crypto.randomBytes(8).toString("base64url").slice(0, 10);
     let isNewAccount = false;
 
     if (!user) {

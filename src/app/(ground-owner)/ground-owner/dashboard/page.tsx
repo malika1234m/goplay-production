@@ -95,60 +95,79 @@ export default function GroundOwnerDashboard() {
 
   /* ── Fetch stats + today + performance ─── */
   const loadStats = useCallback(async () => {
-    const res  = await fetch("/api/ground-owner/stats");
-    const data = await res.json();
-    if (!res.ok) return;
-    setStats(data.stats);
-    setTodayList(data.todayBookings ?? []);
+    try {
+      const res  = await fetch("/api/ground-owner/stats");
+      const data = await res.json();
+      if (!res.ok) return;
+      setStats(data.stats);
+      setTodayList(data.todayBookings ?? []);
+    } catch { /* keep existing state on network error */ }
   }, []);
 
   /* ── Fetch pending bookings ─── */
   const loadPending = useCallback(async () => {
-    const res  = await fetch("/api/ground-owner/bookings?status=PENDING");
-    const data = await res.json();
-    setPending(
-      (data.bookings ?? []).slice(0, 5).map((b: any) => ({
-        id:           b.id,
-        userName:     b.user.name,
-        facilityName: b.facility.name,
-        bookingDate:  b.bookingDate,
-        startTime:    b.startTime,
-        endTime:      b.endTime,
-        totalAmount:  b.totalAmount,
-        createdAt:    b.createdAt,
-      }))
-    );
+    try {
+      const res  = await fetch("/api/ground-owner/bookings?status=PENDING");
+      const data = await res.json();
+      if (!res.ok) return;
+      setPending(
+        (data.bookings ?? []).slice(0, 5).map((b: {
+          id: string; user: { name: string }; facility: { name: string };
+          bookingDate: string; startTime: string; endTime: string;
+          totalAmount: number; createdAt: string;
+        }) => ({
+          id:           b.id,
+          userName:     b.user.name,
+          facilityName: b.facility.name,
+          bookingDate:  b.bookingDate,
+          startTime:    b.startTime,
+          endTime:      b.endTime,
+          totalAmount:  b.totalAmount,
+          createdAt:    b.createdAt,
+        }))
+      );
+    } catch { /* keep existing state */ }
   }, []);
 
   /* ── Fetch grounds with performance data ─── */
   const loadPerformance = useCallback(async () => {
-    const res  = await fetch("/api/ground-owner/grounds");
-    const data = await res.json();
-    if (!res.ok) return;
-    const grounds: GroundPerf[] = (data.grounds ?? []).map((g: any) => ({
-      id:            g.id,
-      name:          g.name,
-      totalBookings: g.totalBookings,
-      avgRating:     g.avgRating,
-      totalRevenue:  (g.totalBookings ?? 0) * (g.hourlyRate ?? 0),
-    }));
-    setPerformance(grounds.slice(0, 5));
+    try {
+      const res  = await fetch("/api/ground-owner/grounds");
+      const data = await res.json();
+      if (!res.ok) return;
+      const grounds: GroundPerf[] = (data.grounds ?? []).map((g: {
+        id: string; name: string; totalBookings: number;
+        avgRating: number | null; hourlyRate: number;
+      }) => ({
+        id:            g.id,
+        name:          g.name,
+        totalBookings: g.totalBookings,
+        avgRating:     g.avgRating,
+        totalRevenue:  (g.totalBookings ?? 0) * (g.hourlyRate ?? 0),
+      }));
+      setPerformance(grounds.slice(0, 5));
+    } catch { /* keep existing state */ }
   }, []);
 
   /* ── Fetch recent reviews ─── */
   const loadReviews = useCallback(async () => {
-    const res  = await fetch("/api/ground-owner/reviews?limit=3");
-    const data = await res.json();
-    setReviews(data.reviews ?? []);
+    try {
+      const res  = await fetch("/api/ground-owner/reviews");
+      const data = await res.json();
+      if (!res.ok) return;
+      setReviews((data.reviews ?? []).slice(0, 3));
+    } catch { /* keep existing state */ }
   }, []);
 
   /* ── Fetch earnings chart ─── */
   const loadChart = useCallback(async (days: number) => {
-    const res  = await fetch(`/api/ground-owner/earnings/trends?days=${days}`);
-    const data = await res.json();
-    const labels:  string[] = data.trends?.labels  ?? [];
-    const revenue: number[] = data.trends?.revenue ?? [];
-    setChartData(labels.map((l, i) => ({ label: l, revenue: revenue[i] ?? 0 })));
+    try {
+      const res  = await fetch(`/api/ground-owner/earnings/trends?days=${days}`);
+      const data = await res.json();
+      const labels:  string[] = data.trends?.labels  ?? [];
+      const revenue: number[] = data.trends?.revenue ?? [];
+      setChartData(labels.map((l, i) => ({ label: l, revenue: revenue[i] ?? 0 })));
+    } catch { /* keep existing chart data */ }
   }, []);
 
   /* ── Boot ─── */
@@ -167,16 +186,18 @@ export default function GroundOwnerDashboard() {
   /* ── Approve / decline pending ─── */
   const updateStatus = async (id: string, status: "CONFIRMED" | "CANCELLED") => {
     setUpdatingId(id);
-    const res = await fetch(`/api/ground-owner/bookings/${id}/status`, {
-      method:  "PUT",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ status }),
-    });
-    setUpdatingId(null);
-    if (res.ok) {
-      setPending((p) => p.filter((b) => b.id !== id));
-      loadStats();
-    }
+    try {
+      const res = await fetch(`/api/ground-owner/bookings/${id}/status`, {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        setPending((p) => p.filter((b) => b.id !== id));
+        loadStats();
+      }
+    } catch { /* network error — UI stays unchanged */ }
+    finally { setUpdatingId(null); }
   };
 
   /* ── Derived ─── */

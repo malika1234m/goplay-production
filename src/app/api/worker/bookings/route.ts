@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { BookingStatus } from "@prisma/client";
+
+const VALID_BOOKING_STATUSES = new Set<string>(Object.values(BookingStatus));
 
 async function getWorkerFacilityId(userId: string): Promise<string | null> {
   const w = await db.facilityWorker.findUnique({ where: { userId } });
@@ -25,7 +28,8 @@ export async function GET(req: NextRequest) {
     const history      = searchParams.get("history") === "true";
     const from         = searchParams.get("from");
     const to           = searchParams.get("to");
-    const statusFilter = searchParams.get("status");
+    const statusRaw    = searchParams.get("status");
+    const statusFilter = statusRaw && VALID_BOOKING_STATUSES.has(statusRaw) ? (statusRaw as BookingStatus) : undefined;
 
     let bookings;
 
@@ -52,7 +56,7 @@ export async function GET(req: NextRequest) {
         where: {
           facilityId,
           archivedAt:  null,
-          ...(statusFilter && { status: statusFilter as any }),
+          ...(statusFilter && { status: statusFilter }),
           ...(Object.keys(dateFilter).length > 0 && { bookingDate: dateFilter }),
         },
         include: { user: { select: { name: true, email: true, phone: true } }, court: { select: { name: true } } },
@@ -86,6 +90,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/worker/bookings  — walk-in booking (created as CONFIRMED, cash)
 export async function POST(req: NextRequest) {
+  try {
   const session = await auth();
   if (!session?.user || session.user.role !== "GROUND_WORKER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -222,4 +227,8 @@ export async function POST(req: NextRequest) {
   });
 
   return Response.json({ booking }, { status: 201 });
+  } catch (err) {
+    console.error("[POST /api/worker/bookings]", err);
+    return Response.json({ error: "Failed to create walk-in booking." }, { status: 500 });
+  }
 }

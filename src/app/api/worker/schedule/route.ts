@@ -7,7 +7,10 @@ async function getWorkerFacilityId(userId: string): Promise<string | null> {
   return w?.facilityId ?? null;
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export async function GET(req: NextRequest) {
+  try {
   const session = await auth();
   if (!session?.user || session.user.role !== "GROUND_WORKER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
@@ -21,6 +24,9 @@ export async function GET(req: NextRequest) {
   const to       = searchParams.get("to");
   const courtId  = searchParams.get("courtId") || null;
   if (!from || !to) return Response.json({ error: "from and to required." }, { status: 400 });
+  if (!DATE_RE.test(from) || !DATE_RE.test(to)) {
+    return Response.json({ error: "from and to must be in YYYY-MM-DD format." }, { status: 400 });
+  }
 
   const fromDate = new Date(from);
   const toDate   = new Date(to);
@@ -96,4 +102,8 @@ export async function GET(req: NextRequest) {
       reason:    b.reason,
     })),
   });
+  } catch (err) {
+    console.error("[GET /api/worker/schedule]", err);
+    return Response.json({ error: "Failed to fetch schedule." }, { status: 500 });
+  }
 }

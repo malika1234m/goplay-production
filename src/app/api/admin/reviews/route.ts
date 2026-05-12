@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
         booking:  { select: { bookingDate: true } },
       },
       orderBy: { createdAt: "desc" },
+      take: 200,
     });
 
     const totalReported = await db.facilityReview.count({ where: { reported: true } });

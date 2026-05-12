@@ -67,6 +67,12 @@ export async function PUT(req: NextRequest) {
     if (bio?.trim() && (bio as string).trim().length > 500) {
       return Response.json({ error: "Bio must be under 500 characters." }, { status: 400 });
     }
+    if (address?.trim() && (address as string).trim().length > 200) {
+      return Response.json({ error: "Address must be under 200 characters." }, { status: 400 });
+    }
+    if (city?.trim() && (city as string).trim().length > 50) {
+      return Response.json({ error: "City must be under 50 characters." }, { status: 400 });
+    }
 
     await db.user.update({
       where: { id: session.user.id },

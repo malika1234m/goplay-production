@@ -21,10 +21,6 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const facilityId = searchParams.get("facilityId");
 
-    const where = facilityId
-      ? { facilityId, facilityId_check: facilityIds.includes(facilityId) ? undefined : "invalid" }
-      : { facilityId: { in: facilityIds } };
-
     if (facilityId && !facilityIds.includes(facilityId)) {
       return Response.json({ error: "Not found." }, { status: 404 });
     }
@@ -62,6 +58,9 @@ export async function POST(req: NextRequest) {
     const { facilityId, date, reason, startTime, endTime } = await req.json();
     if (!facilityId || !date) {
       return Response.json({ error: "facilityId and date are required." }, { status: 400 });
+    }
+    if (reason && reason.length > 200) {
+      return Response.json({ error: "Reason must be under 200 characters." }, { status: 400 });
     }
 
     // If one time is provided both must be

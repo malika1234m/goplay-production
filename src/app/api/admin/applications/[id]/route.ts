@@ -16,7 +16,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const application = await db.providerApplication.findUnique({
       where:   { id },
-      include: { user: true },
+      include: { user: { select: { id: true, name: true, email: true, phone: true } } },
     });
     if (!application) return Response.json({ error: "Application not found." }, { status: 404 });
     if (application.status !== "PENDING") return Response.json({ error: "Application has already been reviewed." }, { status: 409 });

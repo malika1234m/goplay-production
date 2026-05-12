@@ -23,7 +23,13 @@ export async function GET(req: NextRequest) {
     const facilityIds = profile.facilities.map((f) => f.id);
 
     const where: Record<string, unknown> = { facilityId: { in: facilityIds } };
-    if (rating)              where.rating   = Number(rating);
+    const ratingNum = rating ? Number(rating) : null;
+    if (ratingNum !== null) {
+      if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+        return Response.json({ error: "Rating filter must be between 1 and 5." }, { status: 400 });
+      }
+      where.rating = ratingNum;
+    }
     if (reportFilter === "yes") where.reported = true;
     if (reportFilter === "no")  where.reported = false;
 
@@ -41,6 +47,7 @@ export async function GET(req: NextRequest) {
           facility: { select: { name: true } },
         },
         orderBy,
+        take: 100,
       }),
       db.facilityReview.findMany({
         where: { facilityId: { in: facilityIds } },
