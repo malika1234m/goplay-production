@@ -8,7 +8,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const ground = await db.sportsFacility.findUnique({
       where: { id, status: "ACTIVE" },
       include: {
-        categories: true,
+        categories:   { select: { name: true, icon: true } },
         availability: { orderBy: { dayOfWeek: "asc" } },
         courts: {
           where:   { isActive: true },
@@ -16,12 +16,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           select:  { id: true, name: true, description: true },
         },
         reviews: {
-          include: { user: { select: { name: true } }, reply: true },
+          select: {
+            id: true, rating: true, reviewText: true, createdAt: true,
+            user:  { select: { name: true } },
+            reply: { select: { reply: true } },
+          },
           orderBy: { createdAt: "desc" },
           take: 10,
         },
         owner: {
-          include: { user: { select: { name: true } } },
+          select: { user: { select: { name: true } } },
         },
       },
     });
@@ -30,24 +34,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return Response.json({ error: "Ground not found." }, { status: 404 });
     }
 
-    const avgRating =
-      ground.reviews.length > 0
-        ? ground.reviews.reduce((sum, r) => sum + r.rating, 0) / ground.reviews.length
-        : null;
+    const avgRating = ground.reviews.length > 0
+      ? ground.reviews.reduce((sum, r) => sum + r.rating, 0) / ground.reviews.length
+      : null;
 
     return Response.json({
       ground: {
-        id:          ground.id,
-        name:        ground.name,
-        description: ground.description,
-        address:     ground.address,
-        city:        ground.city,
-        hourlyRate:  ground.hourlyRate,
-        capacity:    ground.capacity,
-        amenities:   ground.amenities,
-        images:      ground.images,
-        categories:  ground.categories.map((c) => ({ name: c.name, icon: c.icon })),
-        courts:      ground.courts,
+        id:           ground.id,
+        name:         ground.name,
+        description:  ground.description,
+        address:      ground.address,
+        city:         ground.city,
+        hourlyRate:   ground.hourlyRate,
+        capacity:     ground.capacity,
+        amenities:    ground.amenities,
+        images:       ground.images,
+        categories:   ground.categories,
+        courts:       ground.courts,
         availability: ground.availability,
         reviews: ground.reviews.map((r) => ({
           id:         r.id,
@@ -60,6 +63,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         avgRating:    avgRating ? Math.round(avgRating * 10) / 10 : null,
         totalReviews: ground.reviews.length,
         ownerName:    ground.owner.user.name,
+      },
+    }, {
+      headers: {
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
       },
     });
   } catch (err) {

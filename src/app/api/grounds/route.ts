@@ -11,24 +11,36 @@ export async function GET(req: NextRequest) {
     const grounds = await db.sportsFacility.findMany({
       where: {
         status: "ACTIVE",
-        ...(q    && { name: { contains: q, mode: "insensitive" } }),
+        ...(q    && { OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { city: { contains: q, mode: "insensitive" } },
+        ]}),
         ...(city && { city: { contains: city, mode: "insensitive" } }),
         ...(category && {
           categories: { some: { name: { equals: category, mode: "insensitive" } } },
         }),
       },
-      include: {
-        categories: true,
-        reviews: { select: { rating: true } },
+      select: {
+        id:        true,
+        name:      true,
+        city:      true,
+        address:   true,
+        hourlyRate: true,
+        capacity:  true,
+        amenities: true,
+        images:    true,
+        categories: { select: { name: true, icon: true } },
+        _count:    { select: { reviews: true } },
+        reviews:   { select: { rating: true } },
       },
       orderBy: { createdAt: "desc" },
+      take: 100,
     });
 
     const result = grounds.map((g) => {
-      const avgRating =
-        g.reviews.length > 0
-          ? g.reviews.reduce((sum, r) => sum + r.rating, 0) / g.reviews.length
-          : null;
+      const avgRating = g.reviews.length > 0
+        ? g.reviews.reduce((sum, r) => sum + r.rating, 0) / g.reviews.length
+        : null;
       return {
         id:          g.id,
         name:        g.name,
@@ -38,13 +50,17 @@ export async function GET(req: NextRequest) {
         capacity:    g.capacity,
         amenities:   g.amenities,
         images:      g.images,
-        categories:  g.categories.map((c) => ({ name: c.name, icon: c.icon })),
+        categories:  g.categories,
         avgRating:   avgRating ? Math.round(avgRating * 10) / 10 : null,
-        totalReviews: g.reviews.length,
+        totalReviews: g._count.reviews,
       };
     });
 
-    return Response.json({ grounds: result });
+    return Response.json({ grounds: result }, {
+      headers: {
+        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+      },
+    });
   } catch (err) {
     console.error("[GET /api/grounds]", err);
     return Response.json({ error: "Failed to fetch grounds." }, { status: 500 });

@@ -8,7 +8,7 @@ export async function GET() {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const now       = new Date();
+    const now        = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonth  = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
@@ -18,7 +18,7 @@ export async function GET() {
       newUsersLastMonth,
       activeGrounds,
       pendingGrounds,
-      allCompleted,
+      totalRevenueAgg,
       monthRevenue,
       lastMonthRevenue,
     ] = await Promise.all([
@@ -27,7 +27,10 @@ export async function GET() {
       db.user.count({ where: { createdAt: { gte: lastMonth, lt: monthStart } } }),
       db.sportsFacility.count({ where: { status: "ACTIVE" } }),
       db.sportsFacility.count({ where: { status: "PENDING" } }),
-      db.facilityBooking.findMany({ where: { status: "COMPLETED" }, select: { totalAmount: true } }),
+      db.facilityBooking.aggregate({
+        where: { status: "COMPLETED" },
+        _sum: { totalAmount: true },
+      }),
       db.facilityBooking.aggregate({
         where: { status: "COMPLETED", bookingDate: { gte: monthStart } },
         _sum: { totalAmount: true },
@@ -38,11 +41,13 @@ export async function GET() {
       }),
     ]);
 
-    const totalRevenue    = allCompleted.reduce((s, b) => s + b.totalAmount, 0);
-    const thisMonthRev    = monthRevenue._sum.totalAmount ?? 0;
-    const lastMonthRev    = lastMonthRevenue._sum.totalAmount ?? 0;
-    const revenueChange   = lastMonthRev > 0 ? Math.round(((thisMonthRev - lastMonthRev) / lastMonthRev) * 100) : 0;
-    const usersChange     = lastMonth > new Date(0) ? newUsersThisMonth - newUsersLastMonth : 0;
+    const totalRevenue  = totalRevenueAgg._sum.totalAmount ?? 0;
+    const thisMonthRev  = monthRevenue._sum.totalAmount ?? 0;
+    const lastMonthRev  = lastMonthRevenue._sum.totalAmount ?? 0;
+    const revenueChange = lastMonthRev > 0
+      ? Math.round(((thisMonthRev - lastMonthRev) / lastMonthRev) * 100)
+      : 0;
+    const usersChange   = newUsersThisMonth - newUsersLastMonth;
 
     return Response.json({
       stats: {

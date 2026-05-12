@@ -12,32 +12,39 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
 
-    const bookings = await db.facilityBooking.findMany({
-      where: {
-        userId: session.user.id,
-        ...(status && { status: status as any }),
-      },
-      include: {
-        facility: {
-          select: { name: true, city: true, address: true, categories: { select: { name: true, icon: true } } },
+    const [bookings, statusCounts] = await Promise.all([
+      db.facilityBooking.findMany({
+        where: {
+          userId: session.user.id,
+          ...(status && { status: status as any }),
         },
-        court:  { select: { name: true } },
-        review: { select: { id: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+        include: {
+          facility: {
+            select: {
+              name: true, city: true, address: true,
+              categories: { select: { name: true, icon: true } },
+            },
+          },
+          court:  { select: { name: true } },
+          review: { select: { id: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      db.facilityBooking.groupBy({
+        by:     ["status"],
+        where:  { userId: session.user.id },
+        _count: true,
+      }),
+    ]);
 
-    // Stats
-    const all = await db.facilityBooking.findMany({
-      where: { userId: session.user.id },
-      select: { status: true },
-    });
+    const count = (s: string) =>
+      statusCounts.find((g) => g.status === s)?._count ?? 0;
 
     const stats = {
-      total:     all.length,
-      upcoming:  all.filter((b) => b.status === "CONFIRMED" || b.status === "PENDING").length,
-      completed: all.filter((b) => b.status === "COMPLETED").length,
-      cancelled: all.filter((b) => b.status === "CANCELLED").length,
+      total:     statusCounts.reduce((sum, g) => sum + g._count, 0),
+      upcoming:  count("CONFIRMED") + count("PENDING"),
+      completed: count("COMPLETED"),
+      cancelled: count("CANCELLED"),
     };
 
     const mapped = bookings.map(({ review, ...b }) => ({ ...b, hasReview: !!review }));
