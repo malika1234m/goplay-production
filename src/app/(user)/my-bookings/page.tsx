@@ -28,7 +28,7 @@ interface Booking {
     name: string;
     city: string;
     address: string;
-    category: { name: string; icon: string | null };
+    categories: { name: string; icon: string | null }[];
   };
 }
 
@@ -398,7 +398,8 @@ export default function MyBookingsPage() {
       ) : (
         <div className="flex flex-col gap-4">
           {filtered.map((b) => {
-            const icon         = b.facility.category.icon ?? categoryEmoji[b.facility.category.name] ?? "🏟️";
+            const primaryCat   = b.facility.categories?.[0];
+            const icon         = primaryCat?.icon ?? categoryEmoji[primaryCat?.name ?? ""] ?? "🏟️";
             const isCancellable = b.status === "PENDING" || b.status === "CONFIRMED";
             const canReview     = b.status === "COMPLETED" && !b.hasReview;
 

@@ -8,7 +8,6 @@ export async function POST(req: NextRequest) {
     if (!session?.user) return Response.json({ error: "You must be logged in." }, { status: 401 });
     if (session.user.role !== "USER") return Response.json({ error: "Only regular users can apply to become a provider." }, { status: 403 });
 
-    // Block if already has a pending application
     const existing = await db.providerApplication.findFirst({
       where: { userId: session.user.id, status: "PENDING" },
     });
@@ -16,12 +15,15 @@ export async function POST(req: NextRequest) {
 
     const {
       phone, address, city,
-      facilityName, facilityAddress, facilityCity, categoryId,
+      facilityName, facilityAddress, facilityCity, categoryIds,
       proposedHourlyRate, capacity, amenities, facilityDescription,
     } = await req.json();
 
-    if (!phone || !address || !city || !facilityName || !facilityAddress || !facilityCity || !categoryId || !proposedHourlyRate) {
+    if (!phone || !address || !city || !facilityName || !facilityAddress || !facilityCity || !proposedHourlyRate) {
       return Response.json({ error: "All required fields must be filled." }, { status: 400 });
+    }
+    if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
+      return Response.json({ error: "At least one sport category is required." }, { status: 400 });
     }
 
     const application = await db.providerApplication.create({
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest) {
         facilityName:       facilityName.trim(),
         facilityAddress:    facilityAddress.trim(),
         facilityCity:       facilityCity.trim(),
-        categoryId,
+        categoryIds,
         proposedHourlyRate: Number(proposedHourlyRate),
         capacity:           capacity ? Number(capacity) : null,
         amenities:          amenities ?? [],
@@ -41,7 +43,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Notify the user
     await db.notification.create({
       data: {
         userId:  session.user.id,

@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
   User, MapPin, Building2, DollarSign, Users, AlignLeft,
-  Tag, CheckCircle, ChevronRight, ChevronLeft, Loader2,
+  CheckCircle, ChevronRight, ChevronLeft, Loader2,
   Phone, AlertCircle,
 } from "lucide-react";
 
@@ -35,7 +35,7 @@ export default function BecomeProviderPage() {
   const [form, setForm] = useState({
     phone: "", address: "", city: "",
     facilityName: "", facilityAddress: "", facilityCity: "",
-    categoryId: "", proposedHourlyRate: "", capacity: "",
+    categoryIds: [] as string[], proposedHourlyRate: "", capacity: "",
     amenities: [] as string[], facilityDescription: "",
   });
 
@@ -56,6 +56,14 @@ export default function BecomeProviderPage() {
       amenities: f.amenities.includes(a) ? f.amenities.filter((x) => x !== a) : [...f.amenities, a],
     }));
 
+  const toggleCategory = (id: string) =>
+    setForm((f) => ({
+      ...f,
+      categoryIds: f.categoryIds.includes(id)
+        ? f.categoryIds.filter((x) => x !== id)
+        : [...f.categoryIds, id],
+    }));
+
   const validateStep = () => {
     if (step === 1) {
       if (!form.phone.trim()) { setError("Phone number is required."); return false; }
@@ -68,7 +76,7 @@ export default function BecomeProviderPage() {
       if (!form.facilityName.trim())    { setError("Facility name is required."); return false; }
       if (!form.facilityAddress.trim()) { setError("Facility address is required."); return false; }
       if (!form.facilityCity.trim())    { setError("Facility city is required."); return false; }
-      if (!form.categoryId)             { setError("Please select a sport category."); return false; }
+      if (form.categoryIds.length === 0) { setError("Please select at least one sport."); return false; }
       if (!form.proposedHourlyRate || Number(form.proposedHourlyRate) < 1) {
         setError("Please enter a valid hourly rate."); return false;
       }
@@ -89,6 +97,7 @@ export default function BecomeProviderPage() {
         ...form,
         proposedHourlyRate: Number(form.proposedHourlyRate),
         capacity:           form.capacity ? Number(form.capacity) : undefined,
+        categoryIds:        form.categoryIds,
       }),
     });
     const data = await res.json();
@@ -164,8 +173,6 @@ export default function BecomeProviderPage() {
       </div>
     );
   }
-
-  const selectedCategory = categories.find((c) => c.id === form.categoryId);
 
   return (
     <div className="max-w-2xl mx-auto w-full flex flex-col gap-8 pb-8">
@@ -261,14 +268,31 @@ export default function BecomeProviderPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Sport Category <span className="text-red-400">*</span></label>
-              <div className="relative">
-                <Tag className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-green-500 bg-white">
-                  <option value="">Select sport type</option>
-                  {categories.map((c) => <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ""}{c.name}</option>)}
-                </select>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                Sports <span className="text-red-400">*</span>
+                {form.categoryIds.length > 0 && (
+                  <span className="ml-2 normal-case font-normal text-green-600">{form.categoryIds.length} selected</span>
+                )}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((c) => {
+                  const on = form.categoryIds.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => toggleCategory(c.id)}
+                      className={`px-3.5 py-2 text-xs font-medium rounded-xl border transition-colors ${
+                        on
+                          ? "bg-green-600 border-green-600 text-white"
+                          : "bg-white border-slate-200 text-slate-600 hover:border-green-400 hover:text-green-600"
+                      }`}
+                    >
+                      {c.icon ? `${c.icon} ` : ""}{c.name}
+                    </button>
+                  );
+                })}
+                {categories.length === 0 && <p className="text-xs text-slate-400">Loading…</p>}
               </div>
             </div>
 
@@ -363,7 +387,14 @@ export default function BecomeProviderPage() {
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Facility Details</p>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="col-span-2"><p className="text-xs text-slate-400">Facility Name</p><p className="font-medium text-slate-900">{form.facilityName}</p></div>
-                  <div><p className="text-xs text-slate-400">Sport</p><p className="font-medium text-slate-900">{selectedCategory?.icon} {selectedCategory?.name}</p></div>
+                  <div>
+                    <p className="text-xs text-slate-400">Sports</p>
+                    <p className="font-medium text-slate-900">
+                      {form.categoryIds
+                        .map((id) => { const c = categories.find((x) => x.id === id); return c ? `${c.icon ?? ""} ${c.name}`.trim() : id; })
+                        .join(", ") || "—"}
+                    </p>
+                  </div>
                   <div><p className="text-xs text-slate-400">Hourly Rate</p><p className="font-medium text-slate-900">Rs. {Number(form.proposedHourlyRate).toLocaleString()}</p></div>
                   <div className="col-span-2"><p className="text-xs text-slate-400">Location</p><p className="font-medium text-slate-900">{form.facilityAddress}, {form.facilityCity}</p></div>
                   {form.capacity && <div><p className="text-xs text-slate-400">Capacity</p><p className="font-medium text-slate-900">{form.capacity} players</p></div>}

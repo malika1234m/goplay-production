@@ -20,7 +20,7 @@ export async function GET() {
           facility: {
             select: {
               name: true, city: true, address: true,
-              category: { select: { name: true, icon: true } },
+              categories: { select: { name: true, icon: true } },
             },
           },
         },

@@ -17,7 +17,7 @@ export async function GET() {
     const grounds = await db.sportsFacility.findMany({
       where: { ownerId: profile.id },
       include: {
-        category: true,
+        categories: true,
         reviews: { select: { rating: true } },
         _count: { select: { bookings: true, courts: true } },
       },
@@ -33,8 +33,7 @@ export async function GET() {
       capacity:      g.capacity,
       status:        g.status,
       images:        g.images,
-      category:      g.category.name,
-      categoryIcon:  g.category.icon,
+      categories:    g.categories.map((c) => ({ id: c.id, name: c.name, icon: c.icon })),
       totalBookings: g._count.bookings,
       courtCount:    g._count.courts,
       avgRating:     g.reviews.length > 0
@@ -62,7 +61,7 @@ export async function POST(req: NextRequest) {
     });
     if (!profile) return Response.json({ error: "Profile not found" }, { status: 404 });
 
-    const { name, description, address, city, hourlyRate, capacity, amenities, categoryId, images } = await req.json();
+    const { name, description, address, city, hourlyRate, capacity, amenities, categoryIds, images } = await req.json();
 
     const trimmedName    = (name    ?? "").trim();
     const trimmedAddress = (address ?? "").trim();
@@ -72,7 +71,8 @@ export async function POST(req: NextRequest) {
     if (trimmedName.length > 100)                     return Response.json({ error: "Ground name must be under 100 characters." }, { status: 400 });
     if (!trimmedAddress || trimmedAddress.length < 5) return Response.json({ error: "Address must be at least 5 characters." }, { status: 400 });
     if (!trimmedCity || trimmedCity.length < 2)       return Response.json({ error: "City must be at least 2 characters." }, { status: 400 });
-    if (!categoryId)                                  return Response.json({ error: "Sport category is required." }, { status: 400 });
+    if (!Array.isArray(categoryIds) || categoryIds.length === 0)
+      return Response.json({ error: "At least one sport category is required." }, { status: 400 });
     const rate = Number(hourlyRate);
     if (!hourlyRate || rate < 1)                      return Response.json({ error: "Hourly rate must be at least Rs. 1." }, { status: 400 });
     if (rate > 100000)                                return Response.json({ error: "Hourly rate cannot exceed Rs. 100,000." }, { status: 400 });
@@ -89,16 +89,16 @@ export async function POST(req: NextRequest) {
         address:     trimmedAddress,
         city:        trimmedCity,
         hourlyRate:  rate,
-        capacity: capacity ? Number(capacity) : null,
-        amenities: amenities || [],
-        images:    Array.isArray(images) ? images : [],
-        status:    "PENDING",
-        categoryId,
-        ownerId:   profile.id,
+        capacity:    capacity ? Number(capacity) : null,
+        amenities:   amenities || [],
+        images:      Array.isArray(images) ? images : [],
+        status:      "PENDING",
+        categories:  { connect: (categoryIds as string[]).map((id) => ({ id })) },
+        ownerId:     profile.id,
       },
+      include: { categories: true },
     });
 
-    // Default availability Mon–Sun 06:00–22:00
     await db.facilityAvailability.createMany({
       data: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
         facilityId: ground.id,

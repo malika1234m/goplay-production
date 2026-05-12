@@ -17,8 +17,7 @@ export interface GroundItem {
   hourlyRate: number;
   amenities: string[];
   images: string[];
-  category: string;
-  categoryIcon: string;
+  categories: { name: string; icon: string | null }[];
   avgRating: number | null;
   totalReviews: number;
   latitude: number | null;
@@ -87,7 +86,7 @@ export default function GroundsClient({ grounds, q, category }: Props) {
           name: g.name,
           city: g.city,
           hourlyRate: g.hourlyRate,
-          category: g.category,
+          category: g.categories[0]?.name ?? "",
           avgRating: g.avgRating,
           lat: g.latitude!,
           lng: g.longitude!,
@@ -222,72 +221,87 @@ export default function GroundsClient({ grounds, q, category }: Props) {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filtered.map((ground) => (
-                <Link
-                  key={ground.id}
-                  href={`/grounds/${ground.id}`}
-                  className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all group"
-                >
-                  <div className="h-44 bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center relative overflow-hidden">
-                    {ground.images && ground.images.length > 0 ? (
-                      <Image
-                        src={ground.images[0]}
-                        alt={ground.name}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                      />
-                    ) : (
-                      <span className="text-7xl">{ground.categoryIcon}</span>
-                    )}
-                    <div className="absolute top-3 left-3">
-                      <span className="bg-white/90 text-slate-700 text-xs font-medium px-2.5 py-1 rounded-full border border-slate-100">
-                        {ground.category}
-                      </span>
-                    </div>
-                    <div className="absolute top-3 right-3">
-                      <span className="bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-                        Rs. {ground.hourlyRate.toLocaleString()}/hr
-                      </span>
-                    </div>
-                    {ground.images && ground.images.length > 1 && (
-                      <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                        +{ground.images.length - 1} photos
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-5">
-                    <h3 className="font-semibold text-slate-900 group-hover:text-green-600 transition-colors mb-1 truncate">
-                      {ground.name}
-                    </h3>
-                    <div className="flex items-center gap-1 text-slate-500 text-sm mb-3">
-                      <MapPin className="w-3.5 h-3.5 shrink-0" />
-                      <span>{ground.city}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                        {ground.avgRating ? (
-                          <>
-                            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                            <span className="text-sm font-medium text-slate-900">{ground.avgRating}</span>
-                            <span className="text-xs text-slate-400">({ground.totalReviews})</span>
-                          </>
-                        ) : (
-                          <span className="text-xs text-slate-400">No reviews yet</span>
-                        )}
-                      </div>
-                      <div className="flex gap-1.5">
-                        {ground.amenities.slice(0, 2).map((a) => (
-                          <span key={a} className="text-xs bg-slate-50 border border-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
-                            {a}
+              {filtered.map((ground) => {
+                const primaryCat = ground.categories[0];
+                const fallbackIcon = primaryCat?.icon ?? "🏟️";
+                return (
+                  <Link
+                    key={ground.id}
+                    href={`/grounds/${ground.id}`}
+                    className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all group"
+                  >
+                    <div className="h-44 bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center relative overflow-hidden">
+                      {ground.images && ground.images.length > 0 ? (
+                        <Image
+                          src={ground.images[0]}
+                          alt={ground.name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        />
+                      ) : (
+                        <span className="text-7xl">{fallbackIcon}</span>
+                      )}
+                      {/* Sport badges */}
+                      <div className="absolute top-3 left-3 flex flex-wrap gap-1">
+                        {ground.categories.slice(0, 2).map((c) => (
+                          <span
+                            key={c.name}
+                            className="bg-white/90 text-slate-700 text-xs font-medium px-2 py-0.5 rounded-full border border-slate-100"
+                          >
+                            {c.icon} {c.name}
                           </span>
                         ))}
+                        {ground.categories.length > 2 && (
+                          <span className="bg-white/90 text-slate-500 text-xs font-medium px-2 py-0.5 rounded-full border border-slate-100">
+                            +{ground.categories.length - 2}
+                          </span>
+                        )}
+                      </div>
+                      <div className="absolute top-3 right-3">
+                        <span className="bg-green-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+                          Rs. {ground.hourlyRate.toLocaleString()}/hr
+                        </span>
+                      </div>
+                      {ground.images && ground.images.length > 1 && (
+                        <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                          +{ground.images.length - 1} photos
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-5">
+                      <h3 className="font-semibold text-slate-900 group-hover:text-green-600 transition-colors mb-1 truncate">
+                        {ground.name}
+                      </h3>
+                      <div className="flex items-center gap-1 text-slate-500 text-sm mb-3">
+                        <MapPin className="w-3.5 h-3.5 shrink-0" />
+                        <span>{ground.city}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          {ground.avgRating ? (
+                            <>
+                              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                              <span className="text-sm font-medium text-slate-900">{ground.avgRating}</span>
+                              <span className="text-xs text-slate-400">({ground.totalReviews})</span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-slate-400">No reviews yet</span>
+                          )}
+                        </div>
+                        <div className="flex gap-1.5">
+                          {ground.amenities.slice(0, 2).map((a) => (
+                            <span key={a} className="text-xs bg-slate-50 border border-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+                              {a}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </>

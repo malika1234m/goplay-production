@@ -12,7 +12,7 @@ export async function GET() {
     include: {
       facility: {
         include: {
-          category:     { select: { name: true } },
+          categories:   { select: { name: true } },
           availability: { orderBy: { dayOfWeek: "asc" } },
           owner:        { include: { user: { select: { name: true, email: true } } } },
           courts:       { where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, name: true } },
@@ -34,7 +34,7 @@ export async function GET() {
       address:      f.address,
       city:         f.city,
       hourlyRate:   f.hourlyRate,
-      category:     f.category.name,
+      categories:   f.categories.map((c: { name: string }) => c.name),
       ownerName:    f.owner.user.name,
       courts:       f.courts.map((c) => ({ id: c.id, name: c.name })),
       availability: f.availability.map((a) => ({

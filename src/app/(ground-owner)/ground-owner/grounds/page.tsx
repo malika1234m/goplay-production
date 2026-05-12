@@ -16,8 +16,7 @@ interface Ground {
   address:       string;
   hourlyRate:    number;
   images:        string[];
-  category:      string;
-  categoryIcon:  string | null;
+  categories:    { id: string; name: string; icon: string | null }[];
   status:        string;
   totalBookings: number;
   avgRating:     number | null;
@@ -130,7 +129,8 @@ export default function GroundOwnerGrounds() {
         <div className="flex flex-col gap-4">
           {grounds.map((g) => {
             const { label, style, icon: StatusIcon } = statusConfig[g.status] ?? statusConfig.PENDING;
-            const icon = g.categoryIcon ?? categoryEmoji[g.category] ?? "🏟️";
+            const primaryCat = g.categories?.[0];
+            const icon = primaryCat?.icon ?? categoryEmoji[primaryCat?.name ?? ""] ?? "🏟️";
             return (
               <div key={g.id} className="bg-white rounded-2xl border border-slate-100 p-5">
                 <div className="flex items-start gap-4">
@@ -163,9 +163,16 @@ export default function GroundOwnerGrounds() {
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5" /> {g.city}
                           </span>
-                          <span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">
-                            {g.category}
-                          </span>
+                          {(g.categories ?? []).slice(0, 2).map((c) => (
+                            <span key={c.id} className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">
+                              {c.icon} {c.name}
+                            </span>
+                          ))}
+                          {(g.categories ?? []).length > 2 && (
+                            <span className="bg-slate-100 text-slate-500 text-xs px-2 py-0.5 rounded-full">
+                              +{g.categories.length - 2}
+                            </span>
+                          )}
                         </div>
                       </div>
 

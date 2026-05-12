@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
         ...(status && { status: status as "PENDING" | "ACTIVE" | "INACTIVE" | "REJECTED" }),
       },
       include: {
-        category: { select: { name: true } },
+        categories: { select: { name: true } },
         owner: {
           include: { user: { select: { name: true, email: true } } },
         },
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
         hourlyRate: g.hourlyRate,
         status:     g.status,
         createdAt:  g.createdAt,
-        category:   g.category.name,
+        categories: g.categories.map((c) => c.name),
         ownerName:  g.owner.user.name,
         ownerEmail: g.owner.user.email,
         totalBookings: g._count.bookings,

@@ -6,8 +6,10 @@ import Image from "next/image";
 import {
   Loader2, Building2, MapPin, DollarSign, Users,
   AlignLeft, ImagePlus, X, Upload, CheckCircle,
-  ChevronLeft, AlertCircle,
+  ChevronLeft, AlertCircle, Tag,
 } from "lucide-react";
+
+interface Category { id: string; name: string; icon: string | null }
 
 interface Ground {
   id:          string;
@@ -20,7 +22,7 @@ interface Ground {
   amenities:   string[];
   images:      string[];
   status:      string;
-  category:    { id: string; name: string; icon: string | null };
+  categories:  Category[];
 }
 
 const AMENITIES = ["Parking", "Changing Rooms", "Showers", "Floodlights", "Cafeteria", "WiFi", "Toilets", "First Aid"];
@@ -46,6 +48,7 @@ export default function EditGroundPage() {
   const [error,       setError]       = useState("");
   const [uploadError, setUploadError] = useState("");
   const [dragOver,    setDragOver]    = useState(false);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
 
   const [form, setForm] = useState({
     name:        "",
@@ -55,16 +58,20 @@ export default function EditGroundPage() {
     hourlyRate:  "",
     capacity:    "",
     amenities:   [] as string[],
+    categoryIds: [] as string[],
   });
   const [images, setImages] = useState<string[]>([]);
 
-  // Load ground data
+  // Load ground data + all categories in parallel
   useEffect(() => {
-    fetch(`/api/ground-owner/grounds/${id}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.ground) {
-          const g: Ground = d.ground;
+    Promise.all([
+      fetch(`/api/ground-owner/grounds/${id}`).then((r) => r.json()),
+      fetch("/api/categories").then((r) => r.json()),
+    ])
+      .then(([groundData, catData]) => {
+        setAllCategories(catData.categories ?? []);
+        if (groundData.ground) {
+          const g: Ground = groundData.ground;
           setGround(g);
           setForm({
             name:        g.name,
@@ -74,6 +81,7 @@ export default function EditGroundPage() {
             hourlyRate:  String(g.hourlyRate),
             capacity:    g.capacity ? String(g.capacity) : "",
             amenities:   g.amenities ?? [],
+            categoryIds: g.categories.map((c) => c.id),
           });
           setImages(g.images ?? []);
         }
@@ -86,6 +94,14 @@ export default function EditGroundPage() {
     setForm((f) => ({
       ...f,
       amenities: f.amenities.includes(a) ? f.amenities.filter((x) => x !== a) : [...f.amenities, a],
+    }));
+
+  const toggleCategory = (id: string) =>
+    setForm((f) => ({
+      ...f,
+      categoryIds: f.categoryIds.includes(id)
+        ? f.categoryIds.filter((x) => x !== id)
+        : [...f.categoryIds, id],
     }));
 
   const uploadFiles = async (files: FileList | File[]) => {
@@ -134,6 +150,8 @@ export default function EditGroundPage() {
     }
     setSaving(true); setError("");
 
+    if (form.categoryIds.length === 0) { setError("Please select at least one sport."); return; }
+
     const res = await fetch(`/api/ground-owner/grounds/${id}`, {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
@@ -145,6 +163,7 @@ export default function EditGroundPage() {
         hourlyRate:  Number(form.hourlyRate),
         capacity:    form.capacity ? Number(form.capacity) : null,
         amenities:   form.amenities,
+        categoryIds: form.categoryIds,
         images,
       }),
     });
@@ -190,7 +209,9 @@ export default function EditGroundPage() {
           <ChevronLeft className="w-4 h-4" /> Back to My Grounds
         </button>
         <h1 className="text-2xl font-bold text-slate-900">Edit Ground</h1>
-        <p className="text-slate-500 text-sm mt-0.5">{ground.category.icon} {ground.category.name}</p>
+        <p className="text-slate-500 text-sm mt-0.5">
+          {ground.categories.map((c) => `${c.icon ?? ""} ${c.name}`).join(" · ") || "No sport set"}
+        </p>
       </div>
 
       {/* Status banner */}
@@ -236,6 +257,39 @@ export default function EditGroundPage() {
               placeholder="Describe your ground, facilities, rules..."
               className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-green-500 resize-none"
             />
+          </div>
+        </div>
+
+        {/* Sports */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col gap-3">
+          <div className="flex items-center gap-2 mb-1">
+            <Tag className="w-4 h-4 text-slate-400" />
+            <h2 className="text-sm font-semibold text-slate-900">Sports</h2>
+            <span className="text-xs text-slate-400 ml-auto">Select all that apply</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {allCategories.map((c) => {
+              const on = form.categoryIds.includes(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => toggleCategory(c.id)}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-xl border transition-colors ${
+                    on
+                      ? "bg-green-600 border-green-600 text-white"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-green-400 hover:text-green-600"
+                  }`}
+                >
+                  {c.icon && <span>{c.icon}</span>}
+                  {c.name}
+                  {on && <CheckCircle className="w-3 h-3" />}
+                </button>
+              );
+            })}
+            {allCategories.length === 0 && (
+              <p className="text-xs text-slate-400">Loading…</p>
+            )}
           </div>
         </div>
 

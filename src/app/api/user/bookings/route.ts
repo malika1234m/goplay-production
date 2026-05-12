@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       },
       include: {
         facility: {
-          select: { name: true, city: true, address: true, category: { select: { name: true, icon: true } } },
+          select: { name: true, city: true, address: true, categories: { select: { name: true, icon: true } } },
         },
         court:  { select: { name: true } },
         review: { select: { id: true } },

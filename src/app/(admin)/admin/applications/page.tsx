@@ -25,7 +25,7 @@ interface Application {
   reviewedAt: string | null;
   createdAt: string;
   user: { name: string; email: string; phone: string | null };
-  category: { name: string; icon: string | null };
+  categories: { id: string; name: string; icon: string | null }[];
 }
 
 interface Summary { pending: number; approved: number; rejected: number }
@@ -104,8 +104,15 @@ function Modal({ app, onClose, onDone }: { app: Application; onClose: () => void
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                 <Building2 className="w-4 h-4 text-slate-400" />{app.facilityName}
               </div>
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                <span className="text-base">{app.category.icon ?? "🏟️"}</span>{app.category.name}
+              <div className="flex items-center flex-wrap gap-1.5">
+                {(app.categories ?? []).map((c) => (
+                  <span key={c.id} className="inline-flex items-center gap-1 text-sm text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {c.icon ?? "🏟️"} {c.name}
+                  </span>
+                ))}
+                {(!app.categories || app.categories.length === 0) && (
+                  <span className="text-sm text-slate-400">No sport set</span>
+                )}
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <MapPin className="w-4 h-4 text-slate-400" />{app.facilityAddress}, {app.facilityCity}
@@ -390,7 +397,7 @@ export default function AdminApplicationsPage() {
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">{app.user.email}</p>
                   <p className="text-xs text-slate-600 mt-1">
-                    <span className="text-base">{app.category.icon ?? "🏟️"}</span>{" "}
+                    <span className="text-base">{app.categories?.[0]?.icon ?? "🏟️"}</span>{" "}
                     <span className="font-medium">{app.facilityName}</span> — {app.facilityCity}
                   </p>
                 </div>

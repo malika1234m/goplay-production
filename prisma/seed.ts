@@ -129,7 +129,7 @@ async function main() {
       ],
       images:    [],   // owner will add real photos via Cloudinary
       status:    "ACTIVE",
-      categoryId: football.id,
+      categories: { connect: [{ id: football.id }] },
       ownerId:    ownerProfile.id,
     },
   });

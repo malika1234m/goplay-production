@@ -14,7 +14,7 @@ interface Ground {
   hourlyRate:    number;
   status:        string;
   createdAt:     string;
-  category:      string;
+  categories:    string[];
   ownerName:     string;
   ownerEmail:    string;
   totalBookings: number;
@@ -195,7 +195,7 @@ function GroundsContent() {
                       <p className="text-slate-700 font-medium">{g.ownerName}</p>
                       <p className="text-xs text-slate-400">{g.ownerEmail}</p>
                     </td>
-                    <td className="px-6 py-3.5 text-slate-500 text-xs">{g.category}</td>
+                    <td className="px-6 py-3.5 text-slate-500 text-xs">{(g.categories ?? []).join(", ") || "—"}</td>
                     <td className="px-6 py-3.5 text-slate-700 text-xs font-medium">Rs. {g.hourlyRate.toLocaleString()}/hr</td>
                     <td className="px-6 py-3.5">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_BADGE[g.status] ?? "bg-slate-100 text-slate-600"}`}>

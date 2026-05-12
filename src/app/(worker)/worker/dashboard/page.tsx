@@ -5,7 +5,7 @@ import { Building2, CalendarCheck, Clock, Grid3X3, Loader2, MapPin, Tag, User } 
 
 interface Facility {
   id: string; name: string; address: string; city: string;
-  hourlyRate: number; category: string; ownerName: string;
+  hourlyRate: number; categories: string[]; ownerName: string;
   courts: { id: string; name: string }[];
   availability: { dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string }[];
 }
@@ -77,7 +77,7 @@ export default function WorkerDashboard() {
                 <MapPin className="w-3 h-3" />{facility.address}, {facility.city}
               </span>
               <span className="flex items-center gap-1 text-xs text-slate-500">
-                <Tag className="w-3 h-3" />{facility.category}
+                <Tag className="w-3 h-3" />{Array.isArray(facility.categories) ? facility.categories.join(", ") : facility.categories}
               </span>
               <span className="flex items-center gap-1 text-xs text-slate-500">
                 <User className="w-3 h-3" />Owner: {facility.ownerName}

@@ -14,7 +14,7 @@ interface WorkerProfile {
 }
 interface Facility {
   name: string; city: string; address: string;
-  category: { name: string; icon: string | null };
+  categories: { name: string; icon: string | null }[];
 }
 interface Stats { walkins: number; }
 
@@ -181,7 +181,7 @@ export default function WorkerProfilePage() {
             {[
               {
                 label: "Facility",
-                value: facility?.category.name ?? "—",
+                value: facility?.categories?.[0]?.name ?? "—",
                 icon: Building2,
                 small: true,
               },
@@ -220,7 +220,7 @@ export default function WorkerProfilePage() {
               </p>
             </div>
             <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium shrink-0">
-              {facility.category.icon ?? ""} {facility.category.name}
+              {(facility.categories ?? []).map((c: any) => `${c.icon ?? ""} ${c.name}`.trim()).join(" · ") || "—"}
             </span>
           </div>
         )}

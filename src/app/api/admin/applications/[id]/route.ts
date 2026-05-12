@@ -16,7 +16,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const application = await db.providerApplication.findUnique({
       where:   { id },
-      include: { user: true, category: true },
+      include: { user: true },
     });
     if (!application) return Response.json({ error: "Application not found." }, { status: 404 });
     if (application.status !== "PENDING") return Response.json({ error: "Application has already been reviewed." }, { status: 409 });
@@ -53,7 +53,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const facility = await db.sportsFacility.create({
           data: {
             ownerId:     profile.id,
-            categoryId:  application.categoryId,
+            categories:  { connect: application.categoryIds.map((cid) => ({ id: cid })) },
             name:        application.facilityName,
             address:     application.facilityAddress,
             city:        application.facilityCity,

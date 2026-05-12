@@ -13,7 +13,7 @@ async function getUserStats(userId: string) {
     db.facilityBooking.findMany({
       where: { userId },
       include: {
-        facility: { select: { name: true, city: true, category: { select: { name: true, icon: true } } } },
+        facility: { select: { name: true, city: true, categories: { select: { name: true, icon: true } } } },
       },
       orderBy: { createdAt: "desc" },
       take: 3,
@@ -117,10 +117,8 @@ export default async function UserDashboard() {
         ) : (
           <div className="divide-y divide-slate-50">
             {recent.map((b) => {
-              const icon =
-                b.facility.category.icon ??
-                categoryEmoji[b.facility.category.name] ??
-                "🏟️";
+              const primaryCat = b.facility.categories?.[0];
+              const icon = primaryCat?.icon ?? categoryEmoji[primaryCat?.name ?? ""] ?? "🏟️";
               return (
                 <div key={b.id} className="flex items-center gap-4 px-4 sm:px-6 py-4 flex-wrap sm:flex-nowrap">
                   <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center text-xl shrink-0">

@@ -135,11 +135,10 @@ model Payout {
 }
 
 model SportsCategory {
-  id           String                @id @default(cuid())
-  name         String                @unique
-  icon         String?
-  facilities   SportsFacility[]
-  applications ProviderApplication[]
+  id         String           @id @default(cuid())
+  name       String           @unique
+  icon       String?
+  facilities SportsFacility[]
 }
 
 model SportsFacility {
@@ -163,10 +162,9 @@ model SportsFacility {
   strikeResetAt      DateTime?
   isListingSuspended Boolean  @default(false)
 
-  categoryId String
   ownerId    String
 
-  category     SportsCategory       @relation(fields: [categoryId], references: [id])
+  categories   SportsCategory[]
   owner        GroundOwnerProfile   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   bookings     FacilityBooking[]
   availability FacilityAvailability[]
@@ -290,7 +288,7 @@ model ProviderApplication {
   facilityName        String
   facilityAddress     String
   facilityCity        String
-  categoryId          String
+  categoryIds         String[]
   proposedHourlyRate  Float
   capacity            Int?
   amenities           String[]
@@ -304,8 +302,7 @@ model ProviderApplication {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category SportsCategory @relation(fields: [categoryId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model GroundEarning {

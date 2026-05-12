@@ -24,11 +24,25 @@ export async function GET(req: NextRequest) {
         }),
       },
       include: {
-        user:     { select: { name: true, email: true, phone: true } },
-        category: { select: { name: true, icon: true } },
+        user: { select: { name: true, email: true, phone: true } },
       },
       orderBy: { createdAt: "desc" },
     });
+
+    // Enrich with category details
+    const allCategoryIds = [...new Set(applications.flatMap((a) => a.categoryIds))];
+    const cats = allCategoryIds.length
+      ? await db.sportsCategory.findMany({
+          where:  { id: { in: allCategoryIds } },
+          select: { id: true, name: true, icon: true },
+        })
+      : [];
+    const catMap = Object.fromEntries(cats.map((c) => [c.id, c]));
+
+    const enriched = applications.map((a) => ({
+      ...a,
+      categories: a.categoryIds.map((id) => catMap[id]).filter(Boolean),
+    }));
 
     const all = await db.providerApplication.groupBy({ by: ["status"], _count: true });
     const summary = {
@@ -37,7 +51,7 @@ export async function GET(req: NextRequest) {
       rejected: all.find((a) => a.status === "REJECTED")?._count ?? 0,
     };
 
-    return Response.json({ applications, summary });
+    return Response.json({ applications: enriched, summary });
   } catch (err) {
     console.error("[GET /api/admin/applications]", err);
     return Response.json({ error: "Failed to fetch applications." }, { status: 500 });

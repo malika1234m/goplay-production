@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
-  Loader2, Building2, MapPin, DollarSign, Users, Tag,
+  Loader2, Building2, MapPin, DollarSign, Users,
   CheckCircle, ImagePlus, X, Upload, Grid3X3, Plus, Trash2,
   ChevronLeft, Sparkles,
 } from "lucide-react";
@@ -101,7 +101,7 @@ export default function NewGroundPage() {
     city:        "",
     hourlyRate:  "",
     capacity:    "",
-    categoryId:  "",
+    categoryIds: [] as string[],
     amenities:   [] as string[],
   });
 
@@ -113,6 +113,14 @@ export default function NewGroundPage() {
 
   const set = (key: keyof typeof form, value: string | string[]) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  const toggleCategory = (id: string) =>
+    setForm((f) => ({
+      ...f,
+      categoryIds: f.categoryIds.includes(id)
+        ? f.categoryIds.filter((x) => x !== id)
+        : [...f.categoryIds, id],
+    }));
 
   const toggleAmenity = (a: string) =>
     set("amenities", form.amenities.includes(a)
@@ -166,11 +174,11 @@ export default function NewGroundPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = form.name.trim(), address = form.address.trim(), city = form.city.trim();
-    if (!name || name.length < 3)       { setError("Ground name must be at least 3 characters."); return; }
-    if (name.length > 100)              { setError("Ground name must be under 100 characters."); return; }
-    if (!address || address.length < 5) { setError("Address must be at least 5 characters."); return; }
-    if (!city || city.length < 2)       { setError("City must be at least 2 characters."); return; }
-    if (!form.categoryId)               { setError("Please select a sport category."); return; }
+    if (!name || name.length < 3)          { setError("Ground name must be at least 3 characters."); return; }
+    if (name.length > 100)                 { setError("Ground name must be under 100 characters."); return; }
+    if (!address || address.length < 5)    { setError("Address must be at least 5 characters."); return; }
+    if (!city || city.length < 2)          { setError("City must be at least 2 characters."); return; }
+    if (form.categoryIds.length === 0)     { setError("Please select at least one sport category."); return; }
     const rate = Number(form.hourlyRate);
     if (!form.hourlyRate || rate < 1)   { setError("Hourly rate must be at least Rs. 1."); return; }
     if (rate > 100000)                  { setError("Hourly rate cannot exceed Rs. 100,000."); return; }
@@ -187,9 +195,9 @@ export default function NewGroundPage() {
       body:    JSON.stringify({
         name: form.name, description: form.description || undefined,
         address: form.address, city: form.city,
-        hourlyRate: Number(form.hourlyRate),
-        capacity:   form.capacity ? Number(form.capacity) : undefined,
-        categoryId: form.categoryId, amenities: form.amenities, images,
+        hourlyRate:  Number(form.hourlyRate),
+        capacity:    form.capacity ? Number(form.capacity) : undefined,
+        categoryIds: form.categoryIds, amenities: form.amenities, images,
       }),
     });
     const data = await res.json();
@@ -274,22 +282,35 @@ export default function NewGroundPage() {
             />
           </Field>
 
-          <Field label="Sport Category" required>
-            <div className="relative">
-              <Tag className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              <select
-                value={form.categoryId}
-                onChange={(e) => set("categoryId", e.target.value)}
-                className={`${iconInputCls} bg-white`}
-              >
-                <option value="">Select a sport</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.icon ? `${c.icon} ` : ""}{c.name}
-                  </option>
-                ))}
-              </select>
+          <Field
+            label="Sports"
+            required
+            hint={form.categoryIds.length > 0 ? `${form.categoryIds.length} selected` : undefined}
+          >
+            <div className="flex flex-wrap gap-2">
+              {categories.map((c) => {
+                const on = form.categoryIds.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => toggleCategory(c.id)}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-xl border transition-all ${
+                      on
+                        ? "bg-green-600 border-green-600 text-white shadow-sm"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-green-300 hover:text-green-700"
+                    }`}
+                  >
+                    {c.icon && <span>{c.icon}</span>}
+                    {c.name}
+                    {on && <CheckCircle className="w-3 h-3" />}
+                  </button>
+                );
+              })}
             </div>
+            {categories.length === 0 && (
+              <p className="text-xs text-slate-400">Loading sports…</p>
+            )}
           </Field>
 
           <Field label="Description" hint="Optional">

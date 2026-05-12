@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     const ground = await db.sportsFacility.findFirst({
       where:   { id, ownerId: profile.id },
-      include: { category: { select: { id: true, name: true, icon: true } } },
+      include: { categories: { select: { id: true, name: true, icon: true } } },
     });
     if (!ground) return Response.json({ error: "Ground not found." }, { status: 404 });
 
@@ -48,7 +48,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const ground = await verifyOwnership(id, profile.id);
     if (!ground) return Response.json({ error: "Ground not found." }, { status: 404 });
 
-    const { name, description, address, city, hourlyRate, capacity, amenities, images } = await req.json();
+    const { name, description, address, city, hourlyRate, capacity, amenities, images, categoryIds } = await req.json();
 
     if (name !== undefined) {
       const n = (name ?? "").trim();
@@ -73,6 +73,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       if (cap < 1)   return Response.json({ error: "Capacity must be at least 1 player." }, { status: 400 });
       if (cap > 500) return Response.json({ error: "Capacity cannot exceed 500 players." }, { status: 400 });
     }
+    if (categoryIds !== undefined && (!Array.isArray(categoryIds) || categoryIds.length === 0)) {
+      return Response.json({ error: "At least one sport category is required." }, { status: 400 });
+    }
 
     const updated = await db.sportsFacility.update({
       where: { id },
@@ -85,7 +88,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         ...(capacity    !== undefined && { capacity: capacity ? Number(capacity) : null }),
         ...(amenities   && { amenities }),
         ...(images      !== undefined && { images: Array.isArray(images) ? images : [] }),
+        ...(categoryIds !== undefined && {
+          categories: { set: (categoryIds as string[]).map((cid) => ({ id: cid })) },
+        }),
       },
+      include: { categories: { select: { id: true, name: true, icon: true } } },
     });
 
     return Response.json({ ground: updated, message: "Ground updated." });

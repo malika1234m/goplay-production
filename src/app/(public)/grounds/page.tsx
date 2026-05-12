@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import GroundsSearch from "@/components/grounds/GroundsSearch";
 import GroundsClient from "./GroundsClient";
 
-const categories = ["All", "Cricket", "Football", "Tennis", "Badminton", "Basketball", "Volleyball"];
+const CATEGORIES = ["All", "Cricket", "Football", "Tennis", "Badminton", "Basketball", "Volleyball"];
 
 const categoryEmoji: Record<string, string> = {
   Cricket: "🏏", Football: "⚽", Tennis: "🎾",
@@ -16,38 +16,40 @@ async function getGrounds(q: string, city: string, category: string) {
       status: "ACTIVE",
       ...(q && {
         OR: [
-          { name:     { contains: q, mode: "insensitive" } },
-          { city:     { contains: q, mode: "insensitive" } },
-          { category: { name: { contains: q, mode: "insensitive" } } },
+          { name: { contains: q, mode: "insensitive" } },
+          { city: { contains: q, mode: "insensitive" } },
+          { categories: { some: { name: { contains: q, mode: "insensitive" } } } },
         ],
       }),
       ...(city && { city: { contains: city, mode: "insensitive" } }),
       ...(category && category !== "All" && {
-        category: { name: { equals: category, mode: "insensitive" } },
+        categories: { some: { name: { equals: category, mode: "insensitive" } } },
       }),
     },
     include: {
-      category: true,
-      reviews:  { select: { rating: true } },
+      categories: true,
+      reviews:    { select: { rating: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
   return grounds.map((g) => ({
-    id:           g.id,
-    name:         g.name,
-    city:         g.city,
-    hourlyRate:   g.hourlyRate,
-    amenities:    g.amenities,
-    images:       g.images,
-    category:     g.category.name,
-    categoryIcon: g.category.icon ?? categoryEmoji[g.category.name] ?? "🏟️",
-    avgRating:    g.reviews.length > 0
+    id:          g.id,
+    name:        g.name,
+    city:        g.city,
+    hourlyRate:  g.hourlyRate,
+    amenities:   g.amenities,
+    images:      g.images,
+    categories:  g.categories.map((c) => ({
+      name: c.name,
+      icon: c.icon ?? categoryEmoji[c.name] ?? null,
+    })),
+    avgRating:   g.reviews.length > 0
       ? Math.round((g.reviews.reduce((s, r) => s + r.rating, 0) / g.reviews.length) * 10) / 10
       : null,
     totalReviews: g.reviews.length,
-    latitude:     g.latitude,
-    longitude:    g.longitude,
+    latitude:    g.latitude,
+    longitude:   g.longitude,
   }));
 }
 
@@ -75,7 +77,7 @@ export default async function GroundsPage({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Category pills */}
         <div className="flex gap-2 flex-wrap mb-8">
-          {categories.map((cat) => (
+          {CATEGORIES.map((cat) => (
             <Link
               key={cat}
               href={cat === "All" ? "/grounds" : `/grounds?category=${cat}`}

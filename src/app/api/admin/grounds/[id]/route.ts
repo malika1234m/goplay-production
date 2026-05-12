@@ -14,7 +14,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const ground = await db.sportsFacility.findUnique({
       where: { id },
       include: {
-        category: { select: { id: true, name: true, icon: true } },
+        categories: { select: { id: true, name: true, icon: true } },
         owner: {
           include: {
             user: { select: { id: true, name: true, email: true, phone: true, createdAt: true } },

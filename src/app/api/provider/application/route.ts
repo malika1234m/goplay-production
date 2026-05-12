@@ -8,7 +8,6 @@ export async function GET() {
 
     const application = await db.providerApplication.findFirst({
       where:   { userId: session.user.id },
-      include: { category: { select: { name: true, icon: true } } },
       orderBy: { createdAt: "desc" },
     });
 

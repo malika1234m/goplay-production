@@ -13,10 +13,12 @@ export async function GET(req: NextRequest) {
         status: "ACTIVE",
         ...(q    && { name: { contains: q, mode: "insensitive" } }),
         ...(city && { city: { contains: city, mode: "insensitive" } }),
-        ...(category && { category: { name: { equals: category, mode: "insensitive" } } }),
+        ...(category && {
+          categories: { some: { name: { equals: category, mode: "insensitive" } } },
+        }),
       },
       include: {
-        category: true,
+        categories: true,
         reviews: { select: { rating: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -28,17 +30,16 @@ export async function GET(req: NextRequest) {
           ? g.reviews.reduce((sum, r) => sum + r.rating, 0) / g.reviews.length
           : null;
       return {
-        id: g.id,
-        name: g.name,
-        city: g.city,
-        address: g.address,
-        hourlyRate: g.hourlyRate,
-        capacity: g.capacity,
-        amenities: g.amenities,
-        images: g.images,
-        category: g.category.name,
-        categoryIcon: g.category.icon,
-        avgRating: avgRating ? Math.round(avgRating * 10) / 10 : null,
+        id:          g.id,
+        name:        g.name,
+        city:        g.city,
+        address:     g.address,
+        hourlyRate:  g.hourlyRate,
+        capacity:    g.capacity,
+        amenities:   g.amenities,
+        images:      g.images,
+        categories:  g.categories.map((c) => ({ name: c.name, icon: c.icon })),
+        avgRating:   avgRating ? Math.round(avgRating * 10) / 10 : null,
         totalReviews: g.reviews.length,
       };
     });

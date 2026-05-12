@@ -17,7 +17,7 @@ async function getGround(id: string) {
   const ground = await db.sportsFacility.findUnique({
     where: { id, status: "ACTIVE" },
     include: {
-      category: true,
+      categories: true,
       availability: { orderBy: { dayOfWeek: "asc" } },
       courts: {
         where:   { isActive: true },
@@ -51,8 +51,10 @@ export default async function GroundDetailsPage({
         ) / 10
       : null;
 
-  const categoryIcon =
-    ground.category.icon ?? categoryEmoji[ground.category.name] ?? "🏟️";
+  const primaryCategory = ground.categories[0];
+  const categoryIcon = primaryCategory
+    ? (primaryCategory.icon ?? categoryEmoji[primaryCategory.name] ?? "🏟️")
+    : "🏟️";
 
   const todayDow = new Date().getDay();
 
@@ -98,10 +100,12 @@ export default async function GroundDetailsPage({
             <div className="bg-white rounded-2xl border border-slate-100 p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-medium bg-green-50 text-green-700 border border-green-100 px-2.5 py-1 rounded-full">
-                      {ground.category.name}
-                    </span>
+                  <div className="flex items-center flex-wrap gap-1.5 mb-2">
+                    {ground.categories.map((c) => (
+                      <span key={c.id} className="text-xs font-medium bg-green-50 text-green-700 border border-green-100 px-2.5 py-1 rounded-full">
+                        {c.icon} {c.name}
+                      </span>
+                    ))}
                   </div>
                   <h1 className="text-2xl font-bold text-slate-900">{ground.name}</h1>
                   <div className="flex items-center gap-1 text-slate-500 text-sm mt-1">

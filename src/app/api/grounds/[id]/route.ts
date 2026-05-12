@@ -8,7 +8,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const ground = await db.sportsFacility.findUnique({
       where: { id, status: "ACTIVE" },
       include: {
-        category: true,
+        categories: true,
         availability: { orderBy: { dayOfWeek: "asc" } },
         courts: {
           where:   { isActive: true },
@@ -37,30 +37,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return Response.json({
       ground: {
-        id: ground.id,
-        name: ground.name,
+        id:          ground.id,
+        name:        ground.name,
         description: ground.description,
-        address: ground.address,
-        city: ground.city,
-        hourlyRate: ground.hourlyRate,
-        capacity: ground.capacity,
-        amenities: ground.amenities,
-        images: ground.images,
-        category: ground.category.name,
-        categoryIcon: ground.category.icon,
-        courts: ground.courts,
+        address:     ground.address,
+        city:        ground.city,
+        hourlyRate:  ground.hourlyRate,
+        capacity:    ground.capacity,
+        amenities:   ground.amenities,
+        images:      ground.images,
+        categories:  ground.categories.map((c) => ({ name: c.name, icon: c.icon })),
+        courts:      ground.courts,
         availability: ground.availability,
         reviews: ground.reviews.map((r) => ({
-          id: r.id,
-          rating: r.rating,
+          id:         r.id,
+          rating:     r.rating,
           reviewText: r.reviewText,
-          createdAt: r.createdAt,
-          userName: r.user.name,
-          reply: r.reply?.reply ?? null,
+          createdAt:  r.createdAt,
+          userName:   r.user.name,
+          reply:      r.reply?.reply ?? null,
         })),
-        avgRating: avgRating ? Math.round(avgRating * 10) / 10 : null,
+        avgRating:    avgRating ? Math.round(avgRating * 10) / 10 : null,
         totalReviews: ground.reviews.length,
-        ownerName: ground.owner.user.name,
+        ownerName:    ground.owner.user.name,
       },
     });
   } catch (err) {

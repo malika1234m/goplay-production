@@ -39,7 +39,7 @@ interface Ground {
   status: string;
   createdAt: string;
   updatedAt: string;
-  category: { id: string; name: string; icon: string | null };
+  categories: { id: string; name: string; icon: string | null }[];
   owner: {
     id: string;
     phone: string | null;
@@ -382,7 +382,7 @@ export default function AdminGroundDetailPage({ params }: { params: Promise<{ id
             <h2 className="text-sm font-semibold text-slate-700">Ground Details</h2>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <DetailTile icon={<Tag className="w-4 h-4" />} label="Category" value={ground.category.name} />
+              <DetailTile icon={<Tag className="w-4 h-4" />} label="Sports" value={(ground.categories ?? []).map((c) => `${c.icon ?? ""} ${c.name}`.trim()).join(", ") || "—"} />
               <DetailTile icon={<MapPin className="w-4 h-4" />} label="City" value={ground.city} />
               <DetailTile icon={<Clock className="w-4 h-4" />} label="Hourly Rate" value={`Rs. ${ground.hourlyRate.toLocaleString()}`} />
               {ground.capacity && (
