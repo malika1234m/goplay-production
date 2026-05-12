@@ -12,7 +12,7 @@ interface Booking {
   bookingDate: string;
   startTime: string;
   endTime: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED" | "NO_SHOW";
   paymentMethod: "ONLINE" | "ON_ARRIVAL";
   paymentStatus: "PENDING" | "PAID" | "FAILED" | "REFUNDED";
   totalAmount: number;
@@ -25,10 +25,11 @@ interface Booking {
 }
 
 const STATUS_META: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  PENDING:   { label: "Pending",   color: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20", icon: AlertCircle  },
-  CONFIRMED: { label: "Confirmed", color: "bg-blue-500/10 text-blue-400 border border-blue-500/20",       icon: CheckCircle2 },
-  COMPLETED: { label: "Completed", color: "bg-green-500/10 text-green-400 border border-green-500/20",    icon: CheckCircle2 },
-  CANCELLED: { label: "Cancelled", color: "bg-red-500/10 text-red-400 border border-red-500/20",          icon: XCircle      },
+  PENDING:   { label: "Pending",   color: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20",  icon: AlertCircle  },
+  CONFIRMED: { label: "Confirmed", color: "bg-blue-500/10 text-blue-400 border border-blue-500/20",        icon: CheckCircle2 },
+  COMPLETED: { label: "Completed", color: "bg-green-500/10 text-green-400 border border-green-500/20",     icon: CheckCircle2 },
+  CANCELLED: { label: "Cancelled", color: "bg-red-500/10 text-red-400 border border-red-500/20",           icon: XCircle      },
+  NO_SHOW:   { label: "No Show",   color: "bg-purple-500/10 text-purple-400 border border-purple-500/20",  icon: Ban          },
 };
 
 function fmtDate(iso: string) {
