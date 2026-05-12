@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
   LayoutDashboard, Users, MapPin, DollarSign, BarChart2,
-  LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed, Menu, X, UserCircle,
+  LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed, Menu, X, UserCircle, ShieldAlert,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
@@ -20,6 +20,7 @@ const NAV = [
   { id: "payouts",      href: "/admin/payouts",       label: "Payouts",           icon: Wallet },
   { id: "refunds",      href: "/admin/refunds",       label: "Refunds",           icon: ReceiptText },
   { id: "reviews",      href: "/admin/reviews",       label: "Reviews",           icon: Star },
+  { id: "cancellations", href: "/admin/cancellations", label: "Cancellations",     icon: ShieldAlert },
   { id: "geocode",       href: "/admin/geocode",        label: "Geocode Facilities", icon: LocateFixed },
   { id: "analytics",    href: "/admin/analytics",     label: "Analytics",         icon: BarChart2 },
   { id: "settings",     href: "/admin/settings",      label: "Settings",           icon: Settings },
@@ -31,10 +32,11 @@ export default function AdminSidebar() {
   const { data: session } = useSession();
   const [collapsed,       setCollapsed]       = useState(false);
   const [mobileOpen,      setMobileOpen]      = useState(false);
-  const [pendingCount,    setPendingCount]    = useState(0);
-  const [commissionDebt,  setCommissionDebt]  = useState(0);
-  const [refundNeeded,    setRefundNeeded]    = useState(0);
-  const [reportedReviews, setReportedReviews] = useState(0);
+  const [pendingCount,       setPendingCount]       = useState(0);
+  const [commissionDebt,     setCommissionDebt]     = useState(0);
+  const [refundNeeded,       setRefundNeeded]       = useState(0);
+  const [reportedReviews,    setReportedReviews]    = useState(0);
+  const [cancellationAlerts, setCancellationAlerts] = useState(0);
 
   useEffect(() => {
     const saved = localStorage.getItem("adminSidebarCollapsed");
@@ -73,7 +75,18 @@ export default function AdminSidebar() {
     } catch { /* silent */ }
   }, []);
 
-  useEffect(() => { loadPending(); loadCommissions(); loadRefunds(); loadReportedReviews(); }, [loadPending, loadCommissions, loadRefunds, loadReportedReviews]);
+  const loadCancellationAlerts = useCallback(async () => {
+    try {
+      const res  = await fetch("/api/admin/cancellations");
+      const data = await res.json();
+      const s    = data.summary ?? {};
+      setCancellationAlerts((s.suspendedUsers ?? 0) + (s.suspendedListings ?? 0));
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    loadPending(); loadCommissions(); loadRefunds(); loadReportedReviews(); loadCancellationAlerts();
+  }, [loadPending, loadCommissions, loadRefunds, loadReportedReviews, loadCancellationAlerts]);
 
   const toggle = () => {
     setCollapsed((c) => {

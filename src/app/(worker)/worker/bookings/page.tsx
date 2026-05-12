@@ -6,6 +6,7 @@ import {
   CalendarCheck, Plus, Loader2, X, AlertTriangle,
   CheckCircle2, Clock3, XCircle, User, Phone,
   StickyNote, Calendar, Clock, MapPin, BadgeInfo, History,
+  UserX, ShieldAlert,
 } from "lucide-react";
 import { TimeRangePicker } from "@/components/booking/TimeRangePicker";
 
@@ -73,7 +74,136 @@ const statusColor: Record<string, string> = {
   PENDING:   "bg-amber-100 text-amber-700",
   COMPLETED: "bg-blue-100 text-blue-700",
   CANCELLED: "bg-red-100 text-red-600",
+  NO_SHOW:   "bg-purple-100 text-purple-700",
 };
+
+/* ── Cancel warning modal ── */
+function CancelWarningModal({
+  booking, onConfirm, onClose, updating,
+}: {
+  booking: Booking;
+  onConfirm: () => void;
+  onClose:   () => void;
+  updating:  boolean;
+}) {
+  const isOnline = booking.paymentMethod === "ONLINE";
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+            <XCircle className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 text-base">Cancel Booking?</h3>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {booking.specialRequests?.startsWith("[Walk-in]")
+                ? booking.specialRequests.replace("[Walk-in] ", "").split(" — ")[0]
+                : booking.playerName}
+              {" · "}{new Date(dateOnly(booking.bookingDate) + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+              {" · "}{booking.startTime}–{booking.endTime}
+            </p>
+          </div>
+        </div>
+
+        {/* Refund info */}
+        <div className={`rounded-xl border p-4 text-sm ${isOnline ? "bg-blue-50 border-blue-100 text-blue-800" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+          {isOnline ? (
+            <p><span className="font-semibold">Full refund (100%)</span> — Rs. {booking.totalAmount.toLocaleString()} will be refunded to the player since you are cancelling on their behalf.</p>
+          ) : (
+            <p>This is a cash booking — no payment was collected online.</p>
+          )}
+        </div>
+
+        {/* Strike warning */}
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 flex gap-3">
+          <ShieldAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+          <div className="text-sm text-red-700 space-y-1">
+            <p className="font-semibold">This will add a strike to your facility.</p>
+            <p>3 strikes within 90 days automatically suspends the facility listing. The admin will be notified that you cancelled this booking.</p>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors font-medium">
+            Keep Booking
+          </button>
+          <button onClick={onConfirm} disabled={updating}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-xl transition-colors">
+            {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+            Yes, Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── No-show warning modal ── */
+function NoShowModal({
+  booking, onConfirm, onClose, updating,
+}: {
+  booking: Booking;
+  onConfirm: () => void;
+  onClose:   () => void;
+  updating:  boolean;
+}) {
+  const isOnline = booking.paymentMethod === "ONLINE";
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
+            <UserX className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 text-base">Mark as No-Show?</h3>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {booking.specialRequests?.startsWith("[Walk-in]")
+                ? booking.specialRequests.replace("[Walk-in] ", "").split(" — ")[0]
+                : booking.playerName}
+              {" · "}{new Date(dateOnly(booking.bookingDate) + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+              {" · "}{booking.startTime}–{booking.endTime}
+            </p>
+          </div>
+        </div>
+
+        {/* Payment context */}
+        <div className={`rounded-xl border p-4 text-sm ${isOnline ? "bg-blue-50 border-blue-100 text-blue-800" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+          {isOnline ? (
+            <p><span className="font-semibold">Online payment was collected.</span> The facility keeps the payment — no refund is issued for no-shows.</p>
+          ) : (
+            <p>This was a cash booking — no payment was collected. The slot was held and not used.</p>
+          )}
+        </div>
+
+        {/* Consequence warning */}
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="text-sm text-amber-700 space-y-1">
+            <p className="font-semibold">Consequences for the player:</p>
+            <ul className="list-disc list-inside space-y-0.5 text-amber-600">
+              <li>1st no-show — warning</li>
+              <li>2nd no-show — must pay online for all future bookings</li>
+              <li>3rd no-show — account suspended from booking</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors font-medium">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={updating}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-xl transition-colors">
+            {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
+            Mark No-Show
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ── Section label ── */
 function SectionLabel({ label, count, accent }: { label: string; count: number; accent: string }) {
@@ -87,7 +217,7 @@ function SectionLabel({ label, count, accent }: { label: string; count: number; 
 
 /* ── Booking row ── */
 function BookingRow({
-  b, pastDue, updating, onConfirm, onComplete, onCancel,
+  b, pastDue, updating, onConfirm, onComplete, onCancel, onNoShow,
 }: {
   b:          Booking;
   pastDue:    boolean;
@@ -95,6 +225,7 @@ function BookingRow({
   onConfirm:  () => void;
   onComplete: () => void;
   onCancel:   () => void;
+  onNoShow:   () => void;
 }) {
   const isWalkIn    = b.specialRequests?.startsWith("[Walk-in]");
   const displayName = isWalkIn
@@ -176,18 +307,27 @@ function BookingRow({
             </button>
           )}
           {b.status === "CONFIRMED" && (
-            <button onClick={sessionOver ? onComplete : undefined} disabled={updating || !sessionOver}
-              title={!sessionOver ? "Session hasn't ended yet" : undefined}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                pastDue
-                  ? "text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-40"
-                  : sessionOver
-                  ? "text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40"
-                  : "text-slate-400 bg-slate-100 cursor-not-allowed"
-              }`}>
-              {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock3 className="w-3.5 h-3.5" />}
-              {sessionOver ? "Complete" : "Ongoing"}
-            </button>
+            <>
+              <button onClick={sessionOver ? onComplete : undefined} disabled={updating || !sessionOver}
+                title={!sessionOver ? "Session hasn't ended yet" : undefined}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  pastDue
+                    ? "text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-40"
+                    : sessionOver
+                    ? "text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40"
+                    : "text-slate-400 bg-slate-100 cursor-not-allowed"
+                }`}>
+                {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock3 className="w-3.5 h-3.5" />}
+                {sessionOver ? "Complete" : "Ongoing"}
+              </button>
+              {sessionOver && (
+                <button onClick={onNoShow} disabled={updating}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 disabled:opacity-40 rounded-lg transition-colors">
+                  {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserX className="w-3.5 h-3.5" />}
+                  No-Show
+                </button>
+              )}
+            </>
           )}
           {(b.status === "PENDING" || b.status === "CONFIRMED") && (
             <button onClick={onCancel} disabled={updating}
@@ -473,12 +613,14 @@ function CashModal({ onConfirm, onClose, updating }: { onConfirm: (r: boolean) =
 
 /* ── Main page ── */
 export default function WorkerBookingsPage() {
-  const [bookings,   setBookings]   = useState<Booking[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [showModal,  setShowModal]  = useState(false);
-  const [updating,   setUpdating]   = useState<string | null>(null);
-  const [facility,   setFacility]   = useState<FacilityInfo | null>(null);
-  const [cashTarget, setCashTarget] = useState<string | null>(null);
+  const [bookings,      setBookings]      = useState<Booking[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [showModal,     setShowModal]     = useState(false);
+  const [updating,      setUpdating]      = useState<string | null>(null);
+  const [facility,      setFacility]      = useState<FacilityInfo | null>(null);
+  const [cashTarget,    setCashTarget]    = useState<string | null>(null);
+  const [cancelTarget,  setCancelTarget]  = useState<Booking | null>(null);
+  const [noShowTarget,  setNoShowTarget]  = useState<Booking | null>(null);
 
   useEffect(() => {
     fetch("/api/worker/facility").then((r) => r.json()).then((d) => { if (d.facility) setFacility(d.facility); });
@@ -495,7 +637,7 @@ export default function WorkerBookingsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const updateStatus = async (id: string, status: "CONFIRMED" | "COMPLETED" | "CANCELLED", cashReceived?: boolean) => {
+  const updateStatus = async (id: string, status: "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW", cashReceived?: boolean) => {
     setUpdating(id);
     try {
       const res = await fetch(`/api/worker/bookings/${id}/status`, {
@@ -512,6 +654,8 @@ export default function WorkerBookingsPage() {
     } finally {
       setUpdating(null);
       setCashTarget(null);
+      setCancelTarget(null);
+      setNoShowTarget(null);
     }
   };
 
@@ -524,11 +668,12 @@ export default function WorkerBookingsPage() {
   };
 
   /* ── Priority sort ── */
-  const pastDue          = bookings.filter(isPastDue);
-  const pendingUpcoming  = bookings.filter((b) => b.status === "PENDING").sort((a, b) => a.bookingDate.localeCompare(b.bookingDate) || a.startTime.localeCompare(b.startTime));
+  const pastDue           = bookings.filter(isPastDue);
+  const pendingUpcoming   = bookings.filter((b) => b.status === "PENDING").sort((a, b) => a.bookingDate.localeCompare(b.bookingDate) || a.startTime.localeCompare(b.startTime));
   const confirmedUpcoming = bookings.filter((b) => b.status === "CONFIRMED" && !isPastDue(b)).sort((a, b) => a.bookingDate.localeCompare(b.bookingDate) || a.startTime.localeCompare(b.startTime));
-  const completed        = bookings.filter((b) => b.status === "COMPLETED").sort((a, b) => b.bookingDate.localeCompare(a.bookingDate));
-  const cancelled        = bookings.filter((b) => b.status === "CANCELLED").sort((a, b) => b.bookingDate.localeCompare(a.bookingDate));
+  const completed         = bookings.filter((b) => b.status === "COMPLETED").sort((a, b) => b.bookingDate.localeCompare(a.bookingDate));
+  const cancelled         = bookings.filter((b) => b.status === "CANCELLED").sort((a, b) => b.bookingDate.localeCompare(a.bookingDate));
+  const noShows           = bookings.filter((b) => b.status === "NO_SHOW").sort((a, b) => b.bookingDate.localeCompare(a.bookingDate));
 
   const totalActive = pastDue.length + pendingUpcoming.length + confirmedUpcoming.length;
 
@@ -541,7 +686,8 @@ export default function WorkerBookingsPage() {
         updating={updating === b.id}
         onConfirm={() => updateStatus(b.id, "CONFIRMED")}
         onComplete={() => handleComplete(b)}
-        onCancel={() => { if (confirm(`Cancel booking for ${b.specialRequests?.startsWith("[Walk-in]") ? b.specialRequests.replace("[Walk-in] ", "").split(" — ")[0] : b.playerName}?`)) updateStatus(b.id, "CANCELLED"); }}
+        onCancel={() => setCancelTarget(b)}
+        onNoShow={() => setNoShowTarget(b)}
       />
     ));
 
@@ -570,13 +716,14 @@ export default function WorkerBookingsPage() {
       </div>
 
       {/* Stats strip */}
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
         {[
-          { label: "Past Due",  value: pastDue.length,           color: "text-amber-600" },
-          { label: "Pending",   value: pendingUpcoming.length,   color: "text-amber-500" },
-          { label: "Confirmed", value: confirmedUpcoming.length, color: "text-green-600" },
-          { label: "Completed", value: completed.length,         color: "text-blue-600"  },
-          { label: "Cancelled", value: cancelled.length,         color: "text-red-500"   },
+          { label: "Past Due",  value: pastDue.length,           color: "text-amber-600"  },
+          { label: "Pending",   value: pendingUpcoming.length,   color: "text-amber-500"  },
+          { label: "Confirmed", value: confirmedUpcoming.length, color: "text-green-600"  },
+          { label: "Completed", value: completed.length,         color: "text-blue-600"   },
+          { label: "Cancelled", value: cancelled.length,         color: "text-red-500"    },
+          { label: "No-Shows",  value: noShows.length,           color: "text-purple-600" },
         ].map(({ label, value, color }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-100 p-4">
             <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -637,6 +784,14 @@ export default function WorkerBookingsPage() {
               {renderSection(cancelled)}
             </div>
           )}
+
+          {/* 6. No-Shows */}
+          {noShows.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <SectionLabel label="No-Shows" count={noShows.length} accent="text-purple-500" />
+              {renderSection(noShows)}
+            </div>
+          )}
         </div>
       )}
 
@@ -646,6 +801,26 @@ export default function WorkerBookingsPage() {
           updating={updating === cashTarget}
           onClose={() => setCashTarget(null)}
           onConfirm={(r) => updateStatus(cashTarget, "COMPLETED", r)}
+        />
+      )}
+
+      {/* Cancel warning modal */}
+      {cancelTarget && (
+        <CancelWarningModal
+          booking={cancelTarget}
+          updating={updating === cancelTarget.id}
+          onClose={() => setCancelTarget(null)}
+          onConfirm={() => updateStatus(cancelTarget.id, "CANCELLED")}
+        />
+      )}
+
+      {/* No-show modal */}
+      {noShowTarget && (
+        <NoShowModal
+          booking={noShowTarget}
+          updating={updating === noShowTarget.id}
+          onClose={() => setNoShowTarget(null)}
+          onConfirm={() => updateStatus(noShowTarget.id, "NO_SHOW")}
         />
       )}
 

@@ -6,6 +6,7 @@ import {
   Calendar, Clock, MapPin, Search, Loader2, CheckCircle, XCircle,
   Check, CreditCard, Banknote, AlertTriangle, ChevronDown, Bell, UserPlus, X,
   User, Phone, StickyNote, Clock3, BadgeInfo, CheckCircle2, PhoneCall, History,
+  UserX, ShieldAlert,
 } from "lucide-react";
 import { TimeRangePicker } from "@/components/booking/TimeRangePicker";
 
@@ -76,7 +77,152 @@ const statusStyles: Record<string, string> = {
   CONFIRMED: "bg-green-50 text-green-700 border-green-100",
   COMPLETED: "bg-slate-100 text-slate-600 border-slate-200",
   CANCELLED: "bg-red-50 text-red-600 border-red-100",
+  NO_SHOW:   "bg-purple-50 text-purple-600 border-purple-100",
 };
+
+/* ── Owner cancel warning modal ── */
+interface CancelWarningModalProps {
+  booking:  Booking;
+  onClose:  () => void;
+  onConfirm: () => void;
+  loading:  boolean;
+}
+
+function CancelWarningModal({ booking, onClose, onConfirm, loading }: CancelWarningModalProps) {
+  const isOnlinePaid = booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID";
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
+            <ShieldAlert className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 text-base">Cancel Booking</h3>
+            <p className="text-xs text-slate-400">Review the impact before confirming</p>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-slate-500">Player</span>
+            <span className="font-medium">{booking.user.name}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Date</span>
+            <span className="font-medium">{formatDate(booking.bookingDate)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Amount</span>
+            <span className="font-bold text-slate-900">Rs. {booking.totalAmount.toLocaleString()}</span>
+          </div>
+        </div>
+
+        {isOnlinePaid && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 space-y-1">
+            <p className="font-semibold flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5" /> Full Refund Will Be Issued
+            </p>
+            <p>The player paid online. Cancelling will flag this for a <strong>100% refund (Rs. {booking.totalAmount.toLocaleString()})</strong>. Our admin team will process it.</p>
+          </div>
+        )}
+
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-800 space-y-1">
+          <p className="font-semibold flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" /> Strike Warning
+          </p>
+          <p>Owner cancellations add a <strong>strike</strong> to your facility. At <strong>3 strikes in 90 days</strong>, your listing may be automatically suspended. Please only cancel if absolutely necessary.</p>
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onClose} disabled={loading} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
+            Keep Booking
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+            Confirm Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── No-show modal ── */
+interface NoShowModalProps {
+  booking:  Booking;
+  onClose:  () => void;
+  onConfirm: () => void;
+  loading:  boolean;
+}
+
+function NoShowModal({ booking, onClose, onConfirm, loading }: NoShowModalProps) {
+  const isOnline = booking.paymentMethod === "ONLINE";
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
+            <UserX className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 text-base">Mark as No-Show</h3>
+            <p className="text-xs text-slate-400">Player did not arrive for their booking</p>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-slate-500">Player</span>
+            <span className="font-medium">{booking.user.name}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Date</span>
+            <span className="font-medium">{formatDate(booking.bookingDate)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Time</span>
+            <span className="font-medium">{booking.startTime} – {booking.endTime}</span>
+          </div>
+          <div className="flex justify-between border-t border-slate-100 pt-2">
+            <span className="text-slate-500">Amount</span>
+            <span className="font-bold text-slate-900">Rs. {booking.totalAmount.toLocaleString()}</span>
+          </div>
+        </div>
+
+        {isOnline ? (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-800">
+            <p className="font-semibold">You Keep the Payment</p>
+            <p className="mt-0.5">Player paid online but did not arrive. The payment is yours — no refund will be issued for no-shows.</p>
+          </div>
+        ) : (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+            <p className="font-semibold">Cash Booking — No Payment Collected</p>
+            <p className="mt-0.5">No cash was collected. The slot was blocked but no revenue was lost on the platform side.</p>
+          </div>
+        )}
+
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-800">
+          The player&apos;s no-show count will be recorded. Repeated no-shows may restrict their booking privileges.
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onClose} disabled={loading} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
+            Mark No-Show
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ── Complete booking modal ── */
 interface CompleteModalProps {
@@ -203,9 +349,10 @@ interface BookingCardProps {
   onConfirmBooking:  () => void;
   onCancelBooking:   () => void;
   onMarkComplete:    () => void;
+  onMarkNoShow:      () => void;
 }
 
-function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBooking, onCancelBooking, onMarkComplete }: BookingCardProps) {
+function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBooking, onCancelBooking, onMarkComplete, onMarkNoShow }: BookingCardProps) {
   return (
     <div className={`bg-white rounded-2xl border p-5 transition-all ${
       pastDue ? "border-amber-200 ring-1 ring-amber-100" : "border-slate-100"
@@ -333,25 +480,37 @@ function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBook
           )}
 
           {b.status === "CONFIRMED" && (
-            <div className="relative group">
-              <button
-                onClick={sessionOver ? onMarkComplete : undefined}
-                disabled={updating || !sessionOver}
-                className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                  !sessionOver
-                    ? "bg-slate-50 text-slate-300 cursor-not-allowed"
-                    : pastDue
-                    ? "bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50"
-                    : "bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-50"
-                }`}
-              >
-                {updating ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
-                Mark Complete
-              </button>
-              {!sessionOver && (
-                <div className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block z-10 whitespace-nowrap bg-slate-800 text-white text-xs rounded-lg px-2.5 py-1.5 pointer-events-none">
-                  Session hasn&apos;t ended yet
-                </div>
+            <div className="flex flex-col gap-2 items-end">
+              <div className="relative group">
+                <button
+                  onClick={sessionOver ? onMarkComplete : undefined}
+                  disabled={updating || !sessionOver}
+                  className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                    !sessionOver
+                      ? "bg-slate-50 text-slate-300 cursor-not-allowed"
+                      : pastDue
+                      ? "bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-50"
+                  }`}
+                >
+                  {updating ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                  Mark Complete
+                </button>
+                {!sessionOver && (
+                  <div className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block z-10 whitespace-nowrap bg-slate-800 text-white text-xs rounded-lg px-2.5 py-1.5 pointer-events-none">
+                    Session hasn&apos;t ended yet
+                  </div>
+                )}
+              </div>
+              {sessionOver && (
+                <button
+                  onClick={onMarkNoShow}
+                  disabled={updating}
+                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors bg-purple-50 hover:bg-purple-100 text-purple-700 disabled:opacity-50"
+                >
+                  <UserX className="w-3 h-3" />
+                  No-Show
+                </button>
               )}
             </div>
           )}
@@ -733,16 +892,18 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
 
 /* ── Main page ── */
 export default function GroundOwnerBookingsPage() {
-  const [bookings,       setBookings]       = useState<Booking[]>([]);
-  const [loading,        setLoading]        = useState(true);
-  const [statusFilter,   setStatusFilter]   = useState("");
-  const [search,         setSearch]         = useState("");
-  const [updating,       setUpdating]       = useState<string | null>(null);
-  const [error,          setError]          = useState("");
-  const [completeTarget, setCompleteTarget] = useState<Booking | null>(null);
-  const [showWalkIn,     setShowWalkIn]     = useState(false);
-  const [facilities,     setFacilities]     = useState<FacilityOption[]>([]);
-  const needsActionRef   = useRef<HTMLDivElement>(null);
+  const [bookings,        setBookings]        = useState<Booking[]>([]);
+  const [loading,         setLoading]         = useState(true);
+  const [statusFilter,    setStatusFilter]    = useState("");
+  const [search,          setSearch]          = useState("");
+  const [updating,        setUpdating]        = useState<string | null>(null);
+  const [error,           setError]           = useState("");
+  const [completeTarget,  setCompleteTarget]  = useState<Booking | null>(null);
+  const [cancelTarget,    setCancelTarget]    = useState<Booking | null>(null);
+  const [noShowTarget,    setNoShowTarget]    = useState<Booking | null>(null);
+  const [showWalkIn,      setShowWalkIn]      = useState(false);
+  const [facilities,      setFacilities]      = useState<FacilityOption[]>([]);
+  const needsActionRef    = useRef<HTMLDivElement>(null);
 
   // Load facilities once for the walk-in modal
   useEffect(() => {
@@ -779,6 +940,43 @@ export default function GroundOwnerBookingsPage() {
       setError(data.error ?? "Failed to update status.");
     } else {
       setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status } : b));
+    }
+  };
+
+  /* Owner cancel — called from warning modal */
+  const handleOwnerCancel = async () => {
+    if (!cancelTarget) return;
+    const id = cancelTarget.id;
+    setUpdating(id);
+    setError("");
+    const res  = await fetch(`/api/ground-owner/bookings/${id}/status`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body:   JSON.stringify({ status: "CANCELLED" }),
+    });
+    const data = await res.json();
+    setUpdating(null);
+    setCancelTarget(null);
+    if (!res.ok) {
+      setError(data.error ?? "Failed to cancel booking.");
+    } else {
+      setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "CANCELLED" } : b));
+    }
+  };
+
+  /* Mark no-show */
+  const handleNoShow = async () => {
+    if (!noShowTarget) return;
+    const id = noShowTarget.id;
+    setUpdating(id);
+    setError("");
+    const res  = await fetch(`/api/ground-owner/bookings/${id}/noshow`, { method: "PUT" });
+    const data = await res.json();
+    setUpdating(null);
+    setNoShowTarget(null);
+    if (!res.ok) {
+      setError(data.error ?? "Failed to mark no-show.");
+    } else {
+      setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "NO_SHOW" } : b));
     }
   };
 
@@ -917,6 +1115,7 @@ export default function GroundOwnerBookingsPage() {
           <option value="CONFIRMED">Confirmed</option>
           <option value="COMPLETED">Completed</option>
           <option value="CANCELLED">Cancelled</option>
+          <option value="NO_SHOW">No-Show</option>
         </select>
       </div>
 
@@ -955,8 +1154,9 @@ export default function GroundOwnerBookingsPage() {
                 <BookingCard key={b.id} booking={b} pastDue sessionOver={isSessionOver(b)}
                   updating={updating === b.id}
                   onConfirmBooking={() => updateStatus(b.id, "CONFIRMED")}
-                  onCancelBooking={() => updateStatus(b.id, "CANCELLED")}
-                  onMarkComplete={() => setCompleteTarget(b)} />
+                  onCancelBooking={() => setCancelTarget(b)}
+                  onMarkComplete={() => setCompleteTarget(b)}
+                  onMarkNoShow={() => setNoShowTarget(b)} />
               ))}
             </div>
           )}
@@ -971,8 +1171,9 @@ export default function GroundOwnerBookingsPage() {
                 <BookingCard key={b.id} booking={b} pastDue={false} sessionOver={isSessionOver(b)}
                   updating={updating === b.id}
                   onConfirmBooking={() => updateStatus(b.id, "CONFIRMED")}
-                  onCancelBooking={() => updateStatus(b.id, "CANCELLED")}
-                  onMarkComplete={() => setCompleteTarget(b)} />
+                  onCancelBooking={() => setCancelTarget(b)}
+                  onMarkComplete={() => setCompleteTarget(b)}
+                  onMarkNoShow={() => setNoShowTarget(b)} />
               ))}
             </div>
           )}
@@ -987,8 +1188,9 @@ export default function GroundOwnerBookingsPage() {
                 <BookingCard key={b.id} booking={b} pastDue={false} sessionOver={isSessionOver(b)}
                   updating={updating === b.id}
                   onConfirmBooking={() => updateStatus(b.id, "CONFIRMED")}
-                  onCancelBooking={() => updateStatus(b.id, "CANCELLED")}
-                  onMarkComplete={() => setCompleteTarget(b)} />
+                  onCancelBooking={() => setCancelTarget(b)}
+                  onMarkComplete={() => setCompleteTarget(b)}
+                  onMarkNoShow={() => setNoShowTarget(b)} />
               ))}
             </div>
           )}
@@ -1003,8 +1205,9 @@ export default function GroundOwnerBookingsPage() {
                 <BookingCard key={b.id} booking={b} pastDue={false} sessionOver={isSessionOver(b)}
                   updating={updating === b.id}
                   onConfirmBooking={() => updateStatus(b.id, "CONFIRMED")}
-                  onCancelBooking={() => updateStatus(b.id, "CANCELLED")}
-                  onMarkComplete={() => setCompleteTarget(b)} />
+                  onCancelBooking={() => setCancelTarget(b)}
+                  onMarkComplete={() => setCompleteTarget(b)}
+                  onMarkNoShow={() => setNoShowTarget(b)} />
               ))}
             </div>
           )}
@@ -1019,8 +1222,9 @@ export default function GroundOwnerBookingsPage() {
                 <BookingCard key={b.id} booking={b} pastDue={false} sessionOver={isSessionOver(b)}
                   updating={updating === b.id}
                   onConfirmBooking={() => updateStatus(b.id, "CONFIRMED")}
-                  onCancelBooking={() => updateStatus(b.id, "CANCELLED")}
-                  onMarkComplete={() => setCompleteTarget(b)} />
+                  onCancelBooking={() => setCancelTarget(b)}
+                  onMarkComplete={() => setCompleteTarget(b)}
+                  onMarkNoShow={() => setNoShowTarget(b)} />
               ))}
             </div>
           )}
@@ -1041,6 +1245,26 @@ export default function GroundOwnerBookingsPage() {
           loading={updating === completeTarget.id}
           onClose={() => setCompleteTarget(null)}
           onConfirm={handleComplete}
+        />
+      )}
+
+      {/* Owner cancel warning modal */}
+      {cancelTarget && (
+        <CancelWarningModal
+          booking={cancelTarget}
+          loading={updating === cancelTarget.id}
+          onClose={() => setCancelTarget(null)}
+          onConfirm={handleOwnerCancel}
+        />
+      )}
+
+      {/* No-show modal */}
+      {noShowTarget && (
+        <NoShowModal
+          booking={noShowTarget}
+          loading={updating === noShowTarget.id}
+          onClose={() => setNoShowTarget(null)}
+          onConfirm={handleNoShow}
         />
       )}
 

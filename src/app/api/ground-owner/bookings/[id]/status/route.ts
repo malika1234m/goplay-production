@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { sendSMS } from "@/lib/sms";
 import { sendBookingConfirmedEmail, sendBookingCancelledEmail } from "@/lib/email";
 import { getCommissionRate } from "@/lib/settings";
+import { STRIKE_SUSPEND_THRESHOLD, STRIKE_RESET_DAYS } from "@/lib/cancellation-policy";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -36,8 +37,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const booking = await db.facilityBooking.findFirst({
       where: { id, facilityId: { in: facilityIds } },
       include: {
-        facility: { select: { name: true } },
-        user:     { select: { id: true, name: true, email: true } },
+        facility: {
+          select: {
+            name:              true,
+            cancelStrikeCount: true,
+            strikeResetAt:     true,
+            isListingSuspended: true,
+          },
+        },
+        user: { select: { id: true, name: true, email: true } },
       },
     });
     if (!booking) return Response.json({ error: "Booking not found." }, { status: 404 });
@@ -102,23 +110,72 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     }
 
-    // If owner cancelled a paid online booking, flag it for refund
-    if (status === "CANCELLED" && booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID") {
+    // Owner cancellation: apply strike system + full refund
+    if (status === "CANCELLED") {
+      const now      = new Date();
+      const facility = booking.facility;
+
+      // Reset strike window if 90 days have passed
+      const resetDue = facility.strikeResetAt
+        ? (now.getTime() - facility.strikeResetAt.getTime()) / 86_400_000 >= STRIKE_RESET_DAYS
+        : true;
+      const currentStrikes = resetDue ? 0 : facility.cancelStrikeCount;
+      const newStrikes     = currentStrikes + 1;
+      const suspend        = newStrikes >= STRIKE_SUSPEND_THRESHOLD;
+
+      await db.sportsFacility.update({
+        where: { id: booking.facilityId },
+        data: {
+          cancelStrikeCount:  newStrikes,
+          strikeResetAt:      resetDue ? now : undefined,
+          isListingSuspended: suspend ? true : undefined,
+        },
+      });
+
+      // Store cancellation info + always 100% refund to player
+      const isOnlinePaid = booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID";
       await db.facilityBooking.update({
         where: { id },
-        data:  { refundStatus: "NEEDED" },
+        data: {
+          cancelledAt:   now,
+          cancelledBy:   "owner",
+          refundPercent: 100,
+          refundAmount:  booking.totalAmount,
+          ...(isOnlinePaid ? { refundStatus: "NEEDED" } : {}),
+        },
       });
-      const admins = await db.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+
       const dateStr = new Date(booking.bookingDate).toLocaleDateString("en-US", {
         weekday: "short", month: "short", day: "numeric",
       });
-      await db.notification.createMany({
-        data: admins.map((a) => ({
-          userId:  a.id,
+      const admins = await db.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+
+      const adminMessages: { title: string; message: string; type: "error" | "warning" | "info" | "success" }[] = [];
+      if (isOnlinePaid) {
+        adminMessages.push({
           title:   "Refund Required",
-          message: `The owner of ${booking.facility.name} cancelled a paid online booking by ${booking.user.name} on ${dateStr}. Rs. ${booking.totalAmount.toLocaleString()} needs to be refunded to the player.`,
+          message: `Owner of ${booking.facility.name} cancelled a paid booking by ${booking.user.name} on ${dateStr}. Full refund: Rs. ${booking.totalAmount.toLocaleString()}.`,
           type:    "error" as const,
-        })),
+        });
+      }
+      if (suspend) {
+        adminMessages.push({
+          title:   "Facility Suspended — Strike Limit Reached",
+          message: `${booking.facility.name} has reached ${newStrikes} cancellation strikes in 90 days and has been automatically suspended.`,
+          type:    "error" as const,
+        });
+      } else {
+        adminMessages.push({
+          title:   "Owner Cancellation Strike",
+          message: `${booking.facility.name} cancelled a booking (strike ${newStrikes}/${STRIKE_SUSPEND_THRESHOLD}). ${STRIKE_SUSPEND_THRESHOLD - newStrikes} more will suspend the listing.`,
+          type:    "warning" as const,
+        });
+      }
+
+      await db.notification.createMany({
+        data: admins.flatMap((a) =>
+          adminMessages.map((msg) => ({ userId: a.id, ...msg }))
+        ),
       });
     }
 

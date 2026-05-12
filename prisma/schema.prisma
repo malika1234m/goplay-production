@@ -18,6 +18,7 @@ enum BookingStatus {
   CONFIRMED
   CANCELLED
   COMPLETED
+  NO_SHOW
 }
 
 enum PaymentMethod {
@@ -63,6 +64,11 @@ model User {
   isActive           Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+
+  noShowCount           Int     @default(0)
+  cashCancelCount       Int     @default(0)
+  requiresOnlinePayment Boolean @default(false)
+  isBookingSuspended    Boolean @default(false)
 
   bookings             FacilityBooking[]
   reviews              FacilityReview[]
@@ -153,6 +159,10 @@ model SportsFacility {
   latitude    Float?
   longitude   Float?
 
+  cancelStrikeCount  Int      @default(0)
+  strikeResetAt      DateTime?
+  isListingSuspended Boolean  @default(false)
+
   categoryId String
   ownerId    String
 
@@ -224,6 +234,11 @@ model FacilityBooking {
   refundStatus      RefundStatus  @default(NONE)
   refundNote        String?
   refundProcessedAt DateTime?
+  cancelledAt       DateTime?
+  cancelledBy       String?
+  refundPercent     Int?
+  refundAmount      Float?
+  noShowMarkedAt    DateTime?
   archivedAt        DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
