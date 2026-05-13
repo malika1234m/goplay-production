@@ -20,6 +20,8 @@ const STEPS = [
   { num: 3, label: "Review & Submit" },
 ];
 
+const DRAFT_KEY = "goplay_provider_draft";
+
 export default function BecomeProviderPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -31,6 +33,7 @@ export default function BecomeProviderPage() {
   const [error,       setError]      = useState("");
   const [existing,    setExisting]   = useState<null | { status: string }>(null);
   const [checkingApp, setCheckingApp] = useState(true);
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
 
   const [form, setForm] = useState({
     phone: "", address: "", city: "",
@@ -44,11 +47,32 @@ export default function BecomeProviderPage() {
     fetch("/api/provider/application").then((r) => r.json()).then((d) => {
       if (d.application) setExisting(d.application);
     }).finally(() => setCheckingApp(false));
+
+    // Restore draft
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        const hasMeaningfulData = draft.facilityName || draft.facilityAddress || draft.address;
+        if (hasMeaningfulData) {
+          setForm((f) => ({ ...f, ...draft }));
+          setShowDraftBanner(true);
+        }
+      }
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (session?.user) setForm((f) => ({ ...f, phone: (session.user as any).phone ?? "" }));
+    if (session?.user) setForm((f) => ({ ...f, phone: f.phone || (session.user as any).phone || "" }));
   }, [session]);
+
+  // Auto-save draft on form change
+  useEffect(() => {
+    const hasData = form.phone || form.facilityName || form.address;
+    if (hasData) localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form]);
 
   const toggleAmenity = (a: string) =>
     setForm((f) => ({
@@ -103,6 +127,7 @@ export default function BecomeProviderPage() {
     const data = await res.json();
     setSubmitting(false);
     if (!res.ok) { setError(data.error ?? "Submission failed."); return; }
+    localStorage.removeItem(DRAFT_KEY);
     setSubmitted(true);
   };
 
@@ -187,6 +212,31 @@ export default function BecomeProviderPage() {
           List your sports facility on GoPlay and start receiving bookings from players across Sri Lanka.
         </p>
       </div>
+
+      {/* Draft restored banner */}
+      {showDraftBanner && (
+        <div className="flex items-center justify-between gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+          <p className="text-sm text-blue-700 font-medium">
+            📋 We restored your previous draft. Pick up where you left off.
+          </p>
+          <button
+            onClick={() => {
+              localStorage.removeItem(DRAFT_KEY);
+              setForm({
+                phone: (session?.user as any)?.phone ?? "", address: "", city: "",
+                facilityName: "", facilityAddress: "", facilityCity: "",
+                categoryIds: [], proposedHourlyRate: "", capacity: "",
+                amenities: [], facilityDescription: "",
+              });
+              setStep(1);
+              setShowDraftBanner(false);
+            }}
+            className="text-xs text-blue-500 hover:text-blue-700 underline shrink-0"
+          >
+            Start fresh
+          </button>
+        </div>
+      )}
 
       {/* Step indicator */}
       <div className="flex items-center px-2">

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Star, Clock, Users, CheckCircle, ChevronLeft } from "lucide-react";
+import { MapPin, Star, Clock, Users, CheckCircle, ChevronLeft, Navigation } from "lucide-react";
 import { db } from "@/lib/db";
 import BookingForm from "@/components/booking/BookingForm";
 import GroundImageGallery from "@/components/grounds/GroundImageGallery";
@@ -246,7 +246,18 @@ export default async function GroundDetailsPage({
           {ground.latitude && ground.longitude && (
             <div className="lg:col-span-2">
               <div className="bg-white rounded-2xl border border-slate-100 p-6">
-                <h2 className="text-base font-semibold text-slate-900 mb-4">Location</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-semibold text-slate-900">Location</h2>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${ground.latitude},${ground.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    Get Directions
+                  </a>
+                </div>
                 <FacilityMapWrapper
                   lat={ground.latitude}
                   lng={ground.longitude}

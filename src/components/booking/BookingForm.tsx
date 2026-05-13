@@ -104,6 +104,15 @@ export default function BookingForm({
   const isClosedDay    = availability.length > 0 && (!selectedSched || !selectedSched.isOpen);
   const openDayNames   = availability.filter((d) => d.isOpen).map((d) => DAYS[d.dayOfWeek]);
 
+  const maxDuration = selectedSched?.isOpen
+    ? Math.min(12, Math.floor((toMins(selectedSched.closeTime) - toMins(selectedSched.openTime)) / 60))
+    : 12;
+
+  // If selected day changes and current duration exceeds new max, clamp it
+  useEffect(() => {
+    if (duration > maxDuration) { setDuration(maxDuration); setSelectedSlot(null); }
+  }, [maxDuration, duration]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session) { router.push("/login"); return; }
@@ -283,7 +292,7 @@ export default function BookingForm({
           onChange={(e) => { setDuration(Number(e.target.value)); setSelectedSlot(null); }}
           className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-green-500 bg-white"
         >
-          {[1, 2, 3, 4].map((h) => (
+          {Array.from({ length: maxDuration }, (_, i) => i + 1).map((h) => (
             <option key={h} value={h}>{h} {h === 1 ? "hour" : "hours"}</option>
           ))}
         </select>

@@ -83,6 +83,89 @@ function StarPicker({ value, onChange }: { value: number; onChange: (n: number) 
   );
 }
 
+/* ── Review modal ── */
+function ReviewModal({
+  booking,
+  onClose,
+  onSubmit,
+}: {
+  booking: Booking;
+  onClose: () => void;
+  onSubmit: (rating: number, text: string) => Promise<void>;
+}) {
+  const [rating,     setRating]     = useState(0);
+  const [text,       setText]       = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error,      setError]      = useState("");
+
+  const handleSubmit = async () => {
+    if (!rating) { setError("Please select a rating."); return; }
+    setSubmitting(true);
+    setError("");
+    try {
+      await onSubmit(rating, text.trim());
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to submit review.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+              <Star className="w-5 h-5 text-amber-500" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-base">Leave a Review</h3>
+              <p className="text-xs text-slate-400 truncate max-w-[180px]">{booking.facility.name}</p>
+            </div>
+          </div>
+          <button onClick={onClose}><X className="w-5 h-5 text-slate-400 hover:text-slate-600" /></button>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium text-slate-500 mb-2">How would you rate your experience?</p>
+          <StarPicker value={rating} onChange={setRating} />
+        </div>
+
+        <div>
+          <p className="text-xs font-medium text-slate-500 mb-2">Tell others about it <span className="font-normal">(optional)</span></p>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Share your experience…"
+            rows={3}
+            className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-slate-400 resize-none"
+          />
+        </div>
+
+        {error && <p className="text-xs text-red-500">{error}</p>}
+
+        <div className="flex gap-3 pt-1">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !rating}
+            className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
+          >
+            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+            Submit Review
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Cancel confirmation modal ── */
 function CancelModal({
   booking,
@@ -236,6 +319,15 @@ export default function MyBookingsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch]     = useState("");
   const [error, setError]       = useState("");
+  const [reviewSuccess, setReviewSuccess] = useState("");
+
+  // Read ?status= from URL on first load
+  useEffect(() => {
+    const s = new URLSearchParams(window.location.search).get("status");
+    const valid = ["CONFIRMED", "PENDING", "COMPLETED", "CANCELLED", "NO_SHOW"];
+    if (s && valid.includes(s)) setStatusFilter(s);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Cancel modal
   const [cancelTarget,   setCancelTarget]   = useState<Booking | null>(null);
@@ -247,12 +339,8 @@ export default function MyBookingsPage() {
   const [checkingPayment,  setCheckingPayment]  = useState<string | null>(null);
   const [paymentMessages,  setPaymentMessages]  = useState<Record<string, { type: "success" | "error" | "info"; text: string }>>({});
 
-  // Review state
-  const [reviewOpen,       setReviewOpen]       = useState<string | null>(null);
-  const [reviewRating,     setReviewRating]     = useState(0);
-  const [reviewText,       setReviewText]       = useState("");
-  const [submittingReview, setSubmittingReview] = useState(false);
-  const [reviewError,      setReviewError]      = useState("");
+  // Review modal
+  const [reviewTarget, setReviewTarget] = useState<Booking | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -325,27 +413,17 @@ export default function MyBookingsPage() {
     }
   };
 
-  const openReview = (id: string) => { setReviewOpen(id); setReviewRating(0); setReviewText(""); setReviewError(""); };
-
-  const submitReview = async (bookingId: string) => {
-    if (!reviewRating) { setReviewError("Please select a rating."); return; }
-    setSubmittingReview(true);
-    setReviewError("");
-    try {
-      const res  = await fetch(`/api/user/bookings/${bookingId}/review`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating: reviewRating, reviewText: reviewText.trim() || undefined }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setBookings((prev) => prev.map((b) => b.id === bookingId ? { ...b, hasReview: true } : b));
-        setReviewOpen(null);
-      } else {
-        setReviewError(data.error ?? "Failed to submit review.");
-      }
-    } finally {
-      setSubmittingReview(false);
-    }
+  const submitReview = async (bookingId: string, rating: number, text: string) => {
+    const res  = await fetch(`/api/user/bookings/${bookingId}/review`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rating, reviewText: text || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Failed to submit review.");
+    setBookings((prev) => prev.map((b) => b.id === bookingId ? { ...b, hasReview: true } : b));
+    setReviewTarget(null);
+    setReviewSuccess("Review submitted! Thank you.");
+    setTimeout(() => setReviewSuccess(""), 4000);
   };
 
   const filtered = bookings.filter((b) =>
@@ -385,6 +463,11 @@ export default function MyBookingsPage() {
 
       {error && (
         <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-xl">{error}</p>
+      )}
+      {reviewSuccess && (
+        <p className="text-xs text-green-700 bg-green-50 border border-green-100 px-4 py-3 rounded-xl flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 shrink-0" />{reviewSuccess}
+        </p>
       )}
 
       {loading ? (
@@ -514,35 +597,12 @@ export default function MyBookingsPage() {
                         </button>
                       )}
                       {canReview && (
-                        <button onClick={() => openReview(b.id)}
+                        <button onClick={() => setReviewTarget(b)}
                           className="flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-700 font-medium transition-colors">
                           <Star className="w-3.5 h-3.5" />Leave a Review
                         </button>
                       )}
                     </div>
-
-                    {/* Inline review form */}
-                    {reviewOpen === b.id && (
-                      <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-4">
-                        <p className="text-xs font-semibold text-slate-700 mb-3">Rate your experience at {b.facility.name}</p>
-                        <StarPicker value={reviewRating} onChange={setReviewRating} />
-                        <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)}
-                          placeholder="Share your experience (optional)…" rows={3}
-                          className="mt-3 w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-slate-400 resize-none bg-white" />
-                        {reviewError && <p className="text-xs text-red-500 mt-1">{reviewError}</p>}
-                        <div className="flex gap-2 mt-3">
-                          <button onClick={() => { setReviewOpen(null); setReviewRating(0); setReviewText(""); }}
-                            className="flex-1 text-xs text-slate-500 hover:text-slate-700 font-medium py-2 rounded-lg bg-white border border-slate-200 transition-colors">
-                            Cancel
-                          </button>
-                          <button onClick={() => submitReview(b.id)} disabled={submittingReview || !reviewRating}
-                            className="flex-1 flex items-center justify-center gap-1.5 text-xs text-white bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 font-semibold py-2 rounded-lg transition-colors">
-                            {submittingReview && <Loader2 className="w-3 h-3 animate-spin" />}
-                            Submit Review
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -560,6 +620,15 @@ export default function MyBookingsPage() {
           confirming={confirming}
           onClose={() => { setCancelTarget(null); setCancelPolicy(null); }}
           onConfirm={handleCancel}
+        />
+      )}
+
+      {/* Review modal */}
+      {reviewTarget && (
+        <ReviewModal
+          booking={reviewTarget}
+          onClose={() => setReviewTarget(null)}
+          onSubmit={(rating, text) => submitReview(reviewTarget.id, rating, text)}
         />
       )}
     </div>

@@ -49,10 +49,10 @@ export default async function UserDashboard() {
   const { stats, recent } = await getUserStats(session.user.id);
 
   const statCards = [
-    { label: "Total Bookings", value: stats.total,     icon: CalendarCheck, color: "bg-blue-50 text-blue-600" },
-    { label: "Upcoming",       value: stats.upcoming,  icon: Clock,         color: "bg-amber-50 text-amber-600" },
-    { label: "Completed",      value: stats.completed, icon: CheckCircle,   color: "bg-green-50 text-green-600" },
-    { label: "Cancelled",      value: stats.cancelled, icon: XCircle,       color: "bg-red-50 text-red-600" },
+    { label: "Total Bookings", value: stats.total,     icon: CalendarCheck, color: "bg-blue-50 text-blue-600",   href: "/my-bookings" },
+    { label: "Upcoming",       value: stats.upcoming,  icon: Clock,         color: "bg-amber-50 text-amber-600", href: "/my-bookings?status=CONFIRMED" },
+    { label: "Completed",      value: stats.completed, icon: CheckCircle,   color: "bg-green-50 text-green-600", href: "/my-bookings?status=COMPLETED" },
+    { label: "Cancelled",      value: stats.cancelled, icon: XCircle,       color: "bg-red-50 text-red-600",     href: "/my-bookings?status=CANCELLED" },
   ];
 
   return (
@@ -75,16 +75,20 @@ export default async function UserDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5 flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
+        {statCards.map(({ label, value, icon: Icon, color, href }) => (
+          <Link
+            key={label}
+            href={href}
+            className="bg-white rounded-2xl border border-slate-100 p-5 flex items-center gap-4 hover:shadow-md hover:-translate-y-0.5 transition-all group"
+          >
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color} group-hover:scale-110 transition-transform`}>
               <Icon className="w-5 h-5" />
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900">{value}</p>
               <p className="text-xs text-slate-500 mt-0.5">{label}</p>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 

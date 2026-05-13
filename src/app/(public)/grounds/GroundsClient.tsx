@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
-import { MapPin, Star, Map, LayoutGrid, Navigation, Loader2 } from "lucide-react";
+import { MapPin, Star, Map, LayoutGrid, Navigation, Loader2, ArrowUpDown } from "lucide-react";
 import { haversineKm } from "@/lib/geocode";
 import type { MapGround } from "@/components/maps/GroundsMap";
 
@@ -40,6 +40,7 @@ export default function GroundsClient({ grounds, q, category }: Props) {
   const [nearMe, setNearMe] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"default" | "price_asc" | "price_desc" | "rating" | "name">("default");
 
   function handleNearMe() {
     if (!navigator.geolocation) {
@@ -70,12 +71,21 @@ export default function GroundsClient({ grounds, q, category }: Props) {
   }
 
   const filtered = useMemo(() => {
-    if (!nearMe || !userLat || !userLng) return grounds;
-    return grounds.filter((g) => {
-      if (!g.latitude || !g.longitude) return false;
-      return haversineKm(userLat, userLng, g.latitude, g.longitude) <= radiusKm;
+    let list = grounds;
+    if (nearMe && userLat && userLng) {
+      list = list.filter((g) => {
+        if (!g.latitude || !g.longitude) return false;
+        return haversineKm(userLat, userLng, g.latitude, g.longitude) <= radiusKm;
+      });
+    }
+    return [...list].sort((a, b) => {
+      if (sortBy === "price_asc")  return a.hourlyRate - b.hourlyRate;
+      if (sortBy === "price_desc") return b.hourlyRate - a.hourlyRate;
+      if (sortBy === "rating")     return (b.avgRating ?? 0) - (a.avgRating ?? 0);
+      if (sortBy === "name")       return a.name.localeCompare(b.name);
+      return 0;
     });
-  }, [grounds, nearMe, userLat, userLng, radiusKm]);
+  }, [grounds, nearMe, userLat, userLng, radiusKm, sortBy]);
 
   const mapGrounds = useMemo<MapGround[]>(
     () =>
@@ -144,28 +154,46 @@ export default function GroundsClient({ grounds, q, category }: Props) {
           {geoError && <span className="text-xs text-red-500">{geoError}</span>}
         </div>
 
-        {/* Grid / Map toggle */}
-        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1">
-          <button
-            onClick={() => setView("grid")}
-            className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md font-medium transition-colors ${
-              view === "grid"
-                ? "bg-green-600 text-white"
-                : "text-slate-600 hover:text-green-600"
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" /> Grid
-          </button>
-          <button
-            onClick={() => setView("map")}
-            className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md font-medium transition-colors ${
-              view === "map"
-                ? "bg-green-600 text-white"
-                : "text-slate-600 hover:text-green-600"
-            }`}
-          >
-            <Map className="w-3.5 h-3.5" /> Map
-          </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Sort */}
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="text-sm text-slate-600 outline-none bg-transparent"
+            >
+              <option value="default">Recommended</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+              <option value="rating">Highest Rated</option>
+              <option value="name">Name: A–Z</option>
+            </select>
+          </div>
+
+          {/* Grid / Map toggle */}
+          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1">
+            <button
+              onClick={() => setView("grid")}
+              className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md font-medium transition-colors ${
+                view === "grid"
+                  ? "bg-green-600 text-white"
+                  : "text-slate-600 hover:text-green-600"
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" /> Grid
+            </button>
+            <button
+              onClick={() => setView("map")}
+              className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md font-medium transition-colors ${
+                view === "map"
+                  ? "bg-green-600 text-white"
+                  : "text-slate-600 hover:text-green-600"
+              }`}
+            >
+              <Map className="w-3.5 h-3.5" /> Map
+            </button>
+          </div>
         </div>
       </div>
 
@@ -206,15 +234,34 @@ export default function GroundsClient({ grounds, q, category }: Props) {
             <div className="bg-white rounded-2xl border border-slate-100 py-20 text-center">
               <div className="text-6xl mb-4">🏟️</div>
               <h3 className="text-base font-semibold text-slate-900 mb-1">No grounds found</h3>
-              <p className="text-sm text-slate-400 max-w-xs mx-auto">
+              <p className="text-sm text-slate-400 max-w-xs mx-auto mb-5">
                 {nearMe
-                  ? `No grounds found within ${radiusKm} km of your location. Try a larger radius.`
+                  ? `No grounds found within ${radiusKm} km of your location.`
                   : q || category
                   ? "Try adjusting your search filters."
                   : "Grounds will appear here once ground owners list their facilities."}
               </p>
-              {(q || category) && (
-                <Link href="/grounds" className="mt-5 inline-block text-sm text-green-600 font-medium hover:underline">
+              {nearMe && (
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  <p className="text-xs text-slate-500 w-full mb-1">Try a larger radius:</p>
+                  {RADII.filter((r) => r > radiusKm).map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setRadiusKm(r)}
+                      className="text-sm font-medium bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl transition-colors"
+                    >
+                      Expand to {r} km
+                    </button>
+                  ))}
+                  {RADII.filter((r) => r > radiusKm).length === 0 && (
+                    <button onClick={clearNearMe} className="text-sm text-slate-500 underline">
+                      Show all grounds instead
+                    </button>
+                  )}
+                </div>
+              )}
+              {!nearMe && (q || category) && (
+                <Link href="/grounds" className="inline-block text-sm text-green-600 font-medium hover:underline">
                   Clear filters
                 </Link>
               )}
