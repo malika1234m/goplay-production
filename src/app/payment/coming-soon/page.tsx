@@ -1,8 +1,11 @@
-import Link from "next/link";
+"use client";
+
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Construction, CreditCard, ShieldCheck, Clock, ArrowLeft, Banknote } from "lucide-react";
 
 export default function PaymentComingSoonPage() {
+  const router = useRouter();
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-lg">
@@ -68,13 +71,13 @@ export default function PaymentComingSoonPage() {
               </p>
             </div>
 
-            <Link
-              href="javascript:history.back()"
+            <button
+              onClick={() => router.back()}
               className="flex items-center justify-center gap-2 w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3.5 rounded-xl transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              Go Back & Book with Cash
-            </Link>
+              Go Back &amp; Book with Cash
+            </button>
 
             <p className="text-center text-xs text-slate-400 mt-4">
               Online payments will be enabled once PayHere registration is complete.
