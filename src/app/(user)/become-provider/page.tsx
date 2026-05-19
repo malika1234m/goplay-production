@@ -12,7 +12,12 @@ import {
 
 interface Category { id: string; name: string; icon: string | null }
 
-const AMENITIES = ["Parking", "Changing Rooms", "Showers", "Floodlights", "Cafeteria", "WiFi", "Toilets", "First Aid", "Security"];
+const AMENITIES = [
+  "Parking", "Changing Rooms", "Showers", "Floodlights",
+  "Cafeteria", "WiFi", "Toilets", "First Aid",
+  "Drinking Water", "Equipment Rental", "Seating / Spectator Area",
+  "Security / CCTV", "Air Conditioning", "Coaching Available", "Scoreboard",
+];
 
 const STEPS = [
   { num: 1, label: "Personal Info" },
