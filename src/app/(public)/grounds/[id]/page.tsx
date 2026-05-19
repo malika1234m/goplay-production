@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { MapPin, Star, Clock, Users, CheckCircle, ChevronLeft, Navigation } from "lucide-react";
@@ -13,6 +14,37 @@ const categoryEmoji: Record<string, string> = {
 };
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const ground = await db.sportsFacility.findUnique({
+    where:  { id, status: "ACTIVE" },
+    select: { name: true, city: true, address: true, description: true, images: true, hourlyRate: true, categories: { select: { name: true } } },
+  });
+
+  if (!ground) return { title: "Ground Not Found" };
+
+  const sports = ground.categories.map((c) => c.name).join(", ");
+  const title  = `${ground.name} — ${ground.city}`;
+  const desc   = ground.description
+    ?? `Book ${ground.name} in ${ground.city}. ${sports} facility available from Rs. ${ground.hourlyRate.toLocaleString()}/hr.`;
+
+  return {
+    title,
+    description: desc,
+    alternates:  { canonical: `/grounds/${id}` },
+    openGraph: {
+      title,
+      description: desc,
+      url:    `/grounds/${id}`,
+      images: ground.images.length > 0 ? [{ url: ground.images[0], alt: ground.name }] : [],
+    },
+  };
+}
 
 async function getGround(id: string) {
   const ground = await db.sportsFacility.findUnique({

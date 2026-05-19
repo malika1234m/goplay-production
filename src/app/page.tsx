@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+
+export const metadata: Metadata = {
+  title: { absolute: "GoPlay — Book Sports Grounds in Sri Lanka" },
+  description:
+    "Find and instantly book cricket, football, badminton, tennis courts and more sports grounds across Sri Lanka. Real-time availability, instant confirmation.",
+  alternates: { canonical: "/" },
+};
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import HomeSearch from "@/components/home/HomeSearch";

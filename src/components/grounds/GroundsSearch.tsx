@@ -21,6 +21,7 @@ export default function GroundsSearch({
     const params = new URLSearchParams(searchParams.toString());
     if (q)    params.set("q", q);    else params.delete("q");
     if (city) params.set("city", city); else params.delete("city");
+    params.delete("page");
     router.push(`/grounds?${params.toString()}`);
   };
 
