@@ -15,6 +15,8 @@ interface CourtDraft  { name: string; description: string }
 const AMENITIES = [
   "Parking", "Changing Rooms", "Showers", "Floodlights",
   "Cafeteria", "WiFi", "Toilets", "First Aid",
+  "Drinking Water", "Equipment Rental", "Seating / Spectator Area",
+  "Security / CCTV", "Air Conditioning", "Coaching Available", "Scoreboard",
 ];
 
 /* ── Reusable section card ── */

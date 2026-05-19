@@ -25,8 +25,9 @@ interface Ground {
 }
 
 const categoryEmoji: Record<string, string> = {
-  Cricket: "🏏", Football: "⚽", Tennis: "🎾",
+  Cricket: "🏏", Football: "⚽", Futsal: "🥅", Tennis: "🎾",
   Badminton: "🏸", Basketball: "🏀", Volleyball: "🏐",
+  Netball: "🏐", Rugby: "🏉", Swimming: "🏊", "Table Tennis": "🏓",
 };
 
 const statusConfig: Record<string, { label: string; style: string; icon: React.ElementType }> = {

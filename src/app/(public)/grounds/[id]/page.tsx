@@ -7,8 +7,9 @@ import GroundImageGallery from "@/components/grounds/GroundImageGallery";
 import FacilityMapWrapper from "@/components/maps/FacilityMapWrapper";
 
 const categoryEmoji: Record<string, string> = {
-  Cricket: "🏏", Football: "⚽", Tennis: "🎾",
+  Cricket: "🏏", Football: "⚽", Futsal: "🥅", Tennis: "🎾",
   Badminton: "🏸", Basketball: "🏀", Volleyball: "🏐",
+  Netball: "🏐", Rugby: "🏉", Swimming: "🏊", "Table Tennis": "🏓",
 };
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];

@@ -3,11 +3,12 @@ import { db } from "@/lib/db";
 import GroundsSearch from "@/components/grounds/GroundsSearch";
 import GroundsClient from "./GroundsClient";
 
-const CATEGORIES = ["All", "Cricket", "Football", "Tennis", "Badminton", "Basketball", "Volleyball"];
+const CATEGORIES = ["All", "Cricket", "Football", "Futsal", "Tennis", "Badminton", "Basketball", "Volleyball", "Netball", "Rugby", "Swimming", "Table Tennis"];
 
 const categoryEmoji: Record<string, string> = {
-  Cricket: "🏏", Football: "⚽", Tennis: "🎾",
+  Cricket: "🏏", Football: "⚽", Futsal: "🥅", Tennis: "🎾",
   Badminton: "🏸", Basketball: "🏀", Volleyball: "🏐",
+  Netball: "🏐", Rugby: "🏉", Swimming: "🏊", "Table Tennis": "🏓",
 };
 
 async function getGrounds(q: string, city: string, category: string) {

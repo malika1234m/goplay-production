@@ -66,8 +66,9 @@ const statusStyles: Record<string, string> = {
 };
 
 const categoryEmoji: Record<string, string> = {
-  Cricket: "🏏", Football: "⚽", Tennis: "🎾",
+  Cricket: "🏏", Football: "⚽", Futsal: "🥅", Tennis: "🎾",
   Badminton: "🏸", Basketball: "🏀", Volleyball: "🏐",
+  Netball: "🏐", Rugby: "🏉", Swimming: "🏊", "Table Tennis": "🏓",
 };
 
 function StarPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {

@@ -25,7 +25,12 @@ interface Ground {
   categories:  Category[];
 }
 
-const AMENITIES = ["Parking", "Changing Rooms", "Showers", "Floodlights", "Cafeteria", "WiFi", "Toilets", "First Aid"];
+const AMENITIES = [
+  "Parking", "Changing Rooms", "Showers", "Floodlights",
+  "Cafeteria", "WiFi", "Toilets", "First Aid",
+  "Drinking Water", "Equipment Rental", "Seating / Spectator Area",
+  "Security / CCTV", "Air Conditioning", "Coaching Available", "Scoreboard",
+];
 
 const STATUS_INFO: Record<string, { label: string; color: string; note: string }> = {
   PENDING:  { label: "Pending Review",  color: "bg-amber-50 border-amber-200 text-amber-800",  note: "This ground is awaiting admin approval. You can still update details and add photos — the admin will see your latest version." },
