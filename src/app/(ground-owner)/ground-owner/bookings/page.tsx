@@ -1043,6 +1043,7 @@ export default function GroundOwnerBookingsPage() {
   const confirmedGroup    = filtered.filter((b) => b.status === "CONFIRMED" && !isPastDue(b)).sort(byDateAsc);
   const completedGroup    = filtered.filter((b) => b.status === "COMPLETED").sort(byDateDesc);
   const cancelledGroup    = filtered.filter((b) => b.status === "CANCELLED").sort(byDateDesc);
+  const noShowGroup       = filtered.filter((b) => b.status === "NO_SHOW").sort(byDateDesc);
 
   const pendingCount  = bookings.filter((b) => b.status === "PENDING").length;
   const pastDueCount  = bookings.filter(isPastDue).length;
@@ -1244,7 +1245,24 @@ export default function GroundOwnerBookingsPage() {
             </div>
           )}
 
-          {pastDueGroup.length + pendingGroup.length + confirmedGroup.length + completedGroup.length + cancelledGroup.length === 0 && (
+          {/* 6. No-Show */}
+          {noShowGroup.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-purple-400 px-1">
+                No-Show ({noShowGroup.length})
+              </p>
+              {noShowGroup.map((b) => (
+                <BookingCard key={b.id} booking={b} pastDue={false} sessionOver={isSessionOver(b)}
+                  updating={updating === b.id}
+                  onConfirmBooking={() => updateStatus(b.id, "CONFIRMED")}
+                  onCancelBooking={() => setCancelTarget(b)}
+                  onMarkComplete={() => setCompleteTarget(b)}
+                  onMarkNoShow={() => setNoShowTarget(b)} />
+              ))}
+            </div>
+          )}
+
+          {pastDueGroup.length + pendingGroup.length + confirmedGroup.length + completedGroup.length + cancelledGroup.length + noShowGroup.length === 0 && (
             <div className="bg-white rounded-2xl border border-slate-100 px-6 py-20 text-center">
               <div className="text-6xl mb-4">📋</div>
               <p className="text-sm text-slate-400">No bookings match your search.</p>
