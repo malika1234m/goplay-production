@@ -27,7 +27,7 @@ export async function GET() {
       cancelled: bookingStats.find((b) => b.status === "CANCELLED")?._count ?? 0,
     };
 
-    return Response.json({ user, stats });
+    return Response.json({ user, stats }, { headers: { "Cache-Control": "private, max-age=300, stale-while-revalidate=600" } });
   } catch (err) {
     console.error("[GET /api/user/profile]", err);
     return Response.json({ error: "Failed to fetch profile." }, { status: 500 });

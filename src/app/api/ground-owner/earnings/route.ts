@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
 
     const byFacility = Array.from(facilityMap.values()).sort((a, b) => b.gross - a.gross);
 
-    return Response.json({ summary, byFacility });
+    return Response.json({ summary, byFacility }, { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=120" } });
   } catch (err) {
     console.error("[GET /api/ground-owner/earnings]", err);
     return Response.json({ error: "Failed to fetch earnings." }, { status: 500 });

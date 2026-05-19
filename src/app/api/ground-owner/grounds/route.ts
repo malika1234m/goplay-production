@@ -14,35 +14,50 @@ export async function GET() {
     });
     if (!profile) return Response.json({ error: "Profile not found" }, { status: 404 });
 
-    const grounds = await db.sportsFacility.findMany({
-      where: { ownerId: profile.id },
-      include: {
-        categories: true,
-        reviews: { select: { rating: true } },
-        _count: { select: { bookings: true, courts: true } },
-      },
-      orderBy: { createdAt: "desc" },
+    // Run grounds query and rating aggregation in parallel
+    const [grounds, ratingStats] = await Promise.all([
+      db.sportsFacility.findMany({
+        where: { ownerId: profile.id },
+        include: {
+          categories: true,
+          _count: { select: { bookings: true, courts: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      db.facilityReview.groupBy({
+        by:    ["facilityId"],
+        where: { facility: { ownerId: profile.id } },
+        _avg:   { rating: true },
+        _count: { rating: true },
+      }),
+    ]);
+
+    const ratingMap = new Map(ratingStats.map((r) => [r.facilityId, r]));
+
+    const result = grounds.map((g) => {
+      const ratings = ratingMap.get(g.id);
+      return {
+        id:            g.id,
+        name:          g.name,
+        city:          g.city,
+        address:       g.address,
+        hourlyRate:    g.hourlyRate,
+        capacity:      g.capacity,
+        status:        g.status,
+        images:        g.images,
+        categories:    g.categories.map((c) => ({ id: c.id, name: c.name, icon: c.icon })),
+        totalBookings: g._count.bookings,
+        courtCount:    g._count.courts,
+        avgRating:     ratings?._avg.rating
+          ? Math.round(ratings._avg.rating * 10) / 10
+          : null,
+        totalReviews:  ratings?._count.rating ?? 0,
+      };
     });
 
-    const result = grounds.map((g) => ({
-      id:            g.id,
-      name:          g.name,
-      city:          g.city,
-      address:       g.address,
-      hourlyRate:    g.hourlyRate,
-      capacity:      g.capacity,
-      status:        g.status,
-      images:        g.images,
-      categories:    g.categories.map((c) => ({ id: c.id, name: c.name, icon: c.icon })),
-      totalBookings: g._count.bookings,
-      courtCount:    g._count.courts,
-      avgRating:     g.reviews.length > 0
-        ? Math.round((g.reviews.reduce((s, r) => s + r.rating, 0) / g.reviews.length) * 10) / 10
-        : null,
-      totalReviews:  g.reviews.length,
-    }));
-
-    return Response.json({ grounds: result });
+    return Response.json({ grounds: result }, {
+      headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=60" },
+    });
   } catch (err) {
     console.error("[GET /api/ground-owner/grounds]", err);
     return Response.json({ error: "Failed to fetch grounds." }, { status: 500 });

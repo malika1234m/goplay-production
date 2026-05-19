@@ -40,8 +40,7 @@ export async function POST(req: NextRequest) {
     if (!files.length)           return Response.json({ error: "No images provided." }, { status: 400 });
     if (files.length > MAX_FILES) return Response.json({ error: `Max ${MAX_FILES} images allowed.` }, { status: 400 });
 
-    const urls: string[] = [];
-
+    // Validate all files before uploading any
     for (const file of files) {
       if (!ALLOWED_TYPES.includes(file.type)) {
         return Response.json(
@@ -55,11 +54,15 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const url    = await uploadToCloudinary(buffer, file.type);
-      urls.push(url);
     }
+
+    // Upload all files in parallel
+    const urls = await Promise.all(
+      files.map(async (file) => {
+        const buffer = Buffer.from(await file.arrayBuffer());
+        return uploadToCloudinary(buffer, file.type);
+      })
+    );
 
     return Response.json({ urls });
   } catch (err) {

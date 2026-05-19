@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Star, MessageSquare, TrendingUp, Flag, Loader2, AlertTriangle, CheckCircle } from "lucide-react";
+import { Star, MessageSquare, TrendingUp, Flag, Loader2, AlertTriangle } from "lucide-react";
 
 interface Stats {
-  avgRating:   number | null;
-  total:       number;
-  reported:    number;
-  thisWeek:    number;
+  avgRating:    number | null;
+  total:        number;
+  reported:     number;
+  thisWeek:     number;
   distribution: { star: number; count: number }[];
 }
 
@@ -33,35 +33,46 @@ function StarRow({ rating }: { rating: number }) {
 }
 
 export default function ReviewsPage() {
-  const [stats,        setStats]        = useState<Stats | null>(null);
-  const [reviews,      setReviews]      = useState<Review[]>([]);
-  const [loading,      setLoading]      = useState(true);
-  const [filterRating, setFilterRating] = useState("");
-  const [filterReport, setFilterReport] = useState("");
-  const [sort,         setSort]         = useState("newest");
+  const [stats,         setStats]         = useState<Stats | null>(null);
+  const [reviews,       setReviews]       = useState<Review[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [loadingMore,   setLoadingMore]   = useState(false);
+  const [filterRating,  setFilterRating]  = useState("");
+  const [filterReport,  setFilterReport]  = useState("");
+  const [sort,          setSort]          = useState("newest");
+  const [page,          setPage]          = useState(1);
+  const [filteredTotal, setFilteredTotal] = useState(0);
+  const [hasMore,       setHasMore]       = useState(false);
 
   // Report modal state
-  const [reportingId,     setReportingId]     = useState<string | null>(null);
-  const [reportReason,    setReportReason]    = useState("");
+  const [reportingId,      setReportingId]      = useState<string | null>(null);
+  const [reportReason,     setReportReason]      = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
-  const [reportError,     setReportError]     = useState("");
+  const [reportError,      setReportError]      = useState("");
 
-  const load = useCallback(async (r: string, rep: string, s: string) => {
+  const load = useCallback(async (r: string, rep: string, s: string, pageNum = 1, append = false) => {
+    if (pageNum === 1) setLoading(true); else setLoadingMore(true);
     const params = new URLSearchParams();
-    if (r)   params.set("rating",   r);
-    if (rep) params.set("reported", rep);
-    if (s)   params.set("sort",     s);
+    if (r)          params.set("rating",   r);
+    if (rep)        params.set("reported", rep);
+    if (s)          params.set("sort",     s);
+    if (pageNum > 1) params.set("page",    String(pageNum));
     const res  = await fetch(`/api/ground-owner/reviews?${params}`);
     const data = await res.json();
-    setStats(data.stats   ?? null);
-    setReviews(data.reviews ?? []);
+    if (pageNum === 1) setStats(data.stats ?? null);
+    if (append) setReviews((prev) => [...prev, ...(data.reviews ?? [])]);
+    else        setReviews(data.reviews ?? []);
+    setFilteredTotal(data.filteredTotal ?? 0);
+    setHasMore(data.hasMore ?? false);
+    setPage(pageNum);
+    if (pageNum === 1) setLoading(false); else setLoadingMore(false);
   }, []);
 
   useEffect(() => {
     load(filterRating, filterReport, sort).finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const applyFilters = () => load(filterRating, filterReport, sort);
+  const applyFilters = () => load(filterRating, filterReport, sort, 1);
 
   const openReport = (id: string) => {
     setReportingId(id);
@@ -119,10 +130,10 @@ export default function ReviewsPage() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Average Rating", value: stats?.avgRating ? `${stats.avgRating} / 5` : "—", icon: Star,           color: "bg-amber-50 text-amber-500" },
-          { label: "Total Reviews",  value: stats?.total ?? 0,                                  icon: MessageSquare,  color: "bg-blue-50 text-blue-500"   },
-          { label: "Reported",       value: stats?.reported ?? 0,                               icon: Flag,           color: "bg-red-50 text-red-500"     },
-          { label: "This Week",      value: stats?.thisWeek ?? 0,                               icon: TrendingUp,     color: "bg-green-50 text-green-500" },
+          { label: "Average Rating", value: stats?.avgRating ? `${stats.avgRating} / 5` : "—", icon: Star,          color: "bg-amber-50 text-amber-500" },
+          { label: "Total Reviews",  value: stats?.total ?? 0,                                  icon: MessageSquare, color: "bg-blue-50 text-blue-500"   },
+          { label: "Reported",       value: stats?.reported ?? 0,                               icon: Flag,          color: "bg-red-50 text-red-500"     },
+          { label: "This Week",      value: stats?.thisWeek ?? 0,                               icon: TrendingUp,    color: "bg-green-50 text-green-500" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${color}`}>
@@ -186,7 +197,10 @@ export default function ReviewsPage() {
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-50">
           <h2 className="text-base font-semibold text-slate-900">
-            Reviews <span className="text-slate-400 font-normal text-sm">({reviews.length})</span>
+            Reviews{" "}
+            <span className="text-slate-400 font-normal text-sm">
+              ({reviews.length}{filteredTotal > reviews.length ? ` of ${filteredTotal}` : ""})
+            </span>
           </h2>
         </div>
 
@@ -196,56 +210,75 @@ export default function ReviewsPage() {
             <p className="text-sm text-slate-400">No reviews match the current filters</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-50">
-            {reviews.map((rv) => (
-              <div key={rv.id} className="px-6 py-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-sm font-bold shrink-0">
-                      {rv.userName?.[0]?.toUpperCase() ?? "?"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-slate-900">{rv.userName}</span>
-                        <span className="text-xs text-slate-400">·</span>
-                        <span className="text-xs text-slate-400">{rv.facilityName}</span>
+          <>
+            <div className="divide-y divide-slate-50">
+              {reviews.map((rv) => (
+                <div key={rv.id} className="px-6 py-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-sm font-bold shrink-0">
+                        {rv.userName?.[0]?.toUpperCase() ?? "?"}
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <StarRow rating={rv.rating} />
-                        <span className="text-xs text-slate-400">
-                          {new Date(rv.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                        </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-slate-900">{rv.userName}</span>
+                          <span className="text-xs text-slate-400">·</span>
+                          <span className="text-xs text-slate-400">{rv.facilityName}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <StarRow rating={rv.rating} />
+                          <span className="text-xs text-slate-400">
+                            {new Date(rv.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </span>
+                        </div>
+                        {rv.reviewText && (
+                          <p className="text-sm text-slate-600 mt-2 leading-relaxed">{rv.reviewText}</p>
+                        )}
+                        {rv.reported && rv.reportReason && (
+                          <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
+                            <Flag className="w-3 h-3 shrink-0" />
+                            Reported: {rv.reportReason}
+                          </p>
+                        )}
                       </div>
-                      {rv.reviewText && (
-                        <p className="text-sm text-slate-600 mt-2 leading-relaxed">{rv.reviewText}</p>
-                      )}
-                      {rv.reported && rv.reportReason && (
-                        <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
-                          <Flag className="w-3 h-3 shrink-0" />
-                          Reported: {rv.reportReason}
-                        </p>
-                      )}
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {rv.reported ? (
-                      <span className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-600 border border-red-100 px-2.5 py-1 rounded-full font-medium">
-                        <Flag className="w-3 h-3" />Reported
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => openReport(rv.id)}
-                        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 px-2.5 py-1 rounded-full transition-colors"
-                      >
-                        <Flag className="w-3 h-3" />Report
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {rv.reported ? (
+                        <span className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-600 border border-red-100 px-2.5 py-1 rounded-full font-medium">
+                          <Flag className="w-3 h-3" />Reported
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => openReport(rv.id)}
+                          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 px-2.5 py-1 rounded-full transition-colors"
+                        >
+                          <Flag className="w-3 h-3" />Report
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Load More */}
+            {hasMore && (
+              <div className="px-6 py-5 border-t border-slate-50 flex flex-col items-center gap-2">
+                <button
+                  onClick={() => load(filterRating, filterReport, sort, page + 1, true)}
+                  disabled={loadingMore}
+                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                >
+                  {loadingMore && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Load More Reviews
+                </button>
+                <p className="text-xs text-slate-400">
+                  Showing {reviews.length} of {filteredTotal} reviews
+                </p>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
 

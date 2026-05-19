@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
-import { MapPin, Search, Loader2, CheckCircle, XCircle, PauseCircle, Eye } from "lucide-react";
+import { MapPin, Search, Loader2, CheckCircle, XCircle, PauseCircle, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Ground {
   id:            string;
@@ -21,6 +21,10 @@ interface Ground {
   totalReviews:  number;
 }
 
+interface Counts { all: number; active: number; pending: number; inactive: number; rejected: number }
+
+const PER_PAGE = 25;
+
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE:   "bg-green-50 text-green-700",
   PENDING:  "bg-amber-50 text-amber-700",
@@ -35,15 +39,24 @@ function GroundsContent() {
   const [q,        setQ]        = useState("");
   const [status,   setStatus]   = useState(searchParams.get("status") ?? "");
   const [updating, setUpdating] = useState<string | null>(null);
+  const [page,     setPage]     = useState(1);
+  const [total,    setTotal]    = useState(0);
+  const [hasMore,  setHasMore]  = useState(false);
+  const [counts,   setCounts]   = useState<Counts>({ all: 0, active: 0, pending: 0, inactive: 0, rejected: 0 });
 
-  const load = useCallback(async (query: string, statusFilter: string) => {
+  const load = useCallback(async (query: string, statusFilter: string, pageNum = 1) => {
     setLoading(true);
     const params = new URLSearchParams();
     if (query)        params.set("q",      query);
     if (statusFilter) params.set("status", statusFilter);
+    if (pageNum > 1)  params.set("page",   String(pageNum));
     const res  = await fetch(`/api/admin/grounds?${params}`);
     const data = await res.json();
     setGrounds(data.grounds ?? []);
+    setTotal(data.total ?? 0);
+    setHasMore(data.hasMore ?? false);
+    setPage(pageNum);
+    if (data.counts) setCounts(data.counts);
     setLoading(false);
   }, []);
 
@@ -58,22 +71,16 @@ function GroundsContent() {
         body:    JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        setGrounds((prev) =>
-          prev.map((g) => g.id === id ? { ...g, status: newStatus } : g)
-        );
+        setGrounds((prev) => prev.map((g) => g.id === id ? { ...g, status: newStatus } : g));
       }
     } finally {
       setUpdating(null);
     }
   };
 
-  const totals = {
-    all:      grounds.length,
-    active:   grounds.filter((g) => g.status === "ACTIVE").length,
-    pending:  grounds.filter((g) => g.status === "PENDING").length,
-    inactive: grounds.filter((g) => g.status === "INACTIVE").length,
-    rejected: grounds.filter((g) => g.status === "REJECTED").length,
-  };
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const from = total === 0 ? 0 : (page - 1) * PER_PAGE + 1;
+  const to   = Math.min(page * PER_PAGE, total);
 
   return (
     <div className="flex flex-col gap-7">
@@ -86,19 +93,19 @@ function GroundsContent() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "All Grounds", value: totals.all,      color: "bg-slate-50 text-slate-600",  click: "" },
-          { label: "Active",      value: totals.active,   color: "bg-green-50 text-green-600",  click: "ACTIVE" },
-          { label: "Pending",     value: totals.pending,  color: "bg-amber-50 text-amber-600",  click: "PENDING" },
-          { label: "Rejected",    value: totals.rejected, color: "bg-red-50 text-red-600",      click: "REJECTED" },
-        ].map(({ label, value, color, click }) => (
+          { label: "All Grounds", value: counts.all,      click: "",         active: status === ""         },
+          { label: "Active",      value: counts.active,   click: "ACTIVE",   active: status === "ACTIVE"   },
+          { label: "Pending",     value: counts.pending,  click: "PENDING",  active: status === "PENDING"  },
+          { label: "Rejected",    value: counts.rejected, click: "REJECTED", active: status === "REJECTED" },
+        ].map(({ label, value, click, active }) => (
           <button
             key={label}
-            onClick={() => { setStatus(click); load(q, click); }}
+            onClick={() => { setStatus(click); load(q, click, 1); }}
             className={`bg-white rounded-2xl border p-5 text-left transition-all ${
-              status === click ? "border-blue-300 ring-2 ring-blue-100" : "border-slate-100 hover:border-slate-200"
+              active ? "border-blue-300 ring-2 ring-blue-100" : "border-slate-100 hover:border-slate-200"
             }`}
           >
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${color}`}>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 bg-slate-50 text-slate-600">
               <MapPin className="w-5 h-5" />
             </div>
             <p className="text-2xl font-bold text-slate-900">{value}</p>
@@ -116,7 +123,7 @@ function GroundsContent() {
             placeholder="Search name or city…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") load(q, status); }}
+            onKeyDown={(e) => { if (e.key === "Enter") load(q, status, 1); }}
             className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
           />
         </div>
@@ -132,13 +139,13 @@ function GroundsContent() {
           <option value="REJECTED">Rejected</option>
         </select>
         <button
-          onClick={() => load(q, status)}
+          onClick={() => load(q, status, 1)}
           className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
         >
           Search
         </button>
         <button
-          onClick={() => { setQ(""); setStatus(""); load("", ""); }}
+          onClick={() => { setQ(""); setStatus(""); load("", "", 1); }}
           className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium rounded-lg transition-colors"
         >
           Clear
@@ -149,7 +156,10 @@ function GroundsContent() {
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-50">
           <h2 className="text-base font-semibold text-slate-900">
-            Grounds <span className="text-slate-400 font-normal text-sm">({grounds.length})</span>
+            Grounds{" "}
+            <span className="text-slate-400 font-normal text-sm">
+              {total > 0 ? `(${from}–${to} of ${total})` : "(0)"}
+            </span>
           </h2>
         </div>
 
@@ -208,16 +218,13 @@ function GroundsContent() {
                         <Link
                           href={`/admin/grounds/${g.id}`}
                           className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-lg transition-colors"
-                          title="View details"
                         >
-                          <Eye className="w-3.5 h-3.5" />
-                          View
+                          <Eye className="w-3.5 h-3.5" />View
                         </Link>
                         {g.status !== "ACTIVE" && (
                           <button
                             onClick={() => updateStatus(g.id, "ACTIVE")}
                             disabled={updating === g.id}
-                            title="Approve"
                             className="flex items-center gap-1 px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
                           >
                             {updating === g.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
@@ -228,7 +235,6 @@ function GroundsContent() {
                           <button
                             onClick={() => updateStatus(g.id, "INACTIVE")}
                             disabled={updating === g.id}
-                            title="Deactivate"
                             className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
                           >
                             {updating === g.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PauseCircle className="w-3.5 h-3.5" />}
@@ -239,7 +245,6 @@ function GroundsContent() {
                           <button
                             onClick={() => updateStatus(g.id, "REJECTED")}
                             disabled={updating === g.id}
-                            title="Reject"
                             className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
                           >
                             {updating === g.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
@@ -252,6 +257,34 @@ function GroundsContent() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && total > PER_PAGE && (
+          <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between gap-4 flex-wrap">
+            <p className="text-xs text-slate-400">
+              Showing {from}–{to} of {total} grounds
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => load(q, status, page - 1)}
+                disabled={page === 1}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" /> Prev
+              </button>
+              <span className="text-xs text-slate-500 px-1">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => load(q, status, page + 1)}
+                disabled={!hasMore}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors"
+              >
+                Next <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
       </div>

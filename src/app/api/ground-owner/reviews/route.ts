@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
+const PER_PAGE = 20;
+
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
@@ -13,6 +15,7 @@ export async function GET(req: NextRequest) {
     const rating       = searchParams.get("rating");
     const reportFilter = searchParams.get("reported"); // "yes" | "no"
     const sort         = searchParams.get("sort") ?? "newest";
+    const page         = Math.max(1, parseInt(searchParams.get("page") ?? "1") || 1);
 
     const profile = await db.groundOwnerProfile.findUnique({
       where: { userId: session.user.id },
@@ -39,7 +42,12 @@ export async function GET(req: NextRequest) {
       ? { rating: "asc" as const }
       : { createdAt: "desc" as const };
 
-    const [reviews, allReviews] = await Promise.all([
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const baseWhere = { facilityId: { in: facilityIds } };
+
+    // DB-level aggregates replace fetching every review row for stats
+    const [reviews, filteredTotal, aggregate, reportedCount, thisWeekCount, ratingGroups] = await Promise.all([
       db.facilityReview.findMany({
         where,
         include: {
@@ -47,22 +55,31 @@ export async function GET(req: NextRequest) {
           facility: { select: { name: true } },
         },
         orderBy,
-        take: 100,
+        skip: (page - 1) * PER_PAGE,
+        take: PER_PAGE,
       }),
-      db.facilityReview.findMany({
-        where: { facilityId: { in: facilityIds } },
-        select: { rating: true, createdAt: true, reported: true },
+      db.facilityReview.count({ where }),
+      db.facilityReview.aggregate({
+        where:  baseWhere,
+        _avg:   { rating: true },
+        _count: { id: true },
+      }),
+      db.facilityReview.count({ where: { ...baseWhere, reported: true } }),
+      db.facilityReview.count({ where: { ...baseWhere, createdAt: { gte: weekAgo } } }),
+      db.facilityReview.groupBy({
+        by:    ["rating"],
+        where: baseWhere,
+        _count: { rating: true },
       }),
     ]);
 
-    const total     = allReviews.length;
-    const avgRating = total > 0 ? allReviews.reduce((s, r) => s + r.rating, 0) / total : null;
-    const reported  = allReviews.filter((r) => r.reported).length;
-    const weekAgo   = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-    const thisWeek  = allReviews.filter((r) => new Date(r.createdAt) >= weekAgo).length;
+    const total     = aggregate._count.id;
+    const avgRating = aggregate._avg.rating ? Math.round(aggregate._avg.rating * 10) / 10 : null;
+    const reported  = reportedCount;
+    const thisWeek  = thisWeekCount;
     const dist      = [5, 4, 3, 2, 1].map((star) => ({
       star,
-      count: allReviews.filter((r) => r.rating === star).length,
+      count: ratingGroups.find((g) => g.rating === star)?._count.rating ?? 0,
     }));
 
     return Response.json({
@@ -83,7 +100,10 @@ export async function GET(req: NextRequest) {
         userName:     r.user.name,
         facilityName: r.facility.name,
       })),
-    });
+      filteredTotal,
+      page,
+      hasMore: page * PER_PAGE < filteredTotal,
+    }, { headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=60" } });
   } catch (err) {
     console.error("[GET /api/ground-owner/reviews]", err);
     return Response.json({ error: "Failed to fetch reviews." }, { status: 500 });

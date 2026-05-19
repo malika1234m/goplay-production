@@ -60,7 +60,7 @@ export async function GET() {
         activeGrounds,
         pendingGrounds,
       },
-    });
+    }, { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=120" } });
   } catch (err) {
     console.error("[GET /api/admin/stats]", err);
     return Response.json({ error: "Failed to fetch stats." }, { status: 500 });

@@ -86,7 +86,7 @@ export async function GET() {
         paymentMethod: b.paymentMethod,
         paymentStatus: b.paymentStatus,
       })),
-    });
+    }, { headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=60" } });
   } catch (err) {
     console.error("[GET /api/ground-owner/stats]", err);
     return Response.json({ error: "Failed to fetch stats." }, { status: 500 });

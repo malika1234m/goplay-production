@@ -56,16 +56,18 @@ export default function BookingForm({
 
   useEffect(() => {
     if (!date) return;
-    // If facility has courts but none selected yet, don't fetch slots
     if (courts.length > 0 && !selectedCourt) { setSlots([]); return; }
     setSelectedSlot(null);
-    setLoadingSlots(true);
     const courtParam = selectedCourt ? `&courtId=${selectedCourt}` : "";
-    fetch(`/api/grounds/${facilityId}/availability?date=${date}${courtParam}`)
-      .then((r) => r.json())
-      .then((d) => setSlots(d.slots ?? []))
-      .catch(() => setSlots([]))
-      .finally(() => setLoadingSlots(false));
+    const timer = setTimeout(() => {
+      setLoadingSlots(true);
+      fetch(`/api/grounds/${facilityId}/availability?date=${date}${courtParam}`)
+        .then((r) => r.json())
+        .then((d) => setSlots(d.slots ?? []))
+        .catch(() => setSlots([]))
+        .finally(() => setLoadingSlots(false));
+    }, 300);
+    return () => clearTimeout(timer);
   }, [date, facilityId, selectedCourt, courts.length]);
 
   const toMins = (t: string) => {

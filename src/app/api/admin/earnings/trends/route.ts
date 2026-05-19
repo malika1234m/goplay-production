@@ -16,30 +16,31 @@ export async function GET(req: NextRequest) {
     since.setDate(since.getDate() - days + 1);
     since.setHours(0, 0, 0, 0);
 
-    const bookings = await db.facilityBooking.findMany({
-      where: {
-        status:      "COMPLETED",
-        bookingDate: { gte: since },
-      },
-      select: { bookingDate: true, totalAmount: true },
+    // DB-level groupBy — returns one row per day instead of every booking row
+    const grouped = await db.facilityBooking.groupBy({
+      by:      ["bookingDate"],
+      where:   { status: "COMPLETED", bookingDate: { gte: since } },
+      _sum:    { totalAmount: true },
       orderBy: { bookingDate: "asc" },
     });
 
-    // Build full date range map
+    // Fill the full date range with zeroes, then overlay DB results
     const map = new Map<string, number>();
     for (let i = 0; i < days; i++) {
       const d = new Date(since);
       d.setDate(since.getDate() + i);
       map.set(d.toISOString().split("T")[0], 0);
     }
-    for (const b of bookings) {
-      const key = new Date(b.bookingDate).toISOString().split("T")[0];
-      map.set(key, (map.get(key) ?? 0) + b.totalAmount);
+    for (const g of grouped) {
+      const key = new Date(g.bookingDate).toISOString().split("T")[0];
+      map.set(key, g._sum.totalAmount ?? 0);
     }
 
     const trends = Array.from(map.entries()).map(([date, revenue]) => ({ date, revenue }));
 
-    return Response.json({ trends });
+    return Response.json({ trends }, {
+      headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=120" },
+    });
   } catch (err) {
     console.error("[GET /api/admin/earnings/trends]", err);
     return Response.json({ error: "Failed to fetch trends." }, { status: 500 });

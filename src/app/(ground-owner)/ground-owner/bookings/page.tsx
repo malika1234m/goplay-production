@@ -894,6 +894,10 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
 export default function GroundOwnerBookingsPage() {
   const [bookings,        setBookings]        = useState<Booking[]>([]);
   const [loading,         setLoading]         = useState(true);
+  const [loadingMore,     setLoadingMore]     = useState(false);
+  const [currentPage,     setCurrentPage]     = useState(1);
+  const [total,           setTotal]           = useState(0);
+  const [hasMore,         setHasMore]         = useState(false);
   const [statusFilter,    setStatusFilter]    = useState("");
   const [search,          setSearch]          = useState("");
   const [updating,        setUpdating]        = useState<string | null>(null);
@@ -912,18 +916,29 @@ export default function GroundOwnerBookingsPage() {
       .then((d) => setFacilities(d.grounds ?? []));
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const url = statusFilter
-      ? `/api/ground-owner/bookings?status=${statusFilter}`
-      : "/api/ground-owner/bookings";
-    const res  = await fetch(url);
+  const load = useCallback(async (pageNum = 1, append = false) => {
+    if (pageNum === 1) setLoading(true);
+    else setLoadingMore(true);
+
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("status", statusFilter);
+    if (pageNum > 1)  params.set("page",   String(pageNum));
+
+    const res  = await fetch(`/api/ground-owner/bookings?${params}`);
     const data = await res.json();
-    setBookings(data.bookings ?? []);
-    setLoading(false);
+
+    if (append) setBookings((prev) => [...prev, ...(data.bookings ?? [])]);
+    else        setBookings(data.bookings ?? []);
+
+    setTotal(data.total    ?? 0);
+    setHasMore(data.hasMore ?? false);
+    setCurrentPage(pageNum);
+
+    if (pageNum === 1) setLoading(false);
+    else setLoadingMore(false);
   }, [statusFilter]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(1); }, [load]);
 
   /* Generic status update (Confirm / Cancel) */
   const updateStatus = async (id: string, status: string) => {
@@ -1234,6 +1249,28 @@ export default function GroundOwnerBookingsPage() {
               <div className="text-6xl mb-4">📋</div>
               <p className="text-sm text-slate-400">No bookings match your search.</p>
             </div>
+          )}
+
+          {/* Load More */}
+          {!loading && hasMore && !search && (
+            <div className="flex flex-col items-center gap-2 pt-2">
+              <button
+                onClick={() => load(currentPage + 1, true)}
+                disabled={loadingMore}
+                className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 hover:border-green-500 hover:text-green-600 text-slate-600 text-sm font-medium rounded-xl transition-colors disabled:opacity-50"
+              >
+                {loadingMore && <Loader2 className="w-4 h-4 animate-spin" />}
+                Load More
+              </button>
+              <p className="text-xs text-slate-400">
+                Showing {bookings.length} of {total} bookings
+              </p>
+            </div>
+          )}
+          {!loading && !hasMore && total > 0 && !search && (
+            <p className="text-center text-xs text-slate-400 pt-2">
+              All {total} bookings loaded
+            </p>
           )}
         </div>
       )}

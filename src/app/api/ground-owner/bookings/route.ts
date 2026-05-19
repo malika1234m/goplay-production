@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { BookingStatus } from "@prisma/client";
 
 const VALID_BOOKING_STATUSES = new Set<string>(Object.values(BookingStatus));
+const PER_PAGE = 50;
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,8 +17,9 @@ export async function GET(req: NextRequest) {
     const statusRaw = searchParams.get("status");
     const status    = statusRaw && VALID_BOOKING_STATUSES.has(statusRaw) ? (statusRaw as BookingStatus) : undefined;
     const history = searchParams.get("history") === "true";
-    const from    = searchParams.get("from");   // YYYY-MM-DD
-    const to      = searchParams.get("to");     // YYYY-MM-DD
+    const from    = searchParams.get("from");
+    const to      = searchParams.get("to");
+    const page    = Math.max(1, parseInt(searchParams.get("page") ?? "1") || 1);
 
     const profile = await db.groundOwnerProfile.findUnique({
       where: { userId: session.user.id },
@@ -27,8 +29,6 @@ export async function GET(req: NextRequest) {
 
     const facilityIds = profile.facilities.map((f) => f.id);
 
-    // Dashboard: last 30 days, non-archived
-    // History:   date-range filtered, non-archived
     let dateFilter: Record<string, unknown> = {};
     if (history) {
       if (from) dateFilter.gte = new Date(from);
@@ -38,23 +38,34 @@ export async function GET(req: NextRequest) {
       dateFilter = { gte: since };
     }
 
-    const bookings = await db.facilityBooking.findMany({
-      where: {
-        facilityId:  { in: facilityIds },
-        archivedAt:  null,
-        ...(status && { status }),
-        ...(Object.keys(dateFilter).length > 0 && { bookingDate: dateFilter }),
-      },
-      include: {
-        user:     { select: { name: true, email: true, phone: true } },
-        facility: { select: { name: true, city: true } },
-        court:    { select: { name: true } },
-      },
-      orderBy: [{ bookingDate: "desc" }, { startTime: "asc" }],
-      take: 500,
-    });
+    const where = {
+      facilityId: { in: facilityIds },
+      archivedAt: null,
+      ...(status && { status }),
+      ...(Object.keys(dateFilter).length > 0 && { bookingDate: dateFilter }),
+    };
 
-    return Response.json({ bookings });
+    const [bookings, total] = await Promise.all([
+      db.facilityBooking.findMany({
+        where,
+        include: {
+          user:     { select: { name: true, email: true, phone: true } },
+          facility: { select: { name: true, city: true } },
+          court:    { select: { name: true } },
+        },
+        orderBy: [{ bookingDate: "desc" }, { startTime: "asc" }],
+        skip: (page - 1) * PER_PAGE,
+        take: PER_PAGE,
+      }),
+      db.facilityBooking.count({ where }),
+    ]);
+
+    return Response.json({
+      bookings,
+      total,
+      page,
+      hasMore: page * PER_PAGE < total,
+    }, { headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=60" } });
   } catch (err) {
     console.error("[GET /api/ground-owner/bookings]", err);
     return Response.json({ error: "Failed to fetch bookings." }, { status: 500 });

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { MapPin, Star, Clock, Users, CheckCircle, ChevronLeft, Navigation } from "lucide-react";
@@ -15,16 +16,34 @@ const categoryEmoji: Record<string, string> = {
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+const getGround = cache(async (id: string) => {
+  const ground = await db.sportsFacility.findUnique({
+    where: { id, status: "ACTIVE" },
+    include: {
+      categories: true,
+      availability: { orderBy: { dayOfWeek: "asc" } },
+      courts: {
+        where:   { isActive: true },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select:  { id: true, name: true, description: true },
+      },
+      reviews: {
+        include: { user: { select: { name: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      },
+    },
+  });
+  return ground;
+});
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const ground = await db.sportsFacility.findUnique({
-    where:  { id, status: "ACTIVE" },
-    select: { name: true, city: true, address: true, description: true, images: true, hourlyRate: true, categories: { select: { name: true } } },
-  });
+  const ground = await getGround(id);
 
   if (!ground) return { title: "Ground Not Found" };
 
@@ -44,27 +63,6 @@ export async function generateMetadata({
       images: ground.images.length > 0 ? [{ url: ground.images[0], alt: ground.name }] : [],
     },
   };
-}
-
-async function getGround(id: string) {
-  const ground = await db.sportsFacility.findUnique({
-    where: { id, status: "ACTIVE" },
-    include: {
-      categories: true,
-      availability: { orderBy: { dayOfWeek: "asc" } },
-      courts: {
-        where:   { isActive: true },
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-        select:  { id: true, name: true, description: true },
-      },
-      reviews: {
-        include: { user: { select: { name: true } } },
-        orderBy: { createdAt: "desc" },
-        take: 10,
-      },
-    },
-  });
-  return ground;
 }
 
 export default async function GroundDetailsPage({

@@ -44,7 +44,9 @@ export async function GET(req: NextRequest) {
     );
     const revenue = Array.from(map.values());
 
-    return Response.json({ trends: { labels, revenue } });
+    return Response.json({ trends: { labels, revenue } }, {
+      headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=120" },
+    });
   } catch (err) {
     console.error("[GET /api/ground-owner/earnings/trends]", err);
     return Response.json({ error: "Failed to fetch trends." }, { status: 500 });
