@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notify";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -37,22 +38,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       },
     });
 
-    await db.notification.create({
-      data: {
-        userId:  booking.user.id,
-        title:   "Refund Processed",
-        message: `Your refund of Rs. ${booking.totalAmount.toLocaleString()} for the cancelled booking at ${booking.facility.name} has been processed.${note ? ` Note: ${note}` : ""}`,
-        type:    "success",
-      },
+    await createNotification({
+      userId:  booking.user.id,
+      title:   "Refund Processed",
+      message: `Your refund of Rs. ${booking.totalAmount.toLocaleString()} for the cancelled booking at ${booking.facility.name} has been processed.${note ? ` Note: ${note}` : ""}`,
+      type:    "success",
     });
 
-    await db.notification.create({
-      data: {
-        userId:  booking.facility.owner.user.id,
-        title:   "Refund Issued to Player",
-        message: `A refund of Rs. ${booking.totalAmount.toLocaleString()} for a cancelled booking at ${booking.facility.name} has been processed to ${booking.user.name}.`,
-        type:    "info",
-      },
+    await createNotification({
+      userId:  booking.facility.owner.user.id,
+      title:   "Refund Issued to Player",
+      message: `A refund of Rs. ${booking.totalAmount.toLocaleString()} for a cancelled booking at ${booking.facility.name} has been processed to ${booking.user.name}.`,
+      type:    "info",
     });
 
     return Response.json({ message: "Refund marked as processed." });

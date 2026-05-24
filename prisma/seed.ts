@@ -11,7 +11,6 @@ const LNG = 79 + 51 / 60 + 57 / 3600;  // 79.8658°
 
 async function wipe() {
   console.log("🗑️  Wiping all data…");
-  // Delete leaf → root to respect FK constraints
   await db.facilityReviewReply.deleteMany();
   await db.facilityReview.deleteMany();
   await db.groundEarning.deleteMany();
@@ -32,6 +31,17 @@ async function wipe() {
   console.log("✅ Database wiped");
 }
 
+function dayStart(d: Date): Date {
+  const r = new Date(d);
+  r.setUTCHours(0, 0, 0, 0);
+  return r;
+}
+function addDays(d: Date, n: number) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
 async function main() {
   await wipe();
 
@@ -46,12 +56,13 @@ async function main() {
       db.sportsCategory.create({ data: { name: "Volleyball", icon: "🏐" } }),
     ]);
   console.log("✅ 6 sports categories created");
-  void [cricket, basketball, badminton, tennis, volleyball]; // suppress unused warning
+  void [cricket, basketball, badminton, tennis, volleyball];
 
   // ── Passwords ──────────────────────────────────────────────────────
   const adminPass  = await bcrypt.hash("GoPlay@Admin2025!", 10);
   const ownerPass  = await bcrypt.hash("Owner@GoPlay25",   10);
   const workerPass = await bcrypt.hash("Worker@GoPlay25",  10);
+  const playerPass = await bcrypt.hash("Player@GoPlay25",  10);
 
   // ── Admin ──────────────────────────────────────────────────────────
   const admin = await db.user.create({
@@ -97,7 +108,14 @@ async function main() {
     },
   });
 
-  console.log("✅ 3 users created (admin, owner, worker)");
+  // ── Demo players ───────────────────────────────────────────────────
+  const [player1, player2, player3] = await Promise.all([
+    db.user.create({ data: { name: "Ashan Fernando",  email: "ashan@demo.lk",  password: playerPass, role: "USER" } }),
+    db.user.create({ data: { name: "Nimal Perera",    email: "nimal@demo.lk",  password: playerPass, role: "USER" } }),
+    db.user.create({ data: { name: "Priya Kumara",    email: "priya@demo.lk",  password: playerPass, role: "USER" } }),
+  ]);
+
+  console.log("✅ 6 users created (admin, owner, worker, 3 players)");
   void admin;
 
   // ── Demo facility ──────────────────────────────────────────────────
@@ -127,7 +145,7 @@ async function main() {
         "CCTV Security",
         "Wi-Fi",
       ],
-      images:    [],   // owner will add real photos via Cloudinary
+      images:    [],
       status:    "ACTIVE",
       categories: { connect: [{ id: football.id }] },
       ownerId:    ownerProfile.id,
@@ -136,56 +154,240 @@ async function main() {
   console.log(`✅ Demo facility created — id: ${facility.id}`);
 
   // ── Courts ─────────────────────────────────────────────────────────
-  await db.facilityCourt.createMany({
-    data: [
-      {
+  const [courtA, courtB, courtC] = await Promise.all([
+    db.facilityCourt.create({
+      data: {
         facilityId:  facility.id,
         name:        "Ground A",
         description: "Full-size natural-grass football pitch with floodlights. Seats up to 22 players.",
         sortOrder:   0,
         isActive:    true,
       },
-      {
+    }),
+    db.facilityCourt.create({
+      data: {
         facilityId:  facility.id,
         name:        "Ground B",
         description: "Half-size all-purpose turf ground. Ideal for 5-a-side, throwball, and training sessions.",
         sortOrder:   1,
         isActive:    true,
       },
-      {
+    }),
+    db.facilityCourt.create({
+      data: {
         facilityId:  facility.id,
         name:        "Ground C",
         description: "Indoor synthetic court suitable for basketball and volleyball. Air-conditioned.",
         sortOrder:   2,
         isActive:    true,
       },
-    ],
-  });
+    }),
+  ]);
   console.log("✅ 3 courts created (Ground A, B, C)");
 
-  // ── Availability — open every day ──────────────────────────────────
+  // ── Availability ───────────────────────────────────────────────────
   await db.facilityAvailability.createMany({
     data: [0, 1, 2, 3, 4, 5, 6].map((dow) => ({
       facilityId: facility.id,
       dayOfWeek:  dow,
       isOpen:     true,
       openTime:   "06:00",
-      closeTime:  dow === 0 || dow === 6 ? "23:00" : "22:00", // weekends close later
+      closeTime:  dow === 0 || dow === 6 ? "23:00" : "22:00",
     })),
   });
   console.log("✅ Availability set — Mon–Fri 06:00–22:00 · Sat–Sun 06:00–23:00");
 
-  // ── Assign worker to facility ──────────────────────────────────────
+  // ── Worker assigned ────────────────────────────────────────────────
   await db.facilityWorker.create({
     data: { userId: workerUser.id, facilityId: facility.id, addedBy: ownerUser.id },
   });
   console.log("✅ Worker assigned to facility");
 
+  // ── Sample bookings ────────────────────────────────────────────────
+  const today     = dayStart(new Date());
+  const yesterday = addDays(today, -1);
+  const tomorrow  = addDays(today, 1);
+  const dayAfter  = addDays(today, 2);
+
+  const bookingResults = await db.facilityBooking.createManyAndReturn({
+    data: [
+      // TODAY — CONFIRMED (cash)
+      {
+        userId:        player1.id,
+        facilityId:    facility.id,
+        courtId:       courtA.id,
+        bookingDate:   today,
+        startTime:     "08:00",
+        endTime:       "09:00",
+        totalHours:    1,
+        totalAmount:   3000,
+        status:        "CONFIRMED",
+        paymentMethod: "ON_ARRIVAL",
+        paymentStatus: "PENDING",
+      },
+      // TODAY — PENDING (online)
+      {
+        userId:        player2.id,
+        facilityId:    facility.id,
+        courtId:       courtB.id,
+        bookingDate:   today,
+        startTime:     "10:00",
+        endTime:       "12:00",
+        totalHours:    2,
+        totalAmount:   6000,
+        status:        "PENDING",
+        paymentMethod: "ONLINE",
+        paymentStatus: "PAID",
+      },
+      // TODAY — CONFIRMED (online)
+      {
+        userId:        player3.id,
+        facilityId:    facility.id,
+        courtId:       courtC.id,
+        bookingDate:   today,
+        startTime:     "15:00",
+        endTime:       "17:00",
+        totalHours:    2,
+        totalAmount:   6000,
+        status:        "CONFIRMED",
+        paymentMethod: "ONLINE",
+        paymentStatus: "PAID",
+      },
+      // YESTERDAY — COMPLETED
+      {
+        userId:        player1.id,
+        facilityId:    facility.id,
+        courtId:       courtA.id,
+        bookingDate:   yesterday,
+        startTime:     "09:00",
+        endTime:       "11:00",
+        totalHours:    2,
+        totalAmount:   6000,
+        status:        "COMPLETED",
+        paymentMethod: "ON_ARRIVAL",
+        paymentStatus: "PAID",
+      },
+      // YESTERDAY — CANCELLED
+      {
+        userId:        player2.id,
+        facilityId:    facility.id,
+        courtId:       courtB.id,
+        bookingDate:   yesterday,
+        startTime:     "14:00",
+        endTime:       "15:00",
+        totalHours:    1,
+        totalAmount:   3000,
+        status:        "CANCELLED",
+        paymentMethod: "ONLINE",
+        paymentStatus: "REFUNDED",
+      },
+      // TOMORROW — PENDING
+      {
+        userId:        player3.id,
+        facilityId:    facility.id,
+        courtId:       courtA.id,
+        bookingDate:   tomorrow,
+        startTime:     "07:00",
+        endTime:       "09:00",
+        totalHours:    2,
+        totalAmount:   6000,
+        status:        "PENDING",
+        paymentMethod: "ONLINE",
+        paymentStatus: "PAID",
+      },
+      // DAY AFTER TOMORROW — CONFIRMED
+      {
+        userId:        player1.id,
+        facilityId:    facility.id,
+        courtId:       courtC.id,
+        bookingDate:   dayAfter,
+        startTime:     "11:00",
+        endTime:       "13:00",
+        totalHours:    2,
+        totalAmount:   6000,
+        status:        "CONFIRMED",
+        paymentMethod: "ONLINE",
+        paymentStatus: "PAID",
+      },
+      // Walk-in by worker
+      {
+        userId:          workerUser.id,
+        facilityId:      facility.id,
+        courtId:         courtB.id,
+        bookingDate:     today,
+        startTime:       "13:00",
+        endTime:         "14:00",
+        totalHours:      1,
+        totalAmount:     3000,
+        status:          "CONFIRMED",
+        paymentMethod:   "ON_ARRIVAL",
+        paymentStatus:   "PENDING",
+        specialRequests: "[Walk-in] Ranjith Silva — Phone: 077-9876543",
+        contactNumber:   "0779876543",
+      },
+    ],
+  });
+  console.log("✅ 8 sample bookings created (today, yesterday, tomorrow, walk-in)");
+
+  // ── Sample reviews — use completed booking IDs ─────────────────────
+  const completedBooking = bookingResults.find(
+    (b) => b.status === "COMPLETED" && b.userId === player1.id
+  );
+  if (completedBooking) {
+    await db.facilityReview.createMany({
+      data: [
+        {
+          userId:     player1.id,
+          facilityId: facility.id,
+          bookingId:  completedBooking.id,
+          rating:     5,
+          reviewText: "Excellent facility! Grounds are well-maintained and the staff is very helpful.",
+        },
+      ],
+    });
+    console.log("✅ 1 sample review created");
+  }
+
+  // ── Notifications ──────────────────────────────────────────────────
+  await db.notification.createMany({
+    data: [
+      {
+        userId:  ownerUser.id,
+        type:    "BOOKING_CONFIRMED",
+        title:   "New Booking Confirmed",
+        message: "Ashan Fernando has confirmed a booking for Ground A on today at 08:00.",
+        isRead:  false,
+      },
+      {
+        userId:  ownerUser.id,
+        type:    "NEW_REVIEW",
+        title:   "New Review Received",
+        message: "You received a 5-star review from Ashan Fernando. Keep up the great work!",
+        isRead:  false,
+      },
+      {
+        userId:  ownerUser.id,
+        type:    "PAYMENT_RECEIVED",
+        title:   "Payment Received",
+        message: "LKR 6,000 payment received for Nimal Perera's booking on Ground B.",
+        isRead:  true,
+      },
+      {
+        userId:  workerUser.id,
+        type:    "BOOKING_CONFIRMED",
+        title:   "Booking Assigned",
+        message: "A new booking has been made at GoPlay Sports Complex. Check your schedule.",
+        isRead:  false,
+      },
+    ],
+  });
+  console.log("✅ 4 notifications created");
+
   // ── Platform settings ──────────────────────────────────────────────
   await db.platformSetting.createMany({
     data: [
-      { key: "commission_pct",    value: "10" },
-      { key: "min_payout_amount", value: "1000" },
+      { key: "commission_pct",       value: "10" },
+      { key: "min_payout_amount",    value: "1000" },
       { key: "payout_cooldown_days", value: "7" },
     ],
   });

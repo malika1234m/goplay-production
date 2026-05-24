@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 
 async function verifyOwnership(reviewId: string, ownerId: string) {
   const profile = await db.groundOwnerProfile.findUnique({
@@ -22,7 +22,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_OWNER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -48,11 +48,11 @@ export async function POST(
 
 // DELETE — un-report a review (owner changed their mind)
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_OWNER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }

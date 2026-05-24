@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 import bcrypt from "bcryptjs";
 
 export async function PUT(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || !["ADMIN", "GROUND_OWNER", "GROUND_WORKER"].includes(session.user.role ?? "")) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }

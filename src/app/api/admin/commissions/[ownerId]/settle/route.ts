@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notify";
 
 // POST /api/admin/commissions/[ownerId]/settle
 // type: "direct"  — owner paid commission separately (cash/transfer outside platform)
@@ -90,15 +91,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ own
     });
 
     // Notify the ground owner
-    await db.notification.create({
-      data: {
-        userId:  profile.user.id,
-        title:   "Commission Settled",
-        message: type === "net"
-          ? `Rs. ${Math.round(totalCashCommission).toLocaleString()} in platform commission has been deducted from your online earnings balance by the admin.`
-          : `Rs. ${Math.round(totalCashCommission).toLocaleString()} in platform commission from your cash bookings has been marked as collected. Thank you!`,
-        type: "info",
-      },
+    await createNotification({
+      userId:  profile.user.id,
+      title:   "Commission Settled",
+      message: type === "net"
+        ? `Rs. ${Math.round(totalCashCommission).toLocaleString()} in platform commission has been deducted from your online earnings balance by the admin.`
+        : `Rs. ${Math.round(totalCashCommission).toLocaleString()} in platform commission from your cash bookings has been marked as collected. Thank you!`,
+      type: "info",
     });
 
     return Response.json({

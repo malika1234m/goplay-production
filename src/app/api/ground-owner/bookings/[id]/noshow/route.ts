@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 import { NO_SHOW_ONLINE_THRESHOLD, NO_SHOW_SUSPEND_THRESHOLD } from "@/lib/cancellation-policy";
+import { createNotification } from "@/lib/notify";
 
-export async function PUT(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_OWNER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -71,13 +72,11 @@ export async function PUT(_req: NextRequest, { params }: { params: Promise<{ id:
       playerMsg += " Future bookings at cash-on-arrival facilities will require online payment.";
     }
 
-    await db.notification.create({
-      data: {
-        userId:  booking.userId,
-        title:   "No-Show Recorded",
-        message: playerMsg,
-        type:    "warning",
-      },
+    await createNotification({
+      userId:  booking.userId,
+      title:   "No-Show Recorded",
+      message: playerMsg,
+      type:    "warning",
     });
 
     if (suspend || requireOnline) {

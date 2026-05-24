@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 import { cloudinary, isConfigured } from "@/lib/cloudinary";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_FILES     = 8;
-const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif"];
 
 function uploadToCloudinary(buffer: Buffer, mimetype: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -25,7 +25,7 @@ function uploadToCloudinary(buffer: Buffer, mimetype: string): Promise<string> {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || !["GROUND_OWNER", "ADMIN"].includes(session.user.role ?? "")) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }

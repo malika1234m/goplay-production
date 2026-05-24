@@ -5,6 +5,7 @@ import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/l
 import { sendSMS } from "@/lib/sms";
 import { sendBookingReceivedEmail, sendNewBookingAlertEmail } from "@/lib/email";
 import { isAllowed, getClientIp } from "@/lib/rateLimiter";
+import { createNotification } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   try {
@@ -190,24 +191,20 @@ export async function POST(req: NextRequest) {
     const courtLabel = booking.court ? ` — ${booking.court.name}` : "";
 
     // Notification
-    await db.notification.create({
-      data: {
-        userId:  session.user.id,
-        title:   "Booking Received",
-        message: `Your booking at ${booking.facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime} is pending confirmation.`,
-        type:    "info",
-      },
+    await createNotification({
+      userId:  session.user.id,
+      title:   "Booking Received",
+      message: `Your booking at ${booking.facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime} is pending confirmation.`,
+      type:    "info",
     });
 
     // Notify ground owner of new cash booking (online bookings notify owner via PayHere webhook)
     if (paymentMethod === "ON_ARRIVAL") {
-      await db.notification.create({
-        data: {
-          userId:  facility.owner.user.id,
-          title:   "New Booking Received",
-          message: `${session.user.name ?? "A player"} has booked ${facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime}. Payment: Cash on Arrival (Rs. ${totalAmount.toLocaleString()}).`,
-          type:    "info",
-        },
+      await createNotification({
+        userId:  facility.owner.user.id,
+        title:   "New Booking Received",
+        message: `${session.user.name ?? "A player"} has booked ${facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime}. Payment: Cash on Arrival (Rs. ${totalAmount.toLocaleString()}).`,
+        type:    "info",
       });
     }
 

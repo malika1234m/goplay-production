@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,13 +44,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    await db.notification.create({
-      data: {
-        userId:  session.user.id,
-        title:   "Application Submitted",
-        message: "Your provider application has been submitted and is awaiting admin review. We'll notify you once it's reviewed.",
-        type:    "info",
-      },
+    await createNotification({
+      userId:  session.user.id,
+      title:   "Application Submitted",
+      message: "Your provider application has been submitted and is awaiting admin review. We'll notify you once it's reviewed.",
+      type:    "info",
     });
 
     return Response.json({ application, message: "Application submitted successfully." }, { status: 201 });

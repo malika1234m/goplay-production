@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { sendSMS } from "@/lib/sms";
+import { createNotification } from "@/lib/notify";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -94,13 +95,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }
 
       // Notification — tell the owner to add photos before admin reviews the facility
-      await db.notification.create({
-        data: {
-          userId:  application.userId,
-          title:   "Application Approved! 🎉",
-          message: `Congratulations! Your provider application has been approved. You are now a Ground Owner on GoPlay. Your facility "${application.facilityName}" has been created and is awaiting admin review. Head to your dashboard, add photos and any extra details to your ground, and we'll review it shortly.`,
-          type:    "success",
-        },
+      await createNotification({
+        userId:  application.userId,
+        title:   "Application Approved!",
+        message: `Congratulations! Your provider application has been approved. You are now a Ground Owner on GoPlay. Your facility "${application.facilityName}" has been created and is awaiting admin review. Head to your dashboard, add photos and any extra details to your ground, and we'll review it shortly.`,
+        type:    "success",
       });
 
       // SMS
@@ -129,13 +128,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       },
     });
 
-    await db.notification.create({
-      data: {
-        userId:  application.userId,
-        title:   "Application Not Approved",
-        message: `Your provider application was not approved. Reason: ${rejectionReason.trim()}. You may reapply after addressing the feedback.`,
-        type:    "error",
-      },
+    await createNotification({
+      userId:  application.userId,
+      title:   "Application Not Approved",
+      message: `Your provider application was not approved. Reason: ${rejectionReason.trim()}. You may reapply after addressing the feedback.`,
+      type:    "error",
     });
 
     if (application.user.phone) {

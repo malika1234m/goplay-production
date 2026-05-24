@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 
 const PER_PAGE = 20;
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_OWNER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }

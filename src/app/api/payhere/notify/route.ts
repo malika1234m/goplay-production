@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { verifyPayHereNotify } from "@/lib/payhere";
+import { createNotification } from "@/lib/notify";
 
 /**
  * PayHere calls this endpoint after every payment attempt.
@@ -62,22 +63,18 @@ export async function POST(req: NextRequest) {
         });
         if (booking) {
           // Notify the player
-          await db.notification.create({
-            data: {
-              userId:  booking.user.id,
-              title:   "Payment Confirmed",
-              message: `Your payment of Rs. ${booking.totalAmount.toLocaleString()} for ${booking.facility.name} was successful. Booking confirmed!`,
-              type:    "success",
-            },
+          await createNotification({
+            userId:  booking.user.id,
+            title:   "Payment Confirmed",
+            message: `Your payment of Rs. ${booking.totalAmount.toLocaleString()} for ${booking.facility.name} was successful. Booking confirmed!`,
+            type:    "success",
           });
           // Notify the ground owner
-          await db.notification.create({
-            data: {
-              userId:  booking.facility.owner.user.id,
-              title:   "New Paid Booking",
-              message: `${booking.user.name} has paid Rs. ${booking.totalAmount.toLocaleString()} online for ${booking.facility.name}. Booking is confirmed.`,
-              type:    "success",
-            },
+          await createNotification({
+            userId:  booking.facility.owner.user.id,
+            title:   "New Paid Booking",
+            message: `${booking.user.name} has paid Rs. ${booking.totalAmount.toLocaleString()} online for ${booking.facility.name}. Booking is confirmed.`,
+            type:    "success",
           });
         }
       }

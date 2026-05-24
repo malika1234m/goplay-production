@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { sendBookingCancelledEmail } from "@/lib/email";
+import { createNotification } from "@/lib/notify";
 import {
   getCancellationPolicyFromTiers,
   loadPolicyTiers,
@@ -86,22 +87,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         : "No refund applies for cancellations within 4 hours of the booking."
       : "";
 
-    await db.notification.create({
-      data: {
-        userId:  session.user.id,
-        title:   "Booking Cancelled",
-        message: `Your booking at ${booking.facility.name} on ${dateStr} has been cancelled.${refundNote ? " " + refundNote : ""}`,
-        type:    "warning",
-      },
+    await createNotification({
+      userId:  session.user.id,
+      title:   "Booking Cancelled",
+      message: `Your booking at ${booking.facility.name} on ${dateStr} has been cancelled.${refundNote ? " " + refundNote : ""}`,
+      type:    "warning",
     });
 
-    await db.notification.create({
-      data: {
-        userId:  booking.facility.owner.user.id,
-        title:   "Booking Cancelled by Player",
-        message: `A player cancelled their booking at ${booking.facility.name} on ${dateStr} (${booking.startTime}–${booking.endTime}). The slot is now free.`,
-        type:    "warning",
-      },
+    await createNotification({
+      userId:  booking.facility.owner.user.id,
+      title:   "Booking Cancelled by Player",
+      message: `A player cancelled their booking at ${booking.facility.name} on ${dateStr} (${booking.startTime}–${booking.endTime}). The slot is now free.`,
+      type:    "warning",
     });
 
     if (needsRefund) {

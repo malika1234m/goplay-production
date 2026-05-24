@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 import { sendSMS } from "@/lib/sms";
 import { sendBookingConfirmedEmail, sendBookingCancelledEmail } from "@/lib/email";
+import { createNotification } from "@/lib/notify";
 import { getCommissionRate } from "@/lib/settings";
 import { STRIKE_SUSPEND_THRESHOLD, STRIKE_RESET_DAYS } from "@/lib/cancellation-policy";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_OWNER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -188,13 +189,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       COMPLETED: `Your session at ${booking.facility.name} is marked as completed. Thanks for playing!`,
     };
 
-    await db.notification.create({
-      data: {
-        userId:  booking.userId,
-        title:   `Booking ${status.charAt(0) + status.slice(1).toLowerCase()}`,
-        message: messages[status],
-        type:    status === "CONFIRMED" ? "success" : status === "CANCELLED" ? "warning" : "info",
-      },
+    await createNotification({
+      userId:  booking.userId,
+      title:   `Booking ${status.charAt(0) + status.slice(1).toLowerCase()}`,
+      message: messages[status],
+      type:    status === "CONFIRMED" ? "success" : status === "CANCELLED" ? "warning" : "info",
     });
 
     const dateStr = new Date(booking.bookingDate).toLocaleDateString("en-US", {

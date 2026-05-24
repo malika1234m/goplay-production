@@ -1,14 +1,16 @@
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { NextRequest } from "next/server";
+import { getSession } from "@/lib/mobile-auth";
 import { getSetting } from "@/lib/settings";
+import { createNotification } from "@/lib/notify";
 
 // Only ONLINE payments (PayHere) land in the admin's account.
 // Cash-on-arrival is collected directly by the ground owner — it never touches admin.
 // Payout balance = net from ONLINE completed earnings - already paid out - pending requests.
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_OWNER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -116,9 +118,9 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_OWNER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -197,13 +199,11 @@ export async function POST() {
     });
 
     // Notify the ground owner
-    await db.notification.create({
-      data: {
-        userId:  session.user.id,
-        title:   "Payout Requested",
-        message: `Your payout request of Rs. ${available.toLocaleString()} has been submitted. The admin will review and transfer to your bank account shortly.`,
-        type:    "info",
-      },
+    await createNotification({
+      userId:  session.user.id,
+      title:   "Payout Requested",
+      message: `Your payout request of Rs. ${available.toLocaleString()} has been submitted. The admin will review and transfer to your bank account shortly.`,
+      type:    "info",
     });
 
     // Notify all admins

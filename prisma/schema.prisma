@@ -69,6 +69,7 @@ model User {
   cashCancelCount       Int     @default(0)
   requiresOnlinePayment Boolean @default(false)
   isBookingSuspended    Boolean @default(false)
+  pushToken             String?
 
   bookings             FacilityBooking[]
   reviews              FacilityReview[]
@@ -366,6 +367,7 @@ model Notification {
   message   String
   type      String   @default("info")
   isRead    Boolean  @default(false)
+  link      String?
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

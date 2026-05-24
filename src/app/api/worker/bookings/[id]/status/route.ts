@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 import { sendSMS } from "@/lib/sms";
+import { createNotification } from "@/lib/notify";
 import { getCommissionRate } from "@/lib/settings";
 import {
   STRIKE_SUSPEND_THRESHOLD,
@@ -20,7 +21,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_WORKER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -133,21 +134,17 @@ export async function PUT(
         }
       }
 
-      await db.notification.createMany({
-        data: [
-          {
-            userId:  booking.user.id,
-            title:   "Booking Completed",
-            message: `Your session at ${booking.facility.name} is marked as completed. Thanks for playing!`,
-            type:    "info" as const,
-          },
-          {
-            userId:  ownerId,
-            title:   "Booking Completed by Worker",
-            message: `${workerName} marked the booking by ${booking.user.name} on ${dateStr} (${booking.startTime}–${booking.endTime}) as completed.`,
-            type:    "info" as const,
-          },
-        ],
+      await createNotification({
+        userId:  booking.user.id,
+        title:   "Booking Completed",
+        message: `Your session at ${booking.facility.name} is marked as completed. Thanks for playing!`,
+        type:    "info",
+      });
+      await createNotification({
+        userId:  ownerId,
+        title:   "Booking Completed by Worker",
+        message: `${workerName} marked the booking by ${booking.user.name} on ${dateStr} (${booking.startTime}–${booking.endTime}) as completed.`,
+        type:    "info",
       });
 
       if (booking.contactNumber) {
@@ -160,21 +157,17 @@ export async function PUT(
     // ── CONFIRMED ─────────────────────────────────────────────────────────────
     if (status === "CONFIRMED") {
       const updated = await db.facilityBooking.update({ where: { id }, data: { status } });
-      await db.notification.createMany({
-        data: [
-          {
-            userId:  booking.user.id,
-            title:   "Booking Confirmed",
-            message: `Your booking at ${booking.facility.name} has been confirmed!`,
-            type:    "success" as const,
-          },
-          {
-            userId:  ownerId,
-            title:   "Booking Confirmed by Worker",
-            message: `${workerName} confirmed the booking by ${booking.user.name} on ${dateStr} (${booking.startTime}–${booking.endTime}).`,
-            type:    "info" as const,
-          },
-        ],
+      await createNotification({
+        userId:  booking.user.id,
+        title:   "Booking Confirmed",
+        message: `Your booking at ${booking.facility.name} has been confirmed!`,
+        type:    "success",
+      });
+      await createNotification({
+        userId:  ownerId,
+        title:   "Booking Confirmed by Worker",
+        message: `${workerName} confirmed the booking by ${booking.user.name} on ${dateStr} (${booking.startTime}–${booking.endTime}).`,
+        type:    "info",
       });
       if (booking.contactNumber) {
         await sendSMS(booking.contactNumber, `GoPlay: Your booking at ${booking.facility.name} on ${dateStr} from ${booking.startTime} to ${booking.endTime} has been confirmed. See you there!`);
@@ -248,18 +241,14 @@ export async function PUT(
       const cancelMsg = isOnlinePaid
         ? `Your booking at ${booking.facility.name} on ${dateStr} was cancelled. Your full payment will be refunded — our team will be in touch.`
         : `Your booking at ${booking.facility.name} on ${dateStr} was cancelled.`;
-      await db.notification.create({
-        data: { userId: booking.user.id, title: "Booking Cancelled", message: cancelMsg, type: "warning" },
-      });
+      await createNotification({ userId: booking.user.id, title: "Booking Cancelled", message: cancelMsg, type: "warning" });
 
       // Notify owner
-      await db.notification.create({
-        data: {
-          userId:  ownerId,
-          title:   "Booking Cancelled by Worker",
-          message: `${workerName} cancelled the booking by ${booking.user.name} on ${dateStr} (${booking.startTime}–${booking.endTime}). Strike ${newStrikes}/${STRIKE_SUSPEND_THRESHOLD} on your facility.`,
-          type:    "warning",
-        },
+      await createNotification({
+        userId:  ownerId,
+        title:   "Booking Cancelled by Worker",
+        message: `${workerName} cancelled the booking by ${booking.user.name} on ${dateStr} (${booking.startTime}–${booking.endTime}). Strike ${newStrikes}/${STRIKE_SUSPEND_THRESHOLD} on your facility.`,
+        type:    "warning",
       });
 
       if (booking.contactNumber) {
@@ -295,18 +284,14 @@ export async function PUT(
         : restrictOnline
         ? `You were marked as a no-show at ${booking.facility.name} on ${dateStr}. You now need to pay online for future bookings.`
         : `You were marked as a no-show for your booking at ${booking.facility.name} on ${dateStr}. Please ensure you attend or cancel in advance.`;
-      await db.notification.create({
-        data: { userId: booking.user.id, title: "No-Show Recorded", message: noShowMsg, type: "warning" },
-      });
+      await createNotification({ userId: booking.user.id, title: "No-Show Recorded", message: noShowMsg, type: "warning" });
 
       // Notify owner
-      await db.notification.create({
-        data: {
-          userId:  ownerId,
-          title:   "No-Show Marked by Worker",
-          message: `${workerName} marked ${booking.user.name}'s booking on ${dateStr} as a no-show (total: ${newNoShowCount}).`,
-          type:    "info",
-        },
+      await createNotification({
+        userId:  ownerId,
+        title:   "No-Show Marked by Worker",
+        message: `${workerName} marked ${booking.user.name}'s booking on ${dateStr} as a no-show (total: ${newNoShowCount}).`,
+        type:    "info",
       });
 
       // Notify admins if user was restricted or suspended

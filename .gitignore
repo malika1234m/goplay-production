@@ -50,6 +50,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Claude Code working files
+.claude/
+memory/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -1,15 +1,16 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
+import { createNotification } from "@/lib/notify";
 
 async function getWorkerFacilityId(userId: string): Promise<string | null> {
   const w = await db.facilityWorker.findUnique({ where: { userId } });
   return w?.facilityId ?? null;
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_WORKER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -45,7 +46,7 @@ export async function GET(_req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_WORKER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -87,13 +88,11 @@ export async function POST(req: NextRequest) {
 
     // Notify owner
     if (facility) {
-      await db.notification.create({
-        data: {
-          userId:  facility.owner.user.id,
-          title:   "Slot Blocked by Worker",
-          message: `${session.user.name ?? "A worker"} blocked ${startTime && endTime ? `${startTime}–${endTime}` : "the full day"} on ${date} at ${facility.name}${reason ? `: ${reason}` : ""}.`,
-          type:    "info",
-        },
+      await createNotification({
+        userId:  facility.owner.user.id,
+        title:   "Slot Blocked by Worker",
+        message: `${session.user.name ?? "A worker"} blocked ${startTime && endTime ? `${startTime}–${endTime}` : "the full day"} on ${date} at ${facility.name}${reason ? `: ${reason}` : ""}.`,
+        type:    "info",
       });
     }
 

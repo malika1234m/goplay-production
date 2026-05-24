@@ -1,9 +1,10 @@
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { NextRequest } from "next/server";
+import { getSession } from "@/lib/mobile-auth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_WORKER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }

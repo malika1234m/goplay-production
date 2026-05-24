@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 import { BookingStatus } from "@prisma/client";
+import { createNotification } from "@/lib/notify";
 
 const VALID_BOOKING_STATUSES = new Set<string>(Object.values(BookingStatus));
 
@@ -15,7 +16,7 @@ async function getWorkerFacilityId(userId: string): Promise<string | null> {
 // GET /api/worker/bookings?history=true&from=&to=    (history page: date-range, non-archived)
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_WORKER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -34,10 +35,9 @@ export async function GET(req: NextRequest) {
     let bookings;
 
     if (dateStr) {
-      // Single-day mode (used by schedule page)
-      const startOfDay = new Date(dateStr);
-      const endOfDay   = new Date(dateStr);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Single-day mode (used by schedule page) — use UTC so date string matches stored UTC midnight
+      const startOfDay = new Date(dateStr + "T00:00:00.000Z");
+      const endOfDay   = new Date(dateStr + "T23:59:59.999Z");
       bookings = await db.facilityBooking.findMany({
         where: { facilityId, bookingDate: { gte: startOfDay, lte: endOfDay } },
         include: { user: { select: { name: true, email: true, phone: true } }, court: { select: { name: true } } },
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
 // POST /api/worker/bookings  — walk-in booking (created as CONFIRMED, cash)
 export async function POST(req: NextRequest) {
   try {
-  const session = await auth();
+  const session = await getSession(req);
   if (!session?.user || session.user.role !== "GROUND_WORKER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -217,13 +217,11 @@ export async function POST(req: NextRequest) {
   });
 
   // Notify owner
-  await db.notification.create({
-    data: {
-      userId:  facility.owner.user.id,
-      title:   "Walk-in Booking Added",
-      message: `${session.user.name ?? "A worker"} added a walk-in booking for ${playerName} at ${facility.name} on ${bookingDate} from ${startTime} to ${endTime}.`,
-      type:    "info",
-    },
+  await createNotification({
+    userId:  facility.owner.user.id,
+    title:   "Walk-in Booking Added",
+    message: `${session.user.name ?? "A worker"} added a walk-in booking for ${playerName} at ${facility.name} on ${bookingDate} from ${startTime} to ${endTime}.`,
+    type:    "info",
   });
 
   return Response.json({ booking }, { status: 201 });

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 
 async function getWorkerFacilityId(userId: string): Promise<string | null> {
   const w = await db.facilityWorker.findUnique({ where: { userId } });
@@ -11,7 +11,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(req: NextRequest) {
   try {
-  const session = await auth();
+  const session = await getSession(req);
   if (!session?.user || session.user.role !== "GROUND_WORKER") {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }

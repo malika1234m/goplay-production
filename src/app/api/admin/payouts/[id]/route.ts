@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notify";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -70,13 +71,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         ? `Your payout of Rs. ${payout.netAmount.toLocaleString()} is being processed.`
         : `Your payout of Rs. ${payout.netAmount.toLocaleString()} could not be processed. Please contact support.`;
 
-    await db.notification.create({
-      data: {
-        userId:  payout.owner.user.id,
-        title:   status === "COMPLETED" ? "Payout Completed" : status === "PROCESSING" ? "Payout Processing" : "Payout Failed",
-        message: msg,
-        type:    status === "COMPLETED" ? "success" : status === "FAILED" ? "error" : "info",
-      },
+    await createNotification({
+      userId:  payout.owner.user.id,
+      title:   status === "COMPLETED" ? "Payout Completed" : status === "PROCESSING" ? "Payout Processing" : "Payout Failed",
+      message: msg,
+      type:    status === "COMPLETED" ? "success" : status === "FAILED" ? "error" : "info",
     });
 
     return Response.json({ payout });

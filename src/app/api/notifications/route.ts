@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 
 // GET /api/notifications?limit=10&page=1&unread=true
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
@@ -37,9 +37,9 @@ export async function GET(req: NextRequest) {
 }
 
 // DELETE /api/notifications  — clear all read notifications
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const { count } = await db.notification.deleteMany({

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 
 async function getWorkerFacilityId(userId: string): Promise<string | null> {
   const w = await db.facilityWorker.findUnique({ where: { userId } });
@@ -8,11 +8,11 @@ async function getWorkerFacilityId(userId: string): Promise<string | null> {
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_WORKER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }

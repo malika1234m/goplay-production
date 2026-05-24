@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
+import { createNotification } from "@/lib/notify";
 
 async function getOwnedFacilityIds(userId: string) {
   const profile = await db.groundOwnerProfile.findUnique({
@@ -12,11 +13,11 @@ async function getOwnedFacilityIds(userId: string) {
 
 // DELETE /api/ground-owner/workers/[id]
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_OWNER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -42,13 +43,11 @@ export async function DELETE(
     });
 
     // Notify the removed worker
-    await db.notification.create({
-      data: {
-        userId:  worker.userId,
-        title:   "Worker Access Removed",
-        message: "Your access to the worker dashboard has been removed by the facility owner.",
-        type:    "info",
-      },
+    await createNotification({
+      userId:  worker.userId,
+      title:   "Worker Access Removed",
+      message: "Your access to the worker dashboard has been removed by the facility owner.",
+      type:    "info",
     });
 
     return Response.json({ ok: true });

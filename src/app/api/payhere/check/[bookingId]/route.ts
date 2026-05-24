@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { queryPayHereStatus } from "@/lib/payhere";
+import { createNotification } from "@/lib/notify";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ bookingId: string }> }) {
   try {
@@ -40,21 +41,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ boo
         where: { id: bookingId },
         data:  { status: "CONFIRMED", paymentStatus: "PAID", payHereOrderId: bookingId },
       });
-      await db.notification.create({
-        data: {
-          userId:  booking.user.id,
-          title:   "Payment Confirmed",
-          message: `Your payment of Rs. ${booking.totalAmount.toLocaleString()} for ${booking.facility.name} was confirmed. Booking is now active!`,
-          type:    "success",
-        },
+      await createNotification({
+        userId:  booking.user.id,
+        title:   "Payment Confirmed",
+        message: `Your payment of Rs. ${booking.totalAmount.toLocaleString()} for ${booking.facility.name} was confirmed. Booking is now active!`,
+        type:    "success",
       });
-      await db.notification.create({
-        data: {
-          userId:  booking.facility.owner.user.id,
-          title:   "New Paid Booking",
-          message: `${booking.user.name} has paid Rs. ${booking.totalAmount.toLocaleString()} online for ${booking.facility.name}. Booking confirmed.`,
-          type:    "success",
-        },
+      await createNotification({
+        userId:  booking.facility.owner.user.id,
+        title:   "New Paid Booking",
+        message: `${booking.user.name} has paid Rs. ${booking.totalAmount.toLocaleString()} online for ${booking.facility.name}. Booking confirmed.`,
+        type:    "success",
       });
       return Response.json({ confirmed: true, message: "Payment verified — your booking is now confirmed!" });
     }

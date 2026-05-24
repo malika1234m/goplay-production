@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { sendSMS } from "@/lib/sms";
+import { createNotification } from "@/lib/notify";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -41,9 +42,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         : `Your ground "${ground.name}" was not approved by the admin. Please contact support for more information.`;
       const notifType    = status === "ACTIVE" ? "success" : "error";
 
-      await db.notification.create({
-        data: { userId: ownerUserId, title: notifTitle, message: notifMessage, type: notifType },
-      });
+      await createNotification({ userId: ownerUserId, title: notifTitle, message: notifMessage, type: notifType });
 
       if (ownerPhone) {
         const smsMessage = status === "ACTIVE"

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 
 async function ownsGround(userId: string, facilityId: string) {
   const profile = await db.groundOwnerProfile.findUnique({ where: { userId } });
@@ -15,7 +15,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; courtId: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_OWNER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -64,11 +64,11 @@ export async function PUT(
 
 // DELETE /api/ground-owner/grounds/[id]/courts/[courtId]
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; courtId: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user || session.user.role !== "GROUND_OWNER") {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
