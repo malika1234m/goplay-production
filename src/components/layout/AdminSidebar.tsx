@@ -5,13 +5,14 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
-  LayoutDashboard, Users, MapPin, DollarSign, BarChart2,
+  LayoutDashboard, Users, MapPin, DollarSign, BarChart2, CalendarDays,
   LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed, Menu, X, UserCircle, ShieldAlert,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
 const NAV = [
   { id: "dashboard",    href: "/admin/dashboard",    label: "Dashboard",         icon: LayoutDashboard },
+  { id: "bookings",     href: "/admin/bookings",      label: "Bookings",          icon: CalendarDays },
   { id: "users",        href: "/admin/users",         label: "Users",             icon: Users },
   { id: "grounds",      href: "/admin/grounds",       label: "Ground Management", icon: MapPin },
   { id: "applications", href: "/admin/applications",  label: "Applications",      icon: ClipboardList },
