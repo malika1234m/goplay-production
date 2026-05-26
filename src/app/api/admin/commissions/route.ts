@@ -30,6 +30,17 @@ export async function GET() {
       orderBy: { earnedAt: "desc" },
     });
 
+    // Fetch pending commission requests per owner (profile-level fields)
+    const ownerProfiles = await db.groundOwnerProfile.findMany({
+      where: { commissionRequestedAt: { not: null } },
+      select: {
+        id:                        true,
+        commissionRequestedAt:     true,
+        commissionRequestedAmount: true,
+      },
+    });
+    const requestMap = new Map(ownerProfiles.map((p) => [p.id, p]));
+
     // Group by ownerId
     const ownerMap = new Map<string, {
       ownerId:        string;
@@ -38,12 +49,11 @@ export async function GET() {
       totalCommission:  number;
       paidCommission:   number;
       unpaidCommission: number;
-      // cash commissions outstanding (admin must chase or net)
       cashUnpaid:     number;
-      // online commissions outstanding (settled when payout completes)
       onlineUnpaid:   number;
-      // online balance admin currently holds for this owner
       onlineHeld:     number;
+      commissionRequestedAt:     string | null;
+      commissionRequestedAmount: number | null;
       earnings: typeof allEarnings;
     }>();
 
@@ -59,6 +69,7 @@ export async function GET() {
           .reduce((s, p) => s + p.netAmount, 0);
 
         // netOnline = sum of netAmount for ONLINE earnings with cashConfirmed — computed below
+        const req = requestMap.get(oid);
         ownerMap.set(oid, {
           ownerId:          oid,
           ownerName:        e.owner.user.name,
@@ -69,6 +80,8 @@ export async function GET() {
           cashUnpaid:       0,
           onlineUnpaid:     0,
           onlineHeld:       -(completedPayout + inFlightPayout), // will add netAmount below
+          commissionRequestedAt:     req?.commissionRequestedAt?.toISOString() ?? null,
+          commissionRequestedAmount: req?.commissionRequestedAmount ?? null,
           earnings:         [],
         });
       }

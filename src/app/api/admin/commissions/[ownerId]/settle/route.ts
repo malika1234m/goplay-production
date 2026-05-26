@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { createNotification } from "@/lib/notify";
+import { sendCommissionSettledEmail } from "@/lib/email";
 
 // POST /api/admin/commissions/[ownerId]/settle
 // type: "direct"  — owner paid commission separately (cash/transfer outside platform)
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ own
 
     const profile = await db.groundOwnerProfile.findUnique({
       where: { id: ownerId },
-      include: { user: { select: { id: true, name: true } } },
+      include: { user: { select: { id: true, name: true, email: true } } },
     });
     if (!profile) return Response.json({ error: "Owner not found." }, { status: 404 });
 
@@ -80,24 +81,45 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ own
       });
     }
 
-    // Mark all unpaid cash commissions as settled
-    await db.groundEarning.updateMany({
-      where: { id: { in: unpaidCash.map((e) => e.id) } },
-      data: {
-        commissionPaid:      true,
-        commissionSettledAt: new Date(),
-        commissionNote: note?.trim() || (type === "net" ? "Netted from online earnings." : "Collected directly."),
-      },
-    });
+    // Mark all unpaid cash commissions as settled and clear pending request
+    await Promise.all([
+      db.groundEarning.updateMany({
+        where: { id: { in: unpaidCash.map((e) => e.id) } },
+        data: {
+          commissionPaid:      true,
+          commissionSettledAt: new Date(),
+          commissionNote: note?.trim() || (type === "net" ? "Netted from online earnings." : "Collected directly."),
+        },
+      }),
+      db.groundOwnerProfile.update({
+        where: { id: ownerId },
+        data: {
+          commissionRequestedAt:     null,
+          commissionRequestedAmount: null,
+        },
+      }),
+    ]);
 
-    // Notify the ground owner
+    const amountStr = `Rs. ${Math.round(totalCashCommission).toLocaleString()}`;
+    const notifyMsg = type === "net"
+      ? `${amountStr} in platform commission has been deducted from your online earnings balance by the admin.`
+      : `${amountStr} in platform commission from your cash bookings has been marked as collected. Thank you!`;
+
+    // Push notification (via createNotification)
     await createNotification({
       userId:  profile.user.id,
       title:   "Commission Settled",
-      message: type === "net"
-        ? `Rs. ${Math.round(totalCashCommission).toLocaleString()} in platform commission has been deducted from your online earnings balance by the admin.`
-        : `Rs. ${Math.round(totalCashCommission).toLocaleString()} in platform commission from your cash bookings has been marked as collected. Thank you!`,
-      type: "info",
+      message: notifyMsg,
+      type:    "info",
+    });
+
+    // Email (fire-and-forget)
+    void sendCommissionSettledEmail({
+      to:     profile.user.email,
+      name:   profile.user.name ?? "Ground Owner",
+      amount: totalCashCommission,
+      type,
+      note:   note?.trim() || undefined,
     });
 
     return Response.json({

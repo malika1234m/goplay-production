@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   Loader2, ChevronDown, ChevronUp, BadgeDollarSign, CheckCircle,
-  Users, AlertCircle, Banknote, CreditCard, Calendar, MapPin, X, Download,
+  Users, AlertCircle, Banknote, CreditCard, Calendar, MapPin, X, Download, Bell,
 } from "lucide-react";
 
 /* ── Types ── */
@@ -29,6 +29,8 @@ interface OwnerCommission {
   onlineUnpaid:     number;
   onlineHeld:       number;
   canNet:           boolean;
+  commissionRequestedAt:     string | null;
+  commissionRequestedAmount: number | null;
   earnings:         EarningRow[];
 }
 
@@ -45,10 +47,20 @@ const fmt  = (n: number) => `Rs. ${Math.round(n).toLocaleString()}`;
 const fmtD = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 /* ── Owner accordion card ── */
-function OwnerCard({ owner, onSettle }: { owner: OwnerCommission; onSettle: (o: OwnerCommission) => void }) {
+function OwnerCard({
+  owner, onSettle, onRequest,
+}: {
+  owner: OwnerCommission;
+  onSettle:  (o: OwnerCommission) => void;
+  onRequest: (o: OwnerCommission) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const hasDebt     = owner.unpaidCommission > 0;
-  const hasCashDebt = owner.cashUnpaid > 0;
+  const hasDebt        = owner.unpaidCommission > 0;
+  const hasCashDebt    = owner.cashUnpaid > 0;
+  const hasPendingReq  = !!(owner.commissionRequestedAt && owner.cashUnpaid > 0);
+  const reqDate        = owner.commissionRequestedAt
+    ? new Date(owner.commissionRequestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : null;
 
   return (
     <div className={`border rounded-2xl overflow-hidden ${hasDebt ? "border-orange-200" : "border-slate-100 bg-white"}`}>
@@ -67,7 +79,7 @@ function OwnerCard({ owner, onSettle }: { owner: OwnerCommission; onSettle: (o: 
           </div>
         </div>
 
-        <div className="flex items-center gap-5 shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
           <div className="text-right hidden sm:block">
             <p className="text-xs text-slate-400">Total Commission</p>
             <p className="text-sm font-medium text-slate-600">{fmt(owner.totalCommission)}</p>
@@ -83,12 +95,27 @@ function OwnerCard({ owner, onSettle }: { owner: OwnerCommission; onSettle: (o: 
             </p>
           </div>
           {hasCashDebt && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onSettle(owner); }}
-              className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded-lg transition-colors"
-            >
-              Settle
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Request Payment button */}
+              <button
+                onClick={(e) => { e.stopPropagation(); onRequest(owner); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors border ${
+                  hasPendingReq
+                    ? "border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
+                    : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                }`}
+              >
+                <Bell className="w-3 h-3" />
+                {hasPendingReq ? `Requested ${reqDate}` : "Request"}
+              </button>
+              {/* Settle button */}
+              <button
+                onClick={(e) => { e.stopPropagation(); onSettle(owner); }}
+                className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded-lg transition-colors"
+              >
+                Settle
+              </button>
+            </div>
           )}
           {hasDebt && !hasCashDebt && (
             <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-1 rounded-lg font-medium">
@@ -169,6 +196,85 @@ function OwnerCard({ owner, onSettle }: { owner: OwnerCommission; onSettle: (o: 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Request modal ── */
+function RequestModal({
+  owner,
+  onClose,
+  onDone,
+}: {
+  owner:   OwnerCommission;
+  onClose: () => void;
+  onDone:  () => void;
+}) {
+  const [note,    setNote]    = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState("");
+
+  const submit = async () => {
+    setLoading(true);
+    setError("");
+    const res  = await fetch(`/api/admin/commissions/${owner.ownerId}/request`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ note }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { setError(data.error ?? "Request failed."); return; }
+    onDone();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-slate-900 text-base">Request Commission Payment</h3>
+            <p className="text-xs text-slate-500 mt-0.5">{owner.ownerName}</p>
+          </div>
+          <button onClick={onClose}><X className="w-5 h-5 text-slate-400 hover:text-slate-600" /></button>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-slate-500">Outstanding cash commission</span>
+            <span className="font-bold text-blue-700">{fmt(owner.cashUnpaid)}</span>
+          </div>
+          <p className="text-xs text-slate-400">
+            A push notification and email will be sent to the owner asking them to pay.
+            This does not mark anything as settled.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">Note for owner (optional)</label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            placeholder="e.g. Please transfer before end of month…"
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+          />
+        </div>
+
+        {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
+          <button
+            onClick={submit}
+            disabled={loading}
+            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            Send Request
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -298,11 +404,12 @@ function SettleModal({
 
 /* ── Main page ── */
 export default function AdminCommissionsPage() {
-  const [summary,  setSummary]  = useState<Summary | null>(null);
-  const [owners,   setOwners]   = useState<OwnerCommission[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [settling, setSettling] = useState<OwnerCommission | null>(null);
-  const [filter,   setFilter]   = useState<"all" | "outstanding" | "settled">("outstanding");
+  const [summary,    setSummary]    = useState<Summary | null>(null);
+  const [owners,     setOwners]     = useState<OwnerCommission[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [settling,   setSettling]   = useState<OwnerCommission | null>(null);
+  const [requesting, setRequesting] = useState<OwnerCommission | null>(null);
+  const [filter,     setFilter]     = useState<"all" | "outstanding" | "settled">("outstanding");
 
   // Export filters
   const [exporting,      setExporting]      = useState(false);
@@ -323,6 +430,13 @@ export default function AdminCommissionsPage() {
 
   const handleSettled = async () => {
     setSettling(null);
+    setLoading(true);
+    await load();
+    setLoading(false);
+  };
+
+  const handleRequested = async () => {
+    setRequesting(null);
     setLoading(true);
     await load();
     setLoading(false);
@@ -528,11 +642,14 @@ export default function AdminCommissionsPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {displayed.map((o) => (
-            <OwnerCard key={o.ownerId} owner={o} onSettle={setSettling} />
+            <OwnerCard key={o.ownerId} owner={o} onSettle={setSettling} onRequest={setRequesting} />
           ))}
         </div>
       )}
 
+      {requesting && (
+        <RequestModal owner={requesting} onClose={() => setRequesting(null)} onDone={handleRequested} />
+      )}
       {settling && (
         <SettleModal owner={settling} onClose={() => setSettling(null)} onDone={handleSettled} />
       )}

@@ -23,6 +23,11 @@ export async function GET(req: NextRequest) {
     });
     if (!profile) return Response.json({ error: "Profile not found" }, { status: 404 });
 
+    const p = profile as typeof profile & { commissionRequestedAt?: Date | null; commissionRequestedAmount?: number | null };
+    const pendingCommissionRequest = (p.commissionRequestedAt && p.commissionRequestedAmount)
+      ? { requestedAt: p.commissionRequestedAt.toISOString(), amount: p.commissionRequestedAmount }
+      : null;
+
     // Only ONLINE earnings — these are the funds the admin holds
     const onlineEarnings = await db.groundEarning.findMany({
       where: {
@@ -101,10 +106,9 @@ export async function GET(req: NextRequest) {
       },
       onlineEarnings,
       hasBankDetails,
-      // Real payout requests only (exclude commission netting records)
       payouts: profile.payouts.filter((p) => !p.isCommissionSettlement),
-      // Commission settlements shown separately so owner understands their balance was reduced
       commissionSettlements: profile.payouts.filter((p) => p.isCommissionSettlement),
+      pendingCommissionRequest,
       cooldownRemaining,
       settings: {
         commissionRate:     Number(commissionRateSetting ?? "10"),

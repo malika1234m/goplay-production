@@ -106,6 +106,10 @@ model GroundOwnerProfile {
   accountNumber     String?
   accountHolderName String?
 
+  // Pending commission payment request sent by admin
+  commissionRequestedAt     DateTime?
+  commissionRequestedAmount Float?
+
   user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   facilities SportsFacility[]
   payouts    Payout[]

@@ -108,6 +108,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             ...(isWalkIn && { commissionNote: "Walk-in — no platform commission" }),
           },
         });
+
       }
     }
 

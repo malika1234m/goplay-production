@@ -197,3 +197,65 @@ export async function sendBookingCancelledEmail(opts: {
   `);
   await send(opts.to, `Booking Cancelled — ${opts.facilityName}`, html);
 }
+
+// ── 7. Commission request email (to ground owner) ─────────────────────────
+export async function sendCommissionRequestEmail(opts: {
+  to: string; name: string; amount: number; note?: string;
+}) {
+  const amountStr = `Rs. ${Math.round(opts.amount).toLocaleString()}`;
+  const noteRow = opts.note
+    ? `<p style="color:#64748b;font-size:13px;margin:16px 0 0;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0">
+        📝 Note: ${opts.note}
+      </p>`
+    : "";
+
+  const html = layout(`
+    <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">Platform Commission Payment Request</h2>
+    <p style="color:#475569;font-size:14px;margin:0 0 24px">
+      The GoPlay admin has requested payment of your outstanding cash booking commission.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border-radius:10px;padding:16px;border:1px solid #fde68a">
+      ${infoRow("Amount Due", amountStr)}
+      ${infoRow("Reason", "Platform commission on cash bookings")}
+    </table>
+    ${noteRow}
+    <p style="color:#475569;font-size:13px;margin:20px 0 0">
+      Please transfer this amount to the GoPlay admin or contact them to arrange settlement.
+      You can view your commission details in the GoPlay Owner app.
+    </p>
+    ${button("https://goplay.lk", "Open GoPlay")}
+  `);
+  await send(opts.to, `Commission Payment Request — ${amountStr}`, html);
+}
+
+// ── 8. Commission settled email (to ground owner) ──────────────────────────
+export async function sendCommissionSettledEmail(opts: {
+  to: string; name: string; amount: number;
+  type: "direct" | "net"; note?: string;
+}) {
+  const amountStr = `Rs. ${Math.round(opts.amount).toLocaleString()}`;
+  const description = opts.type === "net"
+    ? `${amountStr} has been deducted from your online earnings balance to settle outstanding platform commission.`
+    : `${amountStr} in platform commission from your cash bookings has been marked as collected by the admin.`;
+
+  const noteRow = opts.note
+    ? `<p style="color:#64748b;font-size:13px;margin:16px 0 0;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0">
+        📝 Note: ${opts.note}
+      </p>`
+    : "";
+
+  const html = layout(`
+    <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">Platform Commission Settled</h2>
+    <p style="color:#475569;font-size:14px;margin:0 0 24px">${description}</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-radius:10px;padding:16px;border:1px solid #bbf7d0">
+      ${infoRow("Amount", amountStr)}
+      ${infoRow("Method", opts.type === "net" ? "Deducted from online balance" : "Collected directly")}
+    </table>
+    ${noteRow}
+    <p style="color:#475569;font-size:13px;margin:20px 0 0">
+      You can view your full earnings breakdown in the GoPlay Owner app.
+    </p>
+    ${button("https://goplay.lk", "Open GoPlay")}
+  `);
+  await send(opts.to, `Platform Commission Settled — ${amountStr}`, html);
+}

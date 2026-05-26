@@ -131,6 +131,7 @@ export async function PUT(
               ...(isWalkIn && { commissionNote: "Walk-in — no platform commission" }),
             },
           });
+
         }
       }
 
