@@ -10,16 +10,14 @@ export interface MobileSession {
     name: string;
     email: string;
     role: string;
-    mustChangePassword: boolean;
   };
 }
 
 export async function signMobileToken(payload: MobileSession["user"]): Promise<string> {
   return new SignJWT({
-    name:               payload.name,
-    email:              payload.email,
-    role:               payload.role,
-    mustChangePassword: payload.mustChangePassword,
+    name:  payload.name,
+    email: payload.email,
+    role:  payload.role,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.id)
@@ -39,11 +37,10 @@ async function fromBearer(req: NextRequest): Promise<MobileSession | null> {
     ) return null;
     return {
       user: {
-        id:                 payload.sub,
-        name:               (payload.name as string) ?? "",
-        email:              (payload.email as string) ?? "",
-        role:               payload.role,
-        mustChangePassword: (payload.mustChangePassword as boolean) ?? false,
+        id:    payload.sub,
+        name:  (payload.name as string) ?? "",
+        email: (payload.email as string) ?? "",
+        role:  payload.role,
       },
     };
   } catch {

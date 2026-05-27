@@ -53,11 +53,10 @@ export async function POST(req: NextRequest) {
     }
 
     const token = await signMobileToken({
-      id:                 user.id,
-      name:               user.name,
-      email:              user.email,
-      role:               user.role,
-      mustChangePassword: user.mustChangePassword,
+      id:    user.id,
+      name:  user.name,
+      email: user.email,
+      role:  user.role,
     });
 
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -66,11 +65,10 @@ export async function POST(req: NextRequest) {
       token,
       expiresAt,
       user: {
-        id:                 user.id,
-        name:               user.name,
-        email:              user.email,
-        role:               user.role,
-        mustChangePassword: user.mustChangePassword,
+        id:    user.id,
+        name:  user.name,
+        email: user.email,
+        role:  user.role,
       },
     });
   } catch (err) {
