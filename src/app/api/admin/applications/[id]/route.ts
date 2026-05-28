@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { sendSMS } from "@/lib/sms";
 import { createNotification } from "@/lib/notify";
+import { sendApplicationApprovedEmail, sendApplicationRejectedEmail } from "@/lib/email";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -102,6 +103,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         type:    "success",
       });
 
+      // Email
+      if (application.user.email) {
+        await sendApplicationApprovedEmail({
+          to:           application.user.email,
+          name:         application.user.name ?? "there",
+          facilityName: application.facilityName,
+        });
+      }
+
       // SMS
       if (application.user.phone) {
         await sendSMS(
@@ -134,6 +144,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       message: `Your provider application was not approved. Reason: ${rejectionReason.trim()}. You may reapply after addressing the feedback.`,
       type:    "error",
     });
+
+    if (application.user.email) {
+      await sendApplicationRejectedEmail({
+        to:     application.user.email,
+        name:   application.user.name ?? "there",
+        reason: rejectionReason.trim(),
+      });
+    }
 
     if (application.user.phone) {
       await sendSMS(

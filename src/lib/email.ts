@@ -228,7 +228,59 @@ export async function sendCommissionRequestEmail(opts: {
   await send(opts.to, `Commission Payment Request — ${amountStr}`, html);
 }
 
-// ── 8. Commission settled email (to ground owner) ──────────────────────────
+// ── 8. Application approved (to ground owner) ─────────────────────────────
+export async function sendApplicationApprovedEmail(opts: {
+  to: string; name: string; facilityName: string;
+}) {
+  const html = layout(`
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="display:inline-block;background:#dcfce7;border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px">🎉</div>
+    </div>
+    <h2 style="margin:0 0 8px;color:#0f172a;font-size:20px;text-align:center">You're a Ground Owner!</h2>
+    <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px">
+      Hi ${opts.name}, congratulations! Your provider application has been approved.
+      You are now a <strong>Ground Owner</strong> on GoPlay.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-radius:10px;padding:16px;border:1px solid #bbf7d0;margin-bottom:20px">
+      ${infoRow("Facility", opts.facilityName)}
+      ${infoRow("Status", "Pending photo review")}
+    </table>
+    <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px">
+      Your facility has been created and is awaiting admin review. Log in to your dashboard,
+      add photos and any extra details, and we'll get it live as soon as possible.
+    </p>
+    ${button("https://goplay.lk", "Go to Dashboard")}
+    <p style="color:#94a3b8;font-size:12px;margin-top:20px">
+      Need help? Visit our <a href="https://goplay.lk/support" style="color:#16a34a">support centre</a>.
+    </p>
+  `);
+  await send(opts.to, "Your GoPlay application has been approved! 🎉", html);
+}
+
+// ── 9. Application rejected (to applicant) ────────────────────────────────
+export async function sendApplicationRejectedEmail(opts: {
+  to: string; name: string; reason: string;
+}) {
+  const html = layout(`
+    <h2 style="margin:0 0 8px;color:#0f172a;font-size:20px">Application Update</h2>
+    <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px">
+      Hi ${opts.name}, thank you for applying to become a Ground Owner on GoPlay.
+      After reviewing your application, we're unable to approve it at this time.
+    </p>
+    <div style="background:#fef2f2;border-radius:10px;padding:16px;border:1px solid #fecaca;margin-bottom:20px">
+      <p style="margin:0;color:#991b1b;font-size:13px;font-weight:600">Reason</p>
+      <p style="margin:8px 0 0;color:#7f1d1d;font-size:14px;line-height:1.6">${opts.reason}</p>
+    </div>
+    <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px">
+      You're welcome to reapply after addressing the feedback above.
+      If you have questions, please reach out to our support team.
+    </p>
+    ${button("https://goplay.lk/support", "Contact Support")}
+  `);
+  await send(opts.to, "Update on your GoPlay provider application", html);
+}
+
+// ── 10. Commission settled email (to ground owner) ──────────────────────────
 export async function sendCommissionSettledEmail(opts: {
   to: string; name: string; amount: number;
   type: "direct" | "net"; note?: string;
