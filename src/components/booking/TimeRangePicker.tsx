@@ -16,15 +16,16 @@ const DURATION_OPTIONS = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6];
 
 function toMins(t: string) {
   const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
+  return h === 0 && m === 0 ? 1440 : h * 60 + m;
 }
 function fromMins(mins: number) {
   return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
 }
 function fmt12(t: string) {
   const [h, m] = t.split(":").map(Number);
-  const ap = h < 12 ? "AM" : "PM";
-  const hh = h % 12 || 12;
+  const h24 = h % 24;
+  const ap = h24 < 12 ? "AM" : "PM";
+  const hh = h24 % 12 || 12;
   return m === 0 ? `${hh} ${ap}` : `${hh}:${String(m).padStart(2, "0")} ${ap}`;
 }
 function durationLabel(hrs: number) {

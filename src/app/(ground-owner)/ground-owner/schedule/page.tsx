@@ -42,7 +42,7 @@ const MONTHS = ["January","February","March","April","May","June","July",
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const toMins = (t: string) => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+const toMins = (t: string) => { const [h,m] = t.split(":").map(Number); return h===0&&m===0 ? 1440 : h*60+m; };
 const pad2   = (n: number) => n.toString().padStart(2,"0");
 
 function dateKey(d: Date) {
