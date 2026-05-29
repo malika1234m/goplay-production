@@ -72,7 +72,7 @@ export default function BookingForm({
 
   const toMins = (t: string) => {
     const [h, m] = t.split(":").map(Number);
-    return h * 60 + m;
+    return h === 0 && m === 0 ? 1440 : h * 60 + m;
   };
 
   const endTime = (start: string, hrs: number) => {

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 
 function timeToMinutes(t: string) {
   const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
+  return h === 0 && m === 0 ? 1440 : h * 60 + m;
 }
 
 function minutesToTime(mins: number) {
