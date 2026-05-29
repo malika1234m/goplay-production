@@ -72,7 +72,8 @@ export async function PUT(req: NextRequest) {
         if (!TIME_RE.test(day.openTime) || !TIME_RE.test(day.closeTime)) {
           return Response.json({ error: "openTime and closeTime must be in HH:MM format." }, { status: 400 });
         }
-        if (day.openTime >= day.closeTime) {
+        const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h === 0 && m === 0 ? 1440 : h * 60 + m; };
+        if (toMins(day.openTime) >= toMins(day.closeTime)) {
           return Response.json({ error: "closeTime must be after openTime." }, { status: 400 });
         }
       }

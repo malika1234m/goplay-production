@@ -97,6 +97,8 @@ export default function AvailabilityPage() {
     }
   };
 
+  const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h === 0 && m === 0 ? 1440 : h * 60 + m; };
+
   const openDays   = schedule.filter((d) => d.isOpen).length;
   const closedDays = 7 - openDays;
 
@@ -175,9 +177,7 @@ export default function AvailabilityPage() {
                   ? (() => {
                       const open = schedule.filter((d) => d.isOpen);
                       const avg  = open.reduce((s, d) => {
-                        const [oh, om] = d.openTime.split(":").map(Number);
-                        const [ch, cm] = d.closeTime.split(":").map(Number);
-                        return s + (ch * 60 + cm) - (oh * 60 + om);
+                        return s + toMins(d.closeTime) - toMins(d.openTime);
                       }, 0) / open.length;
                       return `${Math.floor(avg / 60)}h`;
                     })()
@@ -247,9 +247,7 @@ export default function AvailabilityPage() {
                         </div>
                         <span className="text-xs text-slate-400">
                           {(() => {
-                            const [oh, om] = day.openTime.split(":").map(Number);
-                            const [ch, cm] = day.closeTime.split(":").map(Number);
-                            const mins = (ch * 60 + cm) - (oh * 60 + om);
+                            const mins = toMins(day.closeTime) - toMins(day.openTime);
                             return mins > 0 ? `${Math.floor(mins / 60)}h ${mins % 60 > 0 ? `${mins % 60}m` : ""}`.trim() : "";
                           })()}
                         </span>
