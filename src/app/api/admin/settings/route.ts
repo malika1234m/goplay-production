@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { getSetting, setSetting } from "@/lib/settings";
 
-const KEYS = ["commissionRate", "minPayout", "payoutCooldownDays"] as const;
+const KEYS = ["commissionRate", "minPayout", "payoutCooldownDays", "maintenance", "maintenanceMessage", "minAppVersion"] as const;
 
 export async function GET() {
   try {
@@ -11,16 +11,22 @@ export async function GET() {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const [commissionRate, minPayout, payoutCooldownDays] = await Promise.all([
+    const [commissionRate, minPayout, payoutCooldownDays, maintenance, maintenanceMessage, minAppVersion] = await Promise.all([
       getSetting("commissionRate"),
       getSetting("minPayout"),
       getSetting("payoutCooldownDays"),
+      getSetting("maintenance"),
+      getSetting("maintenanceMessage"),
+      getSetting("minAppVersion"),
     ]);
 
     return Response.json({
       commissionRate:     commissionRate     ?? "10",
       minPayout:          minPayout          ?? "1000",
       payoutCooldownDays: payoutCooldownDays ?? "7",
+      maintenance:        maintenance        ?? "false",
+      maintenanceMessage: maintenanceMessage ?? "We're performing scheduled maintenance. We'll be back shortly.",
+      minAppVersion:      minAppVersion      ?? "1.0.0",
     });
   } catch (err) {
     console.error("[GET /api/admin/settings]", err);
