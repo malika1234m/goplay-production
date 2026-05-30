@@ -22,6 +22,7 @@ interface OwnerCommission {
   ownerId:          string;
   ownerName:        string;
   ownerEmail:       string;
+  ownerPlan?:       string;
   totalCommission:  number;
   paidCommission:   number;
   unpaidCommission: number;
@@ -74,7 +75,20 @@ function OwnerCard({
             {owner.ownerName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-900 truncate">{owner.ownerName}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-slate-900 truncate">{owner.ownerName}</p>
+              {owner.ownerPlan && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  owner.ownerPlan === "PRO"    ? "bg-purple-100 text-purple-700" :
+                  owner.ownerPlan === "GROWTH" ? "bg-blue-100 text-blue-700" :
+                  "bg-slate-100 text-slate-500"
+                }`}>
+                  {owner.ownerPlan === "PRO" ? "⭐ Pro" : owner.ownerPlan === "GROWTH" ? "⚡ Growth" : "Starter"}
+                  {" "}·{" "}
+                  {owner.ownerPlan === "PRO" ? "3%" : owner.ownerPlan === "GROWTH" ? "5%" : "8%"}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-400 truncate">{owner.ownerEmail}</p>
           </div>
         </div>
@@ -144,16 +158,17 @@ function OwnerCard({
           </div>
 
           {/* Per-booking commission table */}
-          <div className="bg-white">
-            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-5 py-2 bg-slate-50 border-t border-slate-100 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <div className="bg-white overflow-x-auto">
+            <div className="min-w-[400px]">
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-4 py-2 bg-slate-50 border-t border-slate-100 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
               <span>Booking</span>
-              <span className="text-center">Method</span>
+              <span className="text-center hidden sm:block">Method</span>
               <span className="text-right">Commission</span>
               <span className="text-center">Status</span>
             </div>
             <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
               {owner.earnings.map((e, i) => (
-                <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center px-5 py-3 hover:bg-slate-50/40 transition-colors">
+                <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center px-4 py-3 hover:bg-slate-50/40 transition-colors">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 text-xs flex-wrap">
                       <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
@@ -192,6 +207,7 @@ function OwnerCard({
                   </div>
                 </div>
               ))}
+            </div>
             </div>
           </div>
         </div>

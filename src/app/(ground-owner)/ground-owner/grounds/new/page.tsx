@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 import {
   Loader2, Building2, MapPin, DollarSign, Users,
   CheckCircle, ImagePlus, X, Upload, Grid3X3, Plus, Trash2,
-  ChevronLeft, Sparkles,
+  ChevronLeft, Sparkles, Lock,
 } from "lucide-react";
+import Link from "next/link";
 
 interface Category    { id: string; name: string; icon: string | null }
 interface CourtDraft  { name: string; description: string }
@@ -206,7 +207,7 @@ export default function NewGroundPage() {
 
     if (!res.ok) {
       setSubmitting(false);
-      setError(data.error ?? "Failed to submit ground."); return;
+      setError(data.code === "PLAN_LIMIT" ? "PLAN_LIMIT:" + data.error : (data.error ?? "Failed to submit ground.")); return;
     }
 
     if (courts.length > 0 && data.ground?.id) {
@@ -583,12 +584,20 @@ export default function NewGroundPage() {
         </Section>
 
         {/* Error */}
-        {error && (
+        {error && error.startsWith("PLAN_LIMIT:") ? (
+          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 px-4 py-4 rounded-xl">
+            <Lock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">{error.slice(11)}</p>
+              <Link href="/ground-owner/billing" className="text-sm text-amber-700 underline underline-offset-2 mt-1 inline-block font-medium">Upgrade your plan to add more facilities →</Link>
+            </div>
+          </div>
+        ) : error ? (
           <div className="flex items-start gap-2.5 bg-red-50 border border-red-100 px-4 py-3 rounded-xl text-sm text-red-700">
             <X className="w-4 h-4 shrink-0 mt-0.5" />
             {error}
           </div>
-        )}
+        ) : null}
 
         {/* Submit footer */}
         <div className="bg-white border border-slate-100 rounded-2xl px-6 py-4 flex items-center gap-3">

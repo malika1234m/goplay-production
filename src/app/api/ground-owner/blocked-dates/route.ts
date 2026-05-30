@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
+import { canAddBlockedDate, getEffectivePlan } from "@/lib/plan";
 
 async function getOwnedFacilityIds(userId: string) {
   const profile = await db.groundOwnerProfile.findUnique({
@@ -74,6 +75,16 @@ export async function POST(req: NextRequest) {
     const facilityIds = await getOwnedFacilityIds(session.user.id);
     if (!facilityIds.includes(facilityId)) {
       return Response.json({ error: "Not found." }, { status: 404 });
+    }
+
+    const ownerProfile = await db.groundOwnerProfile.findUnique({
+      where:  { userId: session.user.id },
+      select: { id: true, plan: true, planExpiresAt: true },
+    });
+    if (ownerProfile) {
+      const effectivePlan = getEffectivePlan(ownerProfile);
+      const planCheck = await canAddBlockedDate(ownerProfile.id, effectivePlan);
+      if (!planCheck.allowed) return Response.json({ error: planCheck.reason, code: "PLAN_LIMIT" }, { status: 403 });
     }
 
     const entry = await db.blockedDate.create({

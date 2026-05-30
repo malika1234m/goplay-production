@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Plus, Trash2, Loader2, AlertTriangle, UserCheck, Copy, Check, Building2 } from "lucide-react";
+import { Users, Plus, Trash2, Loader2, AlertTriangle, UserCheck, Copy, Check, Building2, Lock } from "lucide-react";
+import Link from "next/link";
 
 interface Facility { id: string; name: string; city: string }
 interface Worker   { id: string; userId: string; name: string; email: string; joinedAt: string }
@@ -78,6 +79,8 @@ export default function WorkersPage() {
         } else {
           setShowInvite(false);
         }
+      } else if (data.code === "PLAN_LIMIT") {
+        setInviteError("PLAN_LIMIT:" + (data.error ?? ""));
       } else {
         setInviteError(data.error ?? "Failed to add worker.");
       }
@@ -261,11 +264,19 @@ export default function WorkersPage() {
                       onChange={(e)=>setWorkerName(e.target.value)}
                       className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-green-500 placeholder:text-slate-300" />
                   </div>
-                  {inviteError && (
+                  {inviteError && inviteError.startsWith("PLAN_LIMIT:") ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+                      <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-semibold text-amber-800">{inviteError.slice(11)}</p>
+                        <Link href="/ground-owner/billing" className="text-xs text-amber-700 underline underline-offset-2 mt-0.5 inline-block">Upgrade your plan →</Link>
+                      </div>
+                    </div>
+                  ) : inviteError ? (
                     <p className="text-xs text-red-500 flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5" />{inviteError}
                     </p>
-                  )}
+                  ) : null}
                 </div>
                 <div className="px-6 pb-5 flex gap-3">
                   <button onClick={() => { setShowInvite(false); setInviteError(""); }}

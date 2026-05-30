@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Wrench, CalendarX, Plus, Trash2, Loader2, AlertTriangle, Clock } from "lucide-react";
+import { Wrench, CalendarX, Plus, Trash2, Loader2, AlertTriangle, Clock, Lock } from "lucide-react";
+import Link from "next/link";
 
 interface BlockedEntry {
   id: string; date: string;
@@ -52,6 +53,8 @@ export default function WorkerMaintenancePage() {
           [data.entry, ...prev].sort((a,b) => new Date(a.date).getTime()-new Date(b.date).getTime())
         );
         setForm((f) => ({ ...f, date:"", reason:"", startTime:"08:00", endTime:"10:00" }));
+      } else if (data.code === "PLAN_LIMIT") {
+        setFormError("PLAN_LIMIT:" + (data.error ?? ""));
       } else {
         setFormError(data.error ?? "Failed to add.");
       }
@@ -154,11 +157,19 @@ export default function WorkerMaintenancePage() {
               Add Block
             </button>
           </div>
-          {formError && (
+          {formError && formError.startsWith("PLAN_LIMIT:") ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+              <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-amber-800">{formError.slice(11)}</p>
+                <p className="text-xs text-amber-600 mt-0.5">Ask the facility owner to upgrade their GoPlay plan to add more blocked dates.</p>
+              </div>
+            </div>
+          ) : formError ? (
             <p className="text-xs text-red-500 flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5" />{formError}
             </p>
-          )}
+          ) : null}
         </div>
       </div>
 

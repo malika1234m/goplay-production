@@ -4,7 +4,7 @@ import { getSession } from "@/lib/mobile-auth";
 import { sendSMS } from "@/lib/sms";
 import { sendBookingConfirmedEmail, sendBookingCancelledEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notify";
-import { getCommissionRate } from "@/lib/settings";
+import { getCommissionRate, getEffectivePlan } from "@/lib/plan";
 import { STRIKE_SUSPEND_THRESHOLD, STRIKE_RESET_DAYS } from "@/lib/cancellation-policy";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -28,8 +28,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const profile = await db.groundOwnerProfile.findUnique({
-      where: { userId: session.user.id },
-      include: { facilities: { select: { id: true } } },
+      where:   { userId: session.user.id },
+      select:  { id: true, plan: true, planExpiresAt: true, facilities: { select: { id: true } } },
     });
     if (!profile) return Response.json({ error: "Profile not found" }, { status: 404 });
 
@@ -87,8 +87,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const existingEarning = await db.groundEarning.findUnique({ where: { bookingId: id } });
 
       if (!existingEarning) {
-        const isWalkIn   = booking.specialRequests?.startsWith("[Walk-in]") ?? false;
-        const PLATFORM_FEE_PCT = await getCommissionRate();
+        const isWalkIn         = booking.specialRequests?.startsWith("[Walk-in]") ?? false;
+        const effectivePlan    = getEffectivePlan(profile);
+        const PLATFORM_FEE_PCT = getCommissionRate(effectivePlan);
         const gross      = booking.totalAmount;
         const fee        = isWalkIn ? 0 : Math.round(gross * PLATFORM_FEE_PCT * 100) / 100;
         const net        = isWalkIn ? gross : Math.round((gross - fee) * 100) / 100;

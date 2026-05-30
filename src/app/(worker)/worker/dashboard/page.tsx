@@ -6,6 +6,7 @@ import { Building2, CalendarCheck, Clock, Grid3X3, Loader2, MapPin, Tag, User } 
 interface Facility {
   id: string; name: string; address: string; city: string;
   hourlyRate: number; categories: string[]; ownerName: string;
+  ownerPlan?: string; ownerPlanExpired?: boolean;
   courts: { id: string; name: string }[];
   availability: { dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string }[];
 }
@@ -82,6 +83,16 @@ export default function WorkerDashboard() {
               <span className="flex items-center gap-1 text-xs text-slate-500">
                 <User className="w-3 h-3" />Owner: {facility.ownerName}
               </span>
+              {facility.ownerPlan && (
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  facility.ownerPlan === "PRO"    ? "bg-purple-100 text-purple-700" :
+                  facility.ownerPlan === "GROWTH" ? "bg-blue-100 text-blue-700" :
+                  "bg-slate-100 text-slate-500"
+                }`}>
+                  {facility.ownerPlan === "PRO" ? "⭐ Pro" : facility.ownerPlan === "GROWTH" ? "⚡ Growth" : "Starter"} Plan
+                  {facility.ownerPlanExpired ? " (expired)" : ""}
+                </span>
+              )}
               {facility.courts.length > 0 && (
                 <span className="flex items-center gap-1 text-xs text-indigo-600">
                   <Grid3X3 className="w-3 h-3" />

@@ -34,7 +34,8 @@ export default function Footer() {
             <ul className="space-y-2.5 text-sm">
               <li><Link href="/grounds" className="hover:text-green-400 transition-colors">Browse Grounds</Link></li>
               <li><Link href="/register" className="hover:text-green-400 transition-colors">Create Account</Link></li>
-              <li><Link href="/register?role=ground_owner" className="hover:text-green-400 transition-colors">List Your Ground</Link></li>
+              <li><Link href="/become-provider" className="hover:text-green-400 transition-colors">List Your Ground</Link></li>
+              <li><Link href="/pricing" className="hover:text-green-400 transition-colors">Pricing & Plans</Link></li>
             </ul>
           </div>
 
@@ -43,6 +44,7 @@ export default function Footer() {
             <ul className="space-y-2.5 text-sm">
               <li><Link href="/about" className="hover:text-blue-400 transition-colors">About Us</Link></li>
               <li><Link href="/support" className="hover:text-blue-400 transition-colors">Support Center</Link></li>
+              <li><Link href="/support#billing" className="hover:text-blue-400 transition-colors">Billing & Plans</Link></li>
               <li><Link href="/privacy" className="hover:text-blue-400 transition-colors">Privacy Policy</Link></li>
               <li><Link href="/terms" className="hover:text-blue-400 transition-colors">Terms of Service</Link></li>
             </ul>

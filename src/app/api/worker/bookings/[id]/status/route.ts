@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
 import { sendSMS } from "@/lib/sms";
 import { createNotification } from "@/lib/notify";
-import { getCommissionRate } from "@/lib/settings";
+import { getCommissionRate, getEffectivePlan } from "@/lib/plan";
 import {
   STRIKE_SUSPEND_THRESHOLD,
   STRIKE_RESET_DAYS,
@@ -109,10 +109,14 @@ export async function PUT(
 
       const existingEarning = await db.groundEarning.findUnique({ where: { bookingId: id } });
       if (!existingEarning) {
-        const profile = await db.groundOwnerProfile.findUnique({ where: { userId: ownerId } });
+        const profile = await db.groundOwnerProfile.findUnique({
+          where:  { userId: ownerId },
+          select: { id: true, plan: true, planExpiresAt: true },
+        });
         if (profile) {
-          const isWalkIn       = booking.specialRequests?.startsWith("[Walk-in]") ?? false;
-          const PLATFORM_FEE_PCT = await getCommissionRate();
+          const isWalkIn         = booking.specialRequests?.startsWith("[Walk-in]") ?? false;
+          const effectivePlan    = getEffectivePlan(profile);
+          const PLATFORM_FEE_PCT = getCommissionRate(effectivePlan);
           const gross          = booking.totalAmount;
           const fee            = isWalkIn ? 0 : Math.round(gross * PLATFORM_FEE_PCT * 100) / 100;
           const net            = isWalkIn ? gross : Math.round((gross - fee) * 100) / 100;

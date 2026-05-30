@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Wrench, CalendarX, Plus, Trash2, Loader2, AlertTriangle, Clock } from "lucide-react";
+import { Wrench, CalendarX, Plus, Trash2, Loader2, AlertTriangle, Clock, Lock } from "lucide-react";
+import Link from "next/link";
 
 interface Facility { id: string; name: string; city: string }
 
@@ -24,6 +25,14 @@ export default function MaintenancePage() {
   const [loading,    setLoading]    = useState(true);
   const [adding,     setAdding]     = useState(false);
   const [removing,   setRemoving]   = useState<string | null>(null);
+  const [planUsage,  setPlanUsage]  = useState<{ used: number; max: number | null } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/ground-owner/plan-status")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) setPlanUsage(d.usage?.blockedDates ?? null); })
+      .catch(() => {});
+  }, []);
 
   const [form, setForm] = useState({
     facilityId: "",
@@ -86,6 +95,8 @@ export default function MaintenancePage() {
           [data.entry, ...prev].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         );
         setForm((f) => ({ ...f, date: "", reason: "", startTime: "08:00", endTime: "10:00" }));
+      } else if (data.code === "PLAN_LIMIT") {
+        setFormError("PLAN_LIMIT:" + (data.error ?? ""));
       } else {
         setFormError(data.error ?? "Failed to add.");
       }
@@ -122,9 +133,38 @@ export default function MaintenancePage() {
   return (
     <div className="flex flex-col gap-7">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Maintenance & Blocked Dates</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Block full days or specific hours when your ground is unavailable</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Maintenance & Blocked Dates</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Block full days or specific hours when your ground is unavailable</p>
+        </div>
+        {planUsage && (
+          <div className="flex items-center gap-2">
+            {planUsage.max !== null ? (
+              <>
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">Blocked this month</p>
+                  <p className={`text-sm font-bold ${planUsage.used >= (planUsage.max ?? 0) ? "text-red-600" : "text-slate-900"}`}>
+                    {planUsage.used} / {planUsage.max}
+                  </p>
+                </div>
+                <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${planUsage.used >= (planUsage.max ?? 0) ? "bg-red-500" : "bg-green-500"}`}
+                    style={{ width: `${Math.min(100, (planUsage.used / (planUsage.max ?? 1)) * 100)}%` }}
+                  />
+                </div>
+                {planUsage.used >= (planUsage.max ?? 0) && (
+                  <Link href="/ground-owner/billing" className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-lg font-medium hover:bg-amber-100 transition-colors whitespace-nowrap">
+                    Upgrade →
+                  </Link>
+                )}
+              </>
+            ) : (
+              <span className="text-xs text-slate-400">{planUsage.used} blocked this month · Unlimited</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Stats */}
@@ -256,11 +296,19 @@ export default function MaintenancePage() {
               </button>
             </div>
 
-            {formError && (
+            {formError && formError.startsWith("PLAN_LIMIT:") ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+                <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-800">{formError.slice(11)}</p>
+                  <Link href="/ground-owner/billing" className="text-xs text-amber-700 underline underline-offset-2 mt-0.5 inline-block">Upgrade your plan →</Link>
+                </div>
+              </div>
+            ) : formError ? (
               <p className="text-xs text-red-500 flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5" />{formError}
               </p>
-            )}
+            ) : null}
           </div>
         )}
       </div>

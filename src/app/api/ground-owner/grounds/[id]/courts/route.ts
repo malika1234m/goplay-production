@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
+import { canAddCourt, getEffectivePlan } from "@/lib/plan";
 
 // Verify the facility belongs to the session's ground owner
 async function ownsGround(userId: string, facilityId: string) {
@@ -45,6 +46,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { id: facilityId } = await params;
     if (!await ownsGround(session.user.id, facilityId)) {
       return Response.json({ error: "Not found." }, { status: 404 });
+    }
+
+    const profile = await db.groundOwnerProfile.findUnique({
+      where:  { userId: session.user.id },
+      select: { id: true, plan: true, planExpiresAt: true },
+    });
+    if (profile) {
+      const effectivePlan = getEffectivePlan(profile);
+      const planCheck = await canAddCourt(facilityId, effectivePlan);
+      if (!planCheck.allowed) return Response.json({ error: planCheck.reason, code: "PLAN_LIMIT" }, { status: 403 });
     }
 
     const { name, description, isActive } = await req.json();

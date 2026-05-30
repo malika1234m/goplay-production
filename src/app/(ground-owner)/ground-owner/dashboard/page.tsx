@@ -7,6 +7,7 @@ import {
   Clock, ChevronRight, Check, X, Loader2, TrendingUp,
   MapPin, Wrench, CreditCard, Banknote,
 } from "lucide-react";
+import PlanStatusWidget from "@/components/ground-owner/PlanStatusWidget";
 import {
   ResponsiveContainer, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -259,6 +260,9 @@ export default function GroundOwnerDashboard() {
           + Add Ground
         </Link>
       </div>
+
+      {/* ── Plan Status ── */}
+      <PlanStatusWidget />
 
       {/* ── Stats Row ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">

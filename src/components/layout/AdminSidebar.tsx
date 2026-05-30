@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
   LayoutDashboard, Users, MapPin, DollarSign, BarChart2, CalendarDays,
-  LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed, Menu, X, UserCircle, ShieldAlert,
+  LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed, Menu, X, UserCircle, ShieldAlert, CreditCard,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
@@ -16,6 +16,8 @@ const NAV = [
   { id: "users",        href: "/admin/users",         label: "Users",             icon: Users },
   { id: "grounds",      href: "/admin/grounds",       label: "Ground Management", icon: MapPin },
   { id: "applications", href: "/admin/applications",  label: "Applications",      icon: ClipboardList },
+  { id: "owners",        href: "/admin/owners",        label: "Owner Plans",       icon: CreditCard },
+  { id: "subscriptions", href: "/admin/subscriptions", label: "Subscriptions",     icon: BarChart2 },
   { id: "earnings",     href: "/admin/earnings",      label: "Earnings",          icon: DollarSign },
   { id: "commissions",  href: "/admin/commissions",   label: "Commissions",       icon: BadgeDollarSign },
   { id: "payouts",      href: "/admin/payouts",       label: "Payouts",           icon: Wallet },

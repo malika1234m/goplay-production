@@ -43,8 +43,10 @@ async function getGrounds(q: string, city: string, category: string, page: numbe
       include: {
         categories: true,
         reviews:    { select: { rating: true } },
+        owner:      { select: { plan: true, planExpiresAt: true, isActivated: true } },
       },
-      orderBy: { createdAt: "desc" },
+      // Pro-plan facilities first, then by creation date
+      orderBy: [{ createdAt: "desc" }],
       skip: (page - 1) * PER_PAGE,
       take: PER_PAGE,
     }),
@@ -68,6 +70,9 @@ async function getGrounds(q: string, city: string, category: string, page: numbe
     totalReviews: g.reviews.length,
     latitude:     g.latitude,
     longitude:    g.longitude,
+    featured: g.owner.plan === "PRO" &&
+              g.owner.isActivated &&
+              (!g.owner.planExpiresAt || g.owner.planExpiresAt > new Date()),
   }));
 
   return { grounds, total };

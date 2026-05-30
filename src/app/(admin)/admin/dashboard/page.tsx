@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Users, DollarSign, MapPin, TrendingUp, Loader2, UserPlus, CheckCircle } from "lucide-react";
+import { Users, DollarSign, MapPin, TrendingUp, Loader2, UserPlus, CheckCircle, CreditCard } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -42,6 +42,7 @@ export default function AdminDashboardPage() {
   const [chartData,  setChartData]  = useState<ChartPoint[]>([]);
   const [chartDays,  setChartDays]  = useState(30);
   const [loading,    setLoading]    = useState(true);
+  const [subStats,   setSubStats]   = useState<{ mrr: number; totalRevenue: number; pendingActivations: number; activeOwners: number } | null>(null);
 
   const loadChart = useCallback(async (days: number) => {
     try {
@@ -60,7 +61,12 @@ export default function AdminDashboardPage() {
       fetch("/api/admin/stats").then((r) => r.json()).catch(() => ({})),
       fetch("/api/admin/users?role=").then((r) => r.json()).catch(() => ({})),
       fetch("/api/admin/earnings/trends?days=30").then((r) => r.json()).catch(() => ({})),
-    ]).then(([s, u, t]) => {
+      fetch("/api/admin/subscriptions").then((r) => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([s, u, t, sub]) => {
+      if (sub && typeof sub === "object" && "revenue" in sub) {
+        const d = sub as { revenue: { mrr: number; totalRevenue: number }; pendingActivations: unknown[]; totals: { activated: number } };
+        setSubStats({ mrr: d.revenue.mrr, totalRevenue: d.revenue.totalRevenue, pendingActivations: d.pendingActivations?.length ?? 0, activeOwners: d.totals?.activated ?? 0 });
+      }
       setStats(s.stats ?? null);
       setRecentUsers((u.users ?? []).slice(0, 8));
       const labels:  string[] = t.trends?.labels  ?? [];
@@ -87,6 +93,24 @@ export default function AdminDashboardPage() {
         <h1 className="text-2xl font-bold text-slate-900">Dashboard Overview</h1>
         <p className="text-slate-500 text-sm mt-0.5">Platform-wide stats and recent activity</p>
       </div>
+
+      {/* Subscription summary */}
+      {subStats && (
+        <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-5 grid grid-cols-2 sm:grid-cols-4 gap-5">
+          {[
+            { label: "Monthly Recurring Revenue", value: `Rs. ${subStats.mrr.toLocaleString()}`, icon: CreditCard, color: "text-green-400" },
+            { label: "Total Subscription Revenue", value: `Rs. ${subStats.totalRevenue.toLocaleString()}`, icon: TrendingUp, color: "text-blue-400" },
+            { label: "Active Owners", value: subStats.activeOwners, icon: Users, color: "text-purple-400" },
+            { label: "Pending Activation", value: subStats.pendingActivations, icon: UserPlus, color: subStats.pendingActivations > 0 ? "text-amber-400" : "text-slate-400" },
+          ].map(({ label, value, icon: Icon, color }) => (
+            <div key={label}>
+              <Icon className={`w-4 h-4 ${color} mb-2`} />
+              <p className="text-xl font-bold text-white">{value}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{label}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

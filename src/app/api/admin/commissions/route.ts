@@ -32,9 +32,10 @@ export async function GET() {
 
     // Fetch pending commission requests per owner (profile-level fields)
     const ownerProfiles = await db.groundOwnerProfile.findMany({
-      where: { commissionRequestedAt: { not: null } },
       select: {
         id:                        true,
+        plan:                      true,
+        planExpiresAt:             true,
         commissionRequestedAt:     true,
         commissionRequestedAmount: true,
       },
@@ -46,6 +47,7 @@ export async function GET() {
       ownerId:        string;
       ownerName:      string;
       ownerEmail:     string;
+      ownerPlan?:     string;
       totalCommission:  number;
       paidCommission:   number;
       unpaidCommission: number;
@@ -74,6 +76,7 @@ export async function GET() {
           ownerId:          oid,
           ownerName:        e.owner.user.name,
           ownerEmail:       e.owner.user.email,
+          ownerPlan:        req?.plan ?? "STARTER",
           totalCommission:  0,
           paidCommission:   0,
           unpaidCommission: 0,

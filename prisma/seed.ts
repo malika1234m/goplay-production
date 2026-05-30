@@ -21,6 +21,7 @@ async function wipe() {
   await db.facilityWorker.deleteMany();
   await db.sportsFacility.deleteMany();
   await db.payout.deleteMany();
+  await db.ownerSubscription.deleteMany();
   await db.groundOwnerProfile.deleteMany();
   await db.providerApplication.deleteMany();
   await db.passwordResetToken.deleteMany();
@@ -94,8 +95,35 @@ async function main() {
       address:      "Colombo 05",
       city:         "Colombo",
       bio:          "Managing premium sports facilities across Colombo.",
+      // Grandfathered in — activated with Growth plan for demo
+      isActivated:  true,
+      plan:         "GROWTH",
+      planExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
   });
+
+  // ── Unactivated owner — to test the activation flow ────────────────
+  const newOwnerUser = await db.user.create({
+    data: {
+      name:     "Suresh Perera",
+      email:    "newowner@goplay.lk",
+      password: ownerPass,
+      role:     "GROUND_OWNER",
+      phone:    "+94772345678",
+    },
+  });
+  await db.groundOwnerProfile.create({
+    data: {
+      userId:       newOwnerUser.id,
+      businessName: "Suresh Sports Hub",
+      phone:        "+94772345678",
+      address:      "Kandy Road, Nugegoda",
+      city:         "Nugegoda",
+      isActivated:  false,   // must pay Rs. 2,500 to activate
+      plan:         "STARTER",
+    },
+  });
+  console.log("✅ Unactivated test owner created — newowner@goplay.lk / Owner@GoPlay25");
 
   // ── Worker ─────────────────────────────────────────────────────────
   const workerUser = await db.user.create({

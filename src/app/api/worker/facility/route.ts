@@ -37,7 +37,11 @@ export async function GET(req: NextRequest) {
         city:         f.city,
         hourlyRate:   f.hourlyRate,
         categories:   f.categories.map((c: { name: string }) => c.name),
-        ownerName:    f.owner.user.name,
+        ownerName:        f.owner.user.name,
+        ownerPlan:        f.owner.plan,
+        ownerPlanExpired: f.owner.plan !== "STARTER" && f.owner.planExpiresAt
+          ? f.owner.planExpiresAt < new Date()
+          : false,
         courts:       f.courts.map((c) => ({ id: c.id, name: c.name })),
         availability: f.availability.map((a) => ({
           dayOfWeek: a.dayOfWeek,

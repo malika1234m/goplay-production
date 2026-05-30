@@ -7,8 +7,9 @@ import Link from "next/link";
 import {
   User, MapPin, Building2, DollarSign, Users, AlignLeft,
   CheckCircle, ChevronRight, ChevronLeft, Loader2,
-  Phone, AlertCircle,
+  Phone, AlertCircle, Shield, Zap, Crown, CreditCard, ArrowRight,
 } from "lucide-react";
+import { PLAN_CONFIG } from "@/lib/plan-constants";
 
 interface Category { id: string; name: string; icon: string | null }
 
@@ -215,6 +216,57 @@ export default function BecomeProviderPage() {
         <h1 className="text-3xl font-bold text-slate-900">Join as a Ground Owner</h1>
         <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">
           List your sports facility on GoPlay and start receiving bookings from players across Sri Lanka.
+        </p>
+      </div>
+
+      {/* Pricing preview */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-6">
+        <div className="flex items-start justify-between gap-3 mb-5">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-purple-500" /> What it costs
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">Transparent pricing — no surprises after approval</p>
+          </div>
+          <Link href="/pricing" className="text-xs text-green-600 font-semibold hover:underline whitespace-nowrap flex items-center gap-1">
+            Full pricing <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+
+        {/* Activation fee */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3 mb-4">
+          <CreditCard className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-900">One-time activation fee — Rs. 2,500</p>
+            <p className="text-xs text-amber-700 mt-0.5">Paid once after approval. Not a recurring charge. Your account unlocks immediately.</p>
+          </div>
+        </div>
+
+        {/* Plan cards */}
+        <div className="grid grid-cols-3 gap-2">
+          {(["STARTER", "GROWTH", "PRO"] as const).map((key) => {
+            const cfg = PLAN_CONFIG[key];
+            const Icon = { STARTER: Shield, GROWTH: Zap, PRO: Crown }[key];
+            const styles = {
+              STARTER: "bg-slate-50 border-slate-200 text-slate-600",
+              GROWTH:  "bg-blue-50 border-blue-200 text-blue-700",
+              PRO:     "bg-purple-50 border-purple-200 text-purple-700",
+            }[key];
+            return (
+              <div key={key} className={`rounded-xl border p-3 text-center ${styles}`}>
+                <Icon className="w-4 h-4 mx-auto mb-1.5" />
+                <p className="text-xs font-bold">{cfg.label}</p>
+                <p className="text-sm font-extrabold mt-0.5">
+                  {cfg.monthlyFee === 0 ? "Free" : `Rs. ${cfg.monthlyFee.toLocaleString()}`}
+                </p>
+                {cfg.monthlyFee > 0 && <p className="text-[10px] opacity-70">/month</p>}
+                <p className="text-[10px] mt-1 opacity-80">{cfg.commissionPct}% commission</p>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs text-slate-400 text-center mt-3">
+          Start free on Starter after approval · Upgrade anytime from your dashboard
         </p>
       </div>
 

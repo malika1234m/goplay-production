@@ -280,7 +280,56 @@ export async function sendApplicationRejectedEmail(opts: {
   await send(opts.to, "Update on your GoPlay provider application", html);
 }
 
-// ── 10. Commission settled email (to ground owner) ──────────────────────────
+// ── 10. Plan activation email (to ground owner) ───────────────────────────────
+export async function sendPlanActivationEmail(opts: { to: string; name: string }) {
+  const html = layout(`
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="display:inline-block;background:#dcfce7;border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px">✓</div>
+    </div>
+    <h2 style="margin:0 0 8px;color:#0f172a;font-size:20px;text-align:center">Your Account is Active!</h2>
+    <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 24px;text-align:center">
+      Hi ${opts.name}, your GoPlay ground owner account has been activated.
+      You now have full access to your dashboard — start managing your facilities and accepting bookings.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-radius:10px;padding:16px;border:1px solid #bbf7d0;margin-bottom:20px">
+      ${infoRow("Status", "Active")}
+      ${infoRow("Plan",   "Starter (Free)")}
+    </table>
+    ${button("https://goplay.lk/ground-owner/dashboard", "Go to Dashboard")}
+    <p style="color:#94a3b8;font-size:12px;margin-top:20px">
+      Ready to grow? Visit <a href="https://goplay.lk/ground-owner/billing" style="color:#16a34a">your billing page</a> to upgrade your plan.
+    </p>
+  `);
+  await send(opts.to, "Your GoPlay account is now active!", html);
+}
+
+// ── 11. Plan upgrade email (to ground owner) ──────────────────────────────────
+export async function sendPlanUpgradeEmail(opts: {
+  to: string; name: string; plan: string; expiresAt: string; amount: number;
+}) {
+  const amountStr = `Rs. ${opts.amount.toLocaleString()}`;
+  const html = layout(`
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="display:inline-block;background:#ede9fe;border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px">⬆</div>
+    </div>
+    <h2 style="margin:0 0 8px;color:#0f172a;font-size:20px;text-align:center">Plan Upgraded — Welcome to ${opts.plan}!</h2>
+    <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 24px;text-align:center">
+      Hi ${opts.name}, your GoPlay subscription has been upgraded. Enjoy your enhanced features!
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ff;border-radius:10px;padding:16px;border:1px solid #ddd6fe;margin-bottom:20px">
+      ${infoRow("Plan",       opts.plan)}
+      ${infoRow("Amount",     amountStr)}
+      ${infoRow("Active Until", new Date(opts.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }))}
+    </table>
+    <p style="color:#64748b;font-size:13px;margin:0 0 20px">
+      Your plan renews in 30 days. You'll receive a reminder before it expires.
+    </p>
+    ${button("https://goplay.lk/ground-owner/billing", "View Billing")}
+  `);
+  await send(opts.to, `Your GoPlay ${opts.plan} plan is now active!`, html);
+}
+
+// ── 12. Commission settled email (to ground owner) ──────────────────────────
 export async function sendCommissionSettledEmail(opts: {
   to: string; name: string; amount: number;
   type: "direct" | "net"; note?: string;
@@ -310,4 +359,37 @@ export async function sendCommissionSettledEmail(opts: {
     ${button("https://goplay.lk", "Open GoPlay")}
   `);
   await send(opts.to, `Platform Commission Settled — ${amountStr}`, html);
+}
+
+// ── Plan cancellation email (to ground owner) ──────────────────────────────
+export async function sendPlanCancelledEmail(opts: {
+  to: string; name: string; plan: string;
+  immediate: boolean; expiresAt: string | null;
+}) {
+  const body = opts.immediate
+    ? `Your <strong>${opts.plan}</strong> plan has been cancelled and you are now on the free <strong>Starter</strong> plan. You can upgrade again anytime from your billing page.`
+    : `Your <strong>${opts.plan}</strong> plan has been set to cancel. It will remain <strong>active until ${opts.expiresAt ?? "expiry"}</strong>, after which you will automatically move to the free Starter plan. No further charges will be made.`;
+
+  const html = layout(`
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="display:inline-block;background:#fef2f2;border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px">📋</div>
+    </div>
+    <h2 style="margin:0 0 8px;color:#0f172a;font-size:20px;text-align:center">Subscription Cancellation</h2>
+    <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px">
+      Hi ${opts.name}, ${body}
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border-radius:10px;padding:16px;border:1px solid #fecaca;margin-bottom:20px">
+      ${infoRow("Plan Cancelled", opts.plan)}
+      ${infoRow("Effective", opts.immediate ? "Immediately" : (opts.expiresAt ?? "At expiry"))}
+      ${infoRow("New Plan", "Starter (Free)")}
+    </table>
+    <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px">
+      We're sorry to see you go. If you change your mind, you can upgrade again anytime from your billing page.
+    </p>
+    ${button("https://goplay.lk/ground-owner/billing", "Manage Billing")}
+  `);
+  const subject = opts.immediate
+    ? `Your GoPlay ${opts.plan} plan has been cancelled`
+    : `Your GoPlay ${opts.plan} plan is set to cancel on ${opts.expiresAt ?? "expiry"}`;
+  await send(opts.to, subject, html);
 }

@@ -4,13 +4,13 @@ import { getSession } from "@/lib/mobile-auth";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { createNotification } from "@/lib/notify";
+import { canAddWorker, getEffectivePlan } from "@/lib/plan";
 
-async function getOwnedFacilityIds(userId: string) {
-  const profile = await db.groundOwnerProfile.findUnique({
-    where: { userId },
-    include: { facilities: { select: { id: true } } },
+async function getOwnerProfile(userId: string) {
+  return db.groundOwnerProfile.findUnique({
+    where:  { userId },
+    select: { id: true, plan: true, planExpiresAt: true, facilities: { select: { id: true } } },
   });
-  return profile?.facilities.map((f) => f.id) ?? [];
 }
 
 // GET /api/ground-owner/workers?facilityId=X
@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
     const facilityId = searchParams.get("facilityId");
     if (!facilityId) return Response.json({ error: "facilityId required" }, { status: 400 });
 
-    const ownedIds = await getOwnedFacilityIds(session.user.id);
+    const ownerProfile = await getOwnerProfile(session.user.id);
+    const ownedIds = ownerProfile?.facilities.map((f) => f.id) ?? [];
     if (!ownedIds.includes(facilityId)) return Response.json({ error: "Not found" }, { status: 404 });
 
     const workers = await db.facilityWorker.findMany({
@@ -70,8 +71,15 @@ export async function POST(req: NextRequest) {
       if (n.length > 50) return Response.json({ error: "Worker name must be under 50 characters." }, { status: 400 });
     }
 
-    const ownedIds = await getOwnedFacilityIds(session.user.id);
+    const profile = await getOwnerProfile(session.user.id);
+    if (!profile) return Response.json({ error: "Profile not found." }, { status: 404 });
+
+    const ownedIds = profile.facilities.map((f) => f.id);
     if (!ownedIds.includes(facilityId)) return Response.json({ error: "Not found" }, { status: 404 });
+
+    const effectivePlan = getEffectivePlan(profile);
+    const planCheck = await canAddWorker(profile.id, effectivePlan);
+    if (!planCheck.allowed) return Response.json({ error: planCheck.reason, code: "PLAN_LIMIT" }, { status: 403 });
 
     let user = await db.user.findUnique({ where: { email } });
 

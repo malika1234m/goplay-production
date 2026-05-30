@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   TrendingUp, CalendarCheck, Loader2, ChevronDown, ChevronUp,
-  CreditCard, Banknote, AlertCircle, MapPin, Wallet,
+  CreditCard, Banknote, AlertCircle, MapPin, Wallet, Download, Lock,
 } from "lucide-react";
+import Link from "next/link";
 import {
   ResponsiveContainer, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -227,6 +228,37 @@ export default function EarningsPage() {
   const [range,      setRange]      = useState("all");
   const [loading,    setLoading]    = useState(true);
   const [chartLoading, setChartLoading] = useState(false);
+  const [planKey,    setPlanKey]    = useState<string>("STARTER");
+
+  useEffect(() => {
+    fetch("/api/ground-owner/plan-status")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) setPlanKey(d.plan); })
+      .catch(() => {});
+  }, []);
+
+  const exportCSV = () => {
+    const rows: string[] = ["Date,Facility,Player,Start,End,Gross (Rs.),Fee (Rs.),Net (Rs.),Payment"];
+    byFacility.forEach((g) => {
+      g.earnings.forEach((e) => {
+        const isWI = e.booking.specialRequests?.startsWith("[Walk-in]") ?? false;
+        const player = isWI ? e.booking.specialRequests!.replace("[Walk-in] ","").split(" — ")[0] : e.booking.user.name;
+        rows.push([
+          new Date(e.booking.bookingDate).toLocaleDateString("en-CA"),
+          `"${g.facilityName}"`,
+          `"${player}"`,
+          e.booking.startTime, e.booking.endTime,
+          e.grossAmount, e.platformFee, e.netAmount,
+          e.paymentMethod === "ONLINE" ? "Online" : (e.cashConfirmed ? "Cash Received" : "Cash Pending"),
+        ].join(","));
+      });
+    });
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = `earnings-${range}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const loadChart = useCallback(async (days: number) => {
     setChartLoading(true);
@@ -275,17 +307,40 @@ export default function EarningsPage() {
           <p className="text-slate-500 text-sm mt-0.5">Track revenue from every completed booking, per ground</p>
         </div>
 
-        {/* Range selector */}
-        <select
-          value={range}
-          onChange={(e) => setRange(e.target.value)}
-          className="text-sm border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 outline-none focus:ring-2 focus:ring-green-500 bg-white"
-        >
-          <option value="all">All Time</option>
-          <option value="month">This Month</option>
-          <option value="30d">Last 30 Days</option>
-          <option value="90d">Last 90 Days</option>
-        </select>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* CSV Export — Pro plan only */}
+          {planKey === "PRO" ? (
+            <button
+              onClick={exportCSV}
+              disabled={byFacility.length === 0}
+              className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-100 disabled:text-slate-400 text-white text-sm font-medium rounded-xl transition-colors"
+            >
+              <Download className="w-4 h-4" /> Export CSV
+            </button>
+          ) : (
+            <Link
+              href="/ground-owner/billing"
+              className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-500 text-sm font-medium rounded-xl hover:border-purple-300 hover:text-purple-600 transition-colors group"
+              title="Upgrade to Pro to export earnings as CSV"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Export CSV</span>
+              <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-bold group-hover:bg-purple-200 transition-colors">PRO</span>
+            </Link>
+          )}
+
+          {/* Range selector */}
+          <select
+            value={range}
+            onChange={(e) => setRange(e.target.value)}
+            className="text-sm border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 outline-none focus:ring-2 focus:ring-green-500 bg-white"
+          >
+            <option value="all">All Time</option>
+            <option value="month">This Month</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="90d">Last 90 Days</option>
+          </select>
+        </div>
       </div>
 
       {/* Cash pending notice */}

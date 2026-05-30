@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
-import { getCommissionRate } from "@/lib/settings";
+import { getCommissionRate, getEffectivePlan } from "@/lib/plan";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,8 +18,8 @@ export async function GET(req: NextRequest) {
       : "all";
 
     const profile = await db.groundOwnerProfile.findUnique({
-      where: { userId: session.user.id },
-      include: { facilities: { select: { id: true } } },
+      where:  { userId: session.user.id },
+      select: { id: true, plan: true, planExpiresAt: true, facilities: { select: { id: true } } },
     });
     if (!profile) return Response.json({ error: "Profile not found" }, { status: 404 });
 
@@ -35,7 +35,8 @@ export async function GET(req: NextRequest) {
     });
 
     if (unrecorded.length > 0) {
-      const FEE = await getCommissionRate();
+      const effectivePlan = getEffectivePlan(profile);
+      const FEE = getCommissionRate(effectivePlan);
       await db.groundEarning.createMany({
         data: unrecorded.map((b) => {
           const isWalkIn = b.specialRequests?.startsWith("[Walk-in]") ?? false;

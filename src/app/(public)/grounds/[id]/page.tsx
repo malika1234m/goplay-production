@@ -32,6 +32,7 @@ const getGround = cache(async (id: string) => {
         orderBy: { createdAt: "desc" },
         take: 10,
       },
+      owner: { select: { plan: true, planExpiresAt: true, isActivated: true } },
     },
   });
   return ground;
@@ -88,6 +89,9 @@ export default async function GroundDetailsPage({
     : "🏟️";
 
   const todayDow = new Date().getDay();
+  const isFeatured = ground.owner.plan === "PRO" &&
+    ground.owner.isActivated &&
+    (!ground.owner.planExpiresAt || ground.owner.planExpiresAt > new Date());
 
   const availabilityProps = ground.availability.map((a) => ({
     dayOfWeek: a.dayOfWeek,
@@ -100,12 +104,19 @@ export default async function GroundDetailsPage({
     <div className="bg-slate-50 min-h-screen">
       {/* Back breadcrumb */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <Link
-          href="/grounds"
-          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-green-600 transition-colors"
-        >
-          <ChevronLeft className="w-4 h-4" /> Back to Grounds
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link
+            href="/grounds"
+            className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-green-600 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" /> Back to Grounds
+          </Link>
+          {isFeatured && (
+            <span className="flex items-center gap-1.5 bg-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-md">
+              ⭐ Featured Facility
+            </span>
+          )}
+        </div>
       </div>
 
       {/*

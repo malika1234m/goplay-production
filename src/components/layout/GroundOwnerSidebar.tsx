@@ -4,11 +4,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard, Building2, CalendarCheck, Clock,
   DollarSign, Star, LogOut, User, TrendingUp, Wrench,
-  Wallet, CalendarDays, Users, Menu, X,
+  Wallet, CalendarDays, Users, Menu, X, CreditCard, Zap, Crown, Shield,
 } from "lucide-react";
 
 const navItems = [
@@ -18,11 +18,33 @@ const navItems = [
   { href: "/ground-owner/schedule",     label: "Schedule",     icon: CalendarDays },
   { href: "/ground-owner/earnings",     label: "Earnings",     icon: TrendingUp },
   { href: "/ground-owner/payouts",      label: "Payouts",      icon: Wallet },
+  { href: "/ground-owner/billing",      label: "Billing & Plan", icon: CreditCard },
   { href: "/ground-owner/reviews",      label: "Reviews",      icon: Star },
   { href: "/ground-owner/availability", label: "Availability", icon: Clock },
   { href: "/ground-owner/maintenance",  label: "Maintenance",  icon: Wrench },
   { href: "/ground-owner/workers",      label: "Workers",      icon: Users },
 ];
+
+function PlanBadge() {
+  const [plan, setPlan] = useState<string | null>(null);
+  const [days, setDays] = useState<number | null>(null);
+  useEffect(() => {
+    fetch("/api/ground-owner/plan-status")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) { setPlan(d.plan); setDays(d.daysLeft); } })
+      .catch(() => {});
+  }, []);
+  if (!plan) return null;
+  const Icon  = plan === "PRO" ? Crown : plan === "GROWTH" ? Zap : Shield;
+  const color = plan === "PRO" ? "text-purple-400 bg-purple-900/40" : plan === "GROWTH" ? "text-blue-400 bg-blue-900/40" : "text-slate-400 bg-slate-800";
+  return (
+    <Link href="/ground-owner/billing" className={`flex items-center gap-2 mx-3 px-3 py-2 rounded-xl ${color} hover:opacity-90 transition-opacity mb-1`}>
+      <Icon className="w-3.5 h-3.5 shrink-0" />
+      <span className="text-xs font-semibold">{plan === "STARTER" ? "Starter" : plan === "GROWTH" ? "Growth" : "Pro"} Plan</span>
+      {days !== null && days <= 7 && <span className="ml-auto text-[10px] text-amber-400 font-bold">{days}d left</span>}
+    </Link>
+  );
+}
 
 function SidebarContent({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
@@ -68,6 +90,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 
       {/* Footer */}
       <div className="px-3 py-4 border-t border-slate-800">
+        <PlanBadge />
         <Link
           href="/ground-owner/profile"
           onClick={onClose}

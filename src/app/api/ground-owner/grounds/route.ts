@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
+import { canAddFacility, getEffectivePlan } from "@/lib/plan";
 
 export async function GET(req: NextRequest) {
   try {
@@ -72,9 +73,14 @@ export async function POST(req: NextRequest) {
     }
 
     const profile = await db.groundOwnerProfile.findUnique({
-      where: { userId: session.user.id },
+      where:  { userId: session.user.id },
+      select: { id: true, plan: true, planExpiresAt: true },
     });
     if (!profile) return Response.json({ error: "Profile not found" }, { status: 404 });
+
+    const effectivePlan = getEffectivePlan(profile);
+    const planCheck = await canAddFacility(profile.id, effectivePlan);
+    if (!planCheck.allowed) return Response.json({ error: planCheck.reason, code: "PLAN_LIMIT" }, { status: 403 });
 
     const { name, description, address, city, hourlyRate, capacity, amenities, categoryIds, images } = await req.json();
 

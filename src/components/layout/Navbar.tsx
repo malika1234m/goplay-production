@@ -39,6 +39,9 @@ export default function Navbar() {
             <Link href="/#how-it-works" className="text-slate-600 hover:text-green-600 text-sm font-medium transition-colors">
               How It Works
             </Link>
+            <Link href="/pricing" className="text-slate-600 hover:text-green-600 text-sm font-medium transition-colors">
+              Pricing
+            </Link>
           </nav>
 
           {/* Right side */}
@@ -128,6 +131,9 @@ export default function Navbar() {
           </Link>
           <Link href="/#how-it-works" className="text-sm font-medium text-slate-700 py-2" onClick={() => setMenuOpen(false)}>
             How It Works
+          </Link>
+          <Link href="/pricing" className="text-sm font-medium text-slate-700 py-2" onClick={() => setMenuOpen(false)}>
+            Pricing
           </Link>
           {session ? (
             <>

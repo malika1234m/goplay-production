@@ -46,6 +46,17 @@ enum FacilityStatus {
   REJECTED
 }
 
+enum SubscriptionPlan {
+  STARTER
+  GROWTH
+  PRO
+}
+
+enum OwnerPaymentType {
+  REGISTRATION_FEE
+  SUBSCRIPTION
+}
+
 enum ApplicationStatus {
   PENDING
   APPROVED
@@ -106,14 +117,39 @@ model GroundOwnerProfile {
   accountNumber     String?
   accountHolderName String?
 
+  // Subscription / activation
+  plan          SubscriptionPlan @default(STARTER)
+  planExpiresAt DateTime?
+  isActivated   Boolean          @default(false)
+
   // Pending commission payment request sent by admin
   commissionRequestedAt     DateTime?
   commissionRequestedAmount Float?
 
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  facilities SportsFacility[]
-  payouts    Payout[]
-  earnings   GroundEarning[]
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facilities    SportsFacility[]
+  payouts       Payout[]
+  earnings      GroundEarning[]
+  subscriptions OwnerSubscription[]
+}
+
+model OwnerSubscription {
+  id             String           @id @default(cuid())
+  ownerId        String
+  plan           SubscriptionPlan
+  type           OwnerPaymentType
+  amount         Float
+  payHereOrderId String?          @unique
+  status         PaymentStatus    @default(PENDING)
+  paidAt         DateTime?
+  expiresAt      DateTime?
+  notes          String?
+  createdAt      DateTime         @default(now())
+
+  owner GroundOwnerProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([payHereOrderId])
 }
 
 enum PayoutStatus {

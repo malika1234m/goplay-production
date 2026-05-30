@@ -22,6 +22,7 @@ export interface GroundItem {
   totalReviews: number;
   latitude: number | null;
   longitude: number | null;
+  featured?: boolean;
 }
 
 const RADII = [5, 10, 25, 50] as const;
@@ -288,6 +289,14 @@ export default function GroundsClient({ grounds, q, category }: Props) {
                         />
                       ) : (
                         <span className="text-7xl">{fallbackIcon}</span>
+                      )}
+                      {/* Featured badge */}
+                      {ground.featured && (
+                        <div className="absolute top-3 right-3">
+                          <span className="flex items-center gap-1 bg-purple-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-lg">
+                            ⭐ Featured
+                          </span>
+                        </div>
                       )}
                       {/* Sport badges */}
                       <div className="absolute top-3 left-3 flex flex-wrap gap-1">

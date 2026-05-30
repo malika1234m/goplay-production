@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   Plus, MapPin, Star, Eye, Pencil, Trash2,
-  CheckCircle, Clock, XCircle, Loader2, Grid3X3, QrCode,
+  CheckCircle, Clock, XCircle, Loader2, Grid3X3, QrCode, Lock,
 } from "lucide-react";
 import QRModal from "@/components/ground-owner/QRModal";
 
@@ -43,6 +43,14 @@ export default function GroundOwnerGrounds() {
   const [deleting,  setDeleting]  = useState<string | null>(null);
   const [error,     setError]     = useState("");
   const [qrGround,  setQrGround]  = useState<Ground | null>(null);
+  const [planUsage, setPlanUsage] = useState<{ used: number; max: number | null } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/ground-owner/plan-status")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) setPlanUsage(d.usage?.facilities ?? null); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/ground-owner/grounds")
@@ -83,14 +91,28 @@ export default function GroundOwnerGrounds() {
           <h1 className="text-2xl font-bold text-slate-900">My Grounds</h1>
           <p className="text-slate-500 text-sm mt-1">
             {grounds.length} {grounds.length === 1 ? "facility" : "facilities"} listed
+            {planUsage && planUsage.max !== null && (
+              <span className={`ml-2 font-semibold ${planUsage.used >= planUsage.max ? "text-red-600" : "text-slate-600"}`}>
+                · {planUsage.used}/{planUsage.max} plan limit used
+              </span>
+            )}
           </p>
         </div>
-        <Link
-          href="/ground-owner/grounds/new"
-          className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2 shrink-0"
-        >
-          <Plus className="w-4 h-4" /> Add Ground
-        </Link>
+        {planUsage && planUsage.max !== null && planUsage.used >= planUsage.max ? (
+          <Link
+            href="/ground-owner/billing"
+            className="flex items-center gap-2 px-5 py-2.5 border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold rounded-xl transition-colors hover:bg-amber-100 shrink-0"
+          >
+            <Lock className="w-4 h-4" /> Upgrade to Add More
+          </Link>
+        ) : (
+          <Link
+            href="/ground-owner/grounds/new"
+            className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2 shrink-0"
+          >
+            <Plus className="w-4 h-4" /> Add Ground
+          </Link>
+        )}
       </div>
 
       {error && (
@@ -100,7 +122,7 @@ export default function GroundOwnerGrounds() {
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
         {[
           { label: "Total",   value: grounds.length,                                       color: "text-slate-900" },
           { label: "Active",  value: grounds.filter((g) => g.status === "ACTIVE").length,  color: "text-green-600" },
