@@ -1,16 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings, Loader2, CheckCircle, AlertCircle, Save, BadgeDollarSign, Wallet, Clock } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, Save, BadgeDollarSign, Wallet, Clock, Wrench, Smartphone } from "lucide-react";
 
 interface PlatformSettings {
   commissionRate:     string;
   minPayout:          string;
   payoutCooldownDays: string;
+  maintenance:        string;
+  maintenanceMessage: string;
+  minAppVersion:      string;
 }
 
 export default function AdminSettingsPage() {
-  const [form,    setForm]    = useState<PlatformSettings>({ commissionRate: "10", minPayout: "1000", payoutCooldownDays: "7" });
+  const [form,    setForm]    = useState<PlatformSettings>({ commissionRate: "10", minPayout: "1000", payoutCooldownDays: "7", maintenance: "false", maintenanceMessage: "We're performing scheduled maintenance. We'll be back shortly.", minAppVersion: "1.0.0" });
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
@@ -34,6 +37,9 @@ export default function AdminSettingsPage() {
         commissionRate:     form.commissionRate,
         minPayout:          form.minPayout,
         payoutCooldownDays: form.payoutCooldownDays,
+        maintenance:        form.maintenance,
+        maintenanceMessage: form.maintenanceMessage,
+        minAppVersion:      form.minAppVersion,
       }),
     });
     const data = await res.json();
@@ -187,6 +193,80 @@ export default function AdminSettingsPage() {
             </div>
             <p className="text-[11px] text-slate-400 mt-1">How long an owner must wait before requesting another payout</p>
           </div>
+        </div>
+      </div>
+
+      {/* Maintenance Mode card */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col gap-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+            <Wrench className="w-5 h-5 text-amber-500" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Maintenance Mode</h2>
+            <p className="text-xs text-slate-400">When ON, all app users see a maintenance screen instead of the app</p>
+          </div>
+          {/* Toggle */}
+          <button
+            type="button"
+            onClick={() => setForm((f) => ({ ...f, maintenance: f.maintenance === "true" ? "false" : "true" }))}
+            className={`ml-auto relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${form.maintenance === "true" ? "bg-amber-500" : "bg-slate-200"}`}
+          >
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${form.maintenance === "true" ? "translate-x-6" : "translate-x-1"}`} />
+          </button>
+        </div>
+
+        {form.maintenance === "true" && (
+          <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            Maintenance mode is <strong>ON</strong> — all users are blocked from the app right now.
+          </div>
+        )}
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">Maintenance Message</label>
+          <textarea
+            rows={2}
+            value={form.maintenanceMessage}
+            onChange={(e) => setForm((f) => ({ ...f, maintenanceMessage: e.target.value }))}
+            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-amber-400 resize-none"
+            placeholder="We're performing scheduled maintenance. We'll be back shortly."
+          />
+          <p className="text-[11px] text-slate-400 mt-1">This message is shown to users on the maintenance screen</p>
+        </div>
+      </div>
+
+      {/* Force Update card */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col gap-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+            <Smartphone className="w-5 h-5 text-blue-500" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Force App Update</h2>
+            <p className="text-xs text-slate-400">Users on older versions must update before they can use the app</p>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">Minimum App Version</label>
+          <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-2.5 max-w-xs">
+            <input
+              type="text"
+              value={form.minAppVersion}
+              onChange={(e) => setForm((f) => ({ ...f, minAppVersion: e.target.value }))}
+              className="w-full text-sm font-semibold text-slate-900 outline-none bg-transparent"
+              placeholder="1.0.0"
+            />
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1">
+            Users with an app version lower than this will be forced to update. Current published version: <strong>1.0.0</strong>
+          </p>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-800 space-y-1">
+          <p><strong>Example:</strong> You publish version <code>1.1.0</code> on Play Store with a critical fix. Set this to <code>1.1.0</code> and anyone still on <code>1.0.0</code> will be blocked until they update.</p>
+          <p>Set back to <code>1.0.0</code> to remove the force update.</p>
         </div>
       </div>
 

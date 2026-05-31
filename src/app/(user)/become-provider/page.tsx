@@ -39,6 +39,7 @@ export default function BecomeProviderPage() {
   const [existing,    setExisting]   = useState<null | { status: string }>(null);
   const [checkingApp, setCheckingApp] = useState(true);
   const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const [form, setForm] = useState({
     phone: "", address: "", city: "",
@@ -118,6 +119,7 @@ export default function BecomeProviderPage() {
   const back = () => { setError(""); setStep((s) => s - 1); };
 
   const handleSubmit = async () => {
+    if (!agreedToTerms) { setError("You must agree to the Terms & Conditions to proceed."); return; }
     setSubmitting(true);
     setError("");
     const res  = await fetch("/api/provider/apply", {
@@ -467,6 +469,35 @@ export default function BecomeProviderPage() {
               <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-xs text-amber-700">
                 After submission, our admin team will review your application. Once approved, you'll receive an SMS notification and your account will be upgraded to Ground Owner. Your facility will also be submitted for a separate listing review.
               </div>
+
+              <div className="border border-slate-200 rounded-xl p-4">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Terms & Conditions</p>
+                <ul className="space-y-2 mb-4">
+                  {[
+                    "GoPlay charges a platform commission on each booking made through the app. This is automatically deducted from customer payments at the time of booking.",
+                    "As a Ground Owner, you are responsible for maintaining your facility in good condition and honoring all confirmed bookings.",
+                    "You may manage your listings, set availability, add courts, and track earnings through the GoPlay Owner Dashboard.",
+                    "GoPlay may suspend or remove listings that violate platform guidelines or receive repeated complaints from users.",
+                    "All facility information you provide must be accurate. Misleading listings may result in account suspension.",
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-slate-500">
+                      <span className="text-slate-300 shrink-0 mt-0.5">•</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <label className="flex items-start gap-3 cursor-pointer border-t border-slate-100 pt-4">
+                  <input
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded accent-green-600 cursor-pointer shrink-0"
+                  />
+                  <span className="text-xs text-slate-700 leading-relaxed">
+                    I have read and agree to the Terms & Conditions above, including the platform commission policy.
+                  </span>
+                </label>
+              </div>
             </div>
           </>
         )}
@@ -498,8 +529,8 @@ export default function BecomeProviderPage() {
         {step === 3 && (
           <button
             onClick={handleSubmit}
-            disabled={submitting}
-            className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
+            disabled={submitting || !agreedToTerms}
+            className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-semibold py-3 rounded-xl transition-colors"
           >
             {submitting
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting…</>
