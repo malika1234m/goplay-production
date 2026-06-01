@@ -49,8 +49,22 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-white/10 mt-10 pt-6 text-sm flex flex-col sm:flex-row items-center justify-between gap-2 text-slate-500">
-          <p>© {new Date().getFullYear()} GoPlay. All rights reserved.</p>
+        <div className="border-t border-white/10 mt-10 pt-6 text-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500">
+          <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-3 text-center sm:text-left">
+            <p>© {new Date().getFullYear()} GoPlay. All rights reserved.</p>
+            <span className="hidden sm:inline text-slate-600">·</span>
+            <p>
+              A product of{" "}
+              <a
+                href="https://apinovatech.netlify.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-green-400 hover:text-green-300 transition-colors font-medium"
+              >
+                ApiNova Technologies (PVT) LTD
+              </a>
+            </p>
+          </div>
           <p className="text-xs">Made with ♥ for Sri Lankan sports lovers</p>
         </div>
       </div>

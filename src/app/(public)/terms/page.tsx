@@ -84,7 +84,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="7. Intellectual Property">
-            <p>All content on the GoPlay platform — including the logo, design, code, and text — is the property of GoPlay and protected by copyright. You may not reproduce, distribute, or create derivative works without written permission.</p>
+            <p>All content on the GoPlay platform — including the logo, design, code, and text — is the property of GoPlay and its parent company, ApiNova Technologies (PVT) LTD, and is protected by copyright. You may not reproduce, distribute, or create derivative works without written permission.</p>
             <p>By uploading photos or content to GoPlay, you grant us a non-exclusive, royalty-free license to display that content on our platform.</p>
           </Section>
 
