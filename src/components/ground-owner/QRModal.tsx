@@ -44,10 +44,13 @@ export default function QRModal({ groundId, groundName, city, address, onClose }
     const win = window.open("", "_blank");
     if (!win) return;
 
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
     win.document.write(`<!DOCTYPE html>
 <html>
 <head>
-  <title>QR Code – ${groundName}</title>
+  <title>QR Code – ${esc(groundName)}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:system-ui,sans-serif;background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:32px}
@@ -69,10 +72,10 @@ export default function QRModal({ groundId, groundName, city, address, onClose }
     <div class="brand"><span class="go">Go</span><span class="play">Play</span></div>
     <div class="tagline">Book Sports Grounds Instantly</div>
     <div class="qr-wrap"><img src="${dataUrl}" alt="QR Code"/></div>
-    <div class="ground-name">${groundName}</div>
-    <div class="ground-loc">${address}, ${city}</div>
+    <div class="ground-name">${esc(groundName)}</div>
+    <div class="ground-loc">${esc(address)}, ${esc(city)}</div>
     <div class="cta">Scan to Book Your Slot</div>
-    <div class="url">${groundUrl}</div>
+    <div class="url">${esc(groundUrl)}</div>
   </div>
   <script>window.onload=()=>{window.print();}<\/script>
 </body>

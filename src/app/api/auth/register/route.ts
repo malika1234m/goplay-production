@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Too many registration attempts. Please try again later." }, { status: 429 });
     }
 
-    const { name, email, password, phone, role } = await req.json();
+    const { name, email, password, phone } = await req.json();
 
     if (!name?.trim() || !email?.trim() || !password) {
       return Response.json({ error: "Name, email and password are required." }, { status: 400 });
@@ -41,7 +41,6 @@ export async function POST(req: NextRequest) {
     }
 
     const hashed = await bcrypt.hash(password, 10);
-    const userRole = role === "GROUND_OWNER" ? "GROUND_OWNER" : "USER";
 
     const user = await db.user.create({
       data: {
@@ -49,12 +48,7 @@ export async function POST(req: NextRequest) {
         email,
         password: hashed,
         phone: phone || null,
-        role: userRole,
-        ...(userRole === "GROUND_OWNER" && {
-          groundOwnerProfile: {
-            create: { businessName: name },
-          },
-        }),
+        role: "USER",
       },
     });
 
