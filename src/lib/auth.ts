@@ -38,15 +38,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { email: credentials.email as string },
         });
 
-        if (!user) return null;
-        if (!user.isActive) return null;
-
+        // Always run bcrypt even when user not found — prevents email enumeration via timing
+        const DUMMY_HASH = "$2b$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012345";
         const passwordMatch = await bcrypt.compare(
           credentials.password as string,
-          user.password
+          user?.password ?? DUMMY_HASH
         );
 
-        if (!passwordMatch) return null;
+        if (!user || !user.isActive || !passwordMatch) return null;
 
         return {
           id:                 user.id,

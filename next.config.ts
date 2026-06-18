@@ -24,6 +24,22 @@ const nextConfig: NextConfig = {
           { key: "X-XSS-Protection",       value: "1; mode=block" },
           { key: "Referrer-Policy",        value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy",     value: "camera=(), microphone=(), geolocation=(self)" },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.sandbox.payhere.lk https://www.payhere.lk",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https://res.cloudinary.com https://nominatim.openstreetmap.org https://www.openstreetmap.org",
+              "connect-src 'self' https://res.cloudinary.com https://nominatim.openstreetmap.org",
+              "frame-src https://www.sandbox.payhere.lk https://www.payhere.lk https://www.openstreetmap.org",
+              "font-src 'self' data:",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self' https://www.sandbox.payhere.lk https://www.payhere.lk",
+              "upgrade-insecure-requests",
+            ].join("; "),
+          },
         ],
       },
     ];

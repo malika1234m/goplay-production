@@ -30,7 +30,11 @@ export async function POST(req: NextRequest) {
 
     const user = await db.user.findUnique({ where: { email } });
 
-    if (!user || !user.isActive) {
+    // Always run bcrypt even when user not found — prevents email enumeration via timing
+    const DUMMY_HASH = "$2b$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012345";
+    const match = await bcrypt.compare(password, user?.password ?? DUMMY_HASH);
+
+    if (!user || !user.isActive || !match) {
       return Response.json(
         { error: "Invalid email or password." },
         { status: 401 }
@@ -41,14 +45,6 @@ export async function POST(req: NextRequest) {
       return Response.json(
         { error: "Mobile app access is for facility owners and workers only." },
         { status: 403 }
-      );
-    }
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return Response.json(
-        { error: "Invalid email or password." },
-        { status: 401 }
       );
     }
 

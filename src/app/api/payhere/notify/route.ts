@@ -35,7 +35,14 @@ export async function POST(req: NextRequest) {
       return new Response("Bad Request", { status: 400 });
     }
 
-    // Verify signature
+    // Explicitly reject if merchant_id doesn't match our account
+    const expectedMerchantId = process.env.PAYHERE_MERCHANT_ID ?? "";
+    if (expectedMerchantId && params.merchant_id !== expectedMerchantId) {
+      console.warn("[PayHere notify] Merchant ID mismatch", params.merchant_id);
+      return new Response("Forbidden", { status: 403 });
+    }
+
+    // Verify HMAC signature
     if (!verifyPayHereNotify(params)) {
       console.warn("[PayHere notify] Invalid signature for order", params.order_id);
       return new Response("Invalid signature", { status: 400 });
