@@ -11,12 +11,13 @@ export const metadata: Metadata = {
   alternates:  { canonical: "/grounds" },
 };
 
-const CATEGORIES = ["All", "Cricket", "Football", "Futsal", "Tennis", "Badminton", "Basketball", "Volleyball", "Netball", "Rugby", "Swimming", "Table Tennis"];
+const CATEGORIES = ["All", "Cricket", "Football", "Futsal", "Tennis", "Badminton", "Basketball", "Volleyball", "Netball", "Rugby", "Swimming", "Table Tennis", "Pickleball", "Billiards & Pool"];
 
 const categoryEmoji: Record<string, string> = {
   Cricket: "🏏", Football: "⚽", Futsal: "🥅", Tennis: "🎾",
   Badminton: "🏸", Basketball: "🏀", Volleyball: "🏐",
   Netball: "🏐", Rugby: "🏉", Swimming: "🏊", "Table Tennis": "🏓",
+  Pickleball: "🏓", "Billiards & Pool": "🎱",
 };
 
 const PER_PAGE = 12;

@@ -133,7 +133,19 @@ export default function RefundPolicyPage() {
             </p>
           </Section>
 
-          <Section title="8. Disputes">
+          <Section title="8. GoPlay Connect — Open Match Lobbies">
+            <p>
+              Open match lobbies operate under a separate payment model:
+            </p>
+            <ul className="list-disc pl-5 space-y-1.5">
+              <li><strong>No charge until matched:</strong> Payment is only collected when the lobby fills and the court is auto-booked. If the lobby expires without filling, your spot is released and no payment is taken.</li>
+              <li><strong>Spot cancellations:</strong> Cancelling a reserved (unmatched) open match spot counts as a <strong>cancellation strike</strong> on your account — the same as cancelling a cash booking. At 5 strikes your account is suspended.</li>
+              <li><strong>Expiry is not a cancellation:</strong> If a lobby expires because it didn't fill in time, this does <em>not</em> count as a strike and no payment is taken.</li>
+              <li><strong>Post-match cancellations:</strong> Once a lobby is matched (court auto-booked), spots are locked. You cannot cancel through the app. Contact GoPlay support directly — refunds are assessed case by case.</li>
+            </ul>
+          </Section>
+
+          <Section title="10. Disputes">
             <p>
               If you believe a refund has been incorrectly denied or not received within the stated
               timeframe, please contact our support team with your booking ID and we will investigate
@@ -141,7 +153,7 @@ export default function RefundPolicyPage() {
             </p>
           </Section>
 
-          <Section title="9. Contact Us">
+          <Section title="11. Contact Us">
             <p>For any refund-related queries, reach out to our support team:</p>
             <ul className="list-none space-y-1.5">
               <li>📧 <a href="mailto:official.goplay.support@gmail.com" className="text-green-600 hover:underline">official.goplay.support@gmail.com</a></li>

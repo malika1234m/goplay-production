@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Mail, Phone } from "lucide-react";
+import { Mail, Phone, Zap } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -33,6 +33,11 @@ export default function Footer() {
             <h4 className="text-green-400 text-sm font-semibold mb-4 uppercase tracking-wider">Platform</h4>
             <ul className="space-y-2.5 text-sm">
               <li><Link href="/grounds" className="hover:text-green-400 transition-colors">Browse Grounds</Link></li>
+              <li>
+                <Link href="/open-matches" className="flex items-center gap-1.5 hover:text-green-400 transition-colors">
+                  <Zap className="w-3 h-3 text-green-500" /> Find a Match
+                </Link>
+              </li>
               <li><Link href="/register" className="hover:text-green-400 transition-colors">Create Account</Link></li>
               <li><Link href="/register?role=ground_owner" className="hover:text-green-400 transition-colors">List Your Ground</Link></li>
             </ul>
@@ -43,8 +48,7 @@ export default function Footer() {
             <ul className="space-y-2.5 text-sm">
               <li><Link href="/about" className="hover:text-blue-400 transition-colors">About Us</Link></li>
               <li><Link href="/support" className="hover:text-blue-400 transition-colors">Support Center</Link></li>
-              <li><Link href="/privacy" className="hover:text-blue-400 transition-colors">Privacy Policy</Link></li>
-              <li><Link href="/terms" className="hover:text-blue-400 transition-colors">Terms of Service</Link></li>
+              <li><Link href="/policies" className="hover:text-blue-400 transition-colors">Policies</Link></li>
             </ul>
           </div>
         </div>

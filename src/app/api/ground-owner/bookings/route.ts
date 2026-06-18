@@ -52,6 +52,7 @@ export async function GET(req: NextRequest) {
           user:     { select: { name: true, email: true, phone: true } },
           facility: { select: { name: true, city: true } },
           court:    { select: { name: true } },
+          openMatch: { select: { id: true, category: { select: { name: true } }, spots: { where: { status: { in: ["CONFIRMED", "RESERVED"] } }, select: { groupSize: true, user: { select: { name: true, phone: true } } } } } },
         },
         orderBy: [{ bookingDate: "desc" }, { startTime: "asc" }],
         skip: (page - 1) * PER_PAGE,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Building2, CalendarCheck, Clock, Grid3X3, Loader2, MapPin, Tag, User } from "lucide-react";
+import { Building2, CalendarCheck, Clock, Grid3X3, Loader2, MapPin, Tag, User, Zap } from "lucide-react";
 
 interface Facility {
   id: string; name: string; address: string; city: string;
@@ -12,7 +12,8 @@ interface Facility {
 interface Booking {
   id: string; startTime: string; endTime: string; status: string;
   totalAmount: number; playerName: string; specialRequests: string | null;
-  courtName: string | null;
+  courtName: string | null; isOpenMatch?: boolean; isPhoneBooking?: boolean;
+  openMatchId?: string | null;
 }
 
 const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -132,7 +133,7 @@ export default function WorkerDashboard() {
         <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between">
           <h2 className="text-base font-semibold text-slate-900">
             Today's Bookings
-            <span className="ml-2 text-slate-400 font-normal text-sm">({bookings.length})</span>
+            <span className="ml-2 text-slate-400 font-normal text-sm">({bookings.filter((b) => b.status !== "CANCELLED").length})</span>
           </h2>
           <a href="/worker/bookings" className="text-xs text-blue-600 hover:underline">View all →</a>
         </div>
@@ -144,38 +145,50 @@ export default function WorkerDashboard() {
           </div>
         ) : (
           <div className="divide-y divide-slate-50">
-            {bookings.map((b) => (
-              <div key={b.id} className="px-6 py-3.5 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-2 h-8 rounded-full shrink-0 ${
-                    b.status === "CONFIRMED" ? "bg-green-400" :
-                    b.status === "PENDING"   ? "bg-amber-400" : "bg-slate-200"
-                  }`} />
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">
-                      {b.startTime} – {b.endTime}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {b.specialRequests?.startsWith("[Walk-in]")
-                        ? b.specialRequests.replace("[Walk-in] ", "Walk-in · ")
-                        : b.playerName}
-                    </p>
-                    {b.courtName && (
-                      <span className="mt-0.5 inline-flex items-center text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full">
-                        {b.courtName}
-                      </span>
-                    )}
+            {bookings.filter((b) => b.status !== "CANCELLED").map((b) => {
+              const isOpenMatch  = b.isOpenMatch    ?? false;
+              const isPhoneBook  = b.isPhoneBooking ?? false;
+              return (
+                <div key={b.id} className="px-6 py-3.5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-8 rounded-full shrink-0 ${
+                      isOpenMatch             ? "bg-teal-400"  :
+                      b.status === "CONFIRMED" ? "bg-green-400" :
+                      b.status === "PENDING"   ? "bg-amber-400" : "bg-slate-200"
+                    }`} />
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        {b.startTime} – {b.endTime}
+                      </p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {isOpenMatch && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium bg-teal-50 text-teal-700 border border-teal-100 px-1.5 py-0.5 rounded-full">
+                            <Zap className="w-2.5 h-2.5" /> Open Match
+                          </span>
+                        )}
+                        {isPhoneBook && !isOpenMatch && (
+                          <span className="text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-full">Phone</span>
+                        )}
+                        <p className="text-xs text-slate-400">{b.playerName}</p>
+                      </div>
+                      {b.courtName && (
+                        <span className="mt-0.5 inline-flex items-center text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full">
+                          {b.courtName}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-slate-900">Rs. {b.totalAmount.toLocaleString()}</p>
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                      isOpenMatch             ? "bg-teal-100 text-teal-700"   :
+                      b.status === "CONFIRMED" ? "bg-green-100 text-green-700" :
+                      b.status === "PENDING"   ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
+                    }`}>{b.status}</span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-slate-900">Rs. {b.totalAmount.toLocaleString()}</p>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                    b.status === "CONFIRMED" ? "bg-green-100 text-green-700" :
-                    b.status === "PENDING"   ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
-                  }`}>{b.status}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

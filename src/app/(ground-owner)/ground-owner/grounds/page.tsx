@@ -28,6 +28,7 @@ const categoryEmoji: Record<string, string> = {
   Cricket: "🏏", Football: "⚽", Futsal: "🥅", Tennis: "🎾",
   Badminton: "🏸", Basketball: "🏀", Volleyball: "🏐",
   Netball: "🏐", Rugby: "🏉", Swimming: "🏊", "Table Tennis": "🏓",
+  Pickleball: "🏓", "Billiards & Pool": "🎱",
 };
 
 const statusConfig: Record<string, { label: string; style: string; icon: React.ElementType }> = {
@@ -37,12 +38,43 @@ const statusConfig: Record<string, { label: string; style: string; icon: React.E
   REJECTED: { label: "Rejected", style: "bg-red-50 text-red-600 border-red-100",        icon: XCircle },
 };
 
+function DeleteConfirmModal({ ground, onClose, onConfirm }: { ground: Ground; onClose: () => void; onConfirm: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
+            <Trash2 className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 text-base">Delete Ground</h3>
+            <p className="text-xs text-slate-400">This action cannot be undone</p>
+          </div>
+        </div>
+        <p className="text-sm text-slate-600">
+          Are you sure you want to delete <span className="font-semibold text-slate-900">&ldquo;{ground.name}&rdquo;</span>?
+          All associated data will be permanently removed.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+            Cancel
+          </button>
+          <button onClick={onConfirm} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
+            <Trash2 className="w-4 h-4" /> Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function GroundOwnerGrounds() {
-  const [grounds,   setGrounds]   = useState<Ground[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [deleting,  setDeleting]  = useState<string | null>(null);
-  const [error,     setError]     = useState("");
-  const [qrGround,  setQrGround]  = useState<Ground | null>(null);
+  const [grounds,      setGrounds]      = useState<Ground[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [deleting,     setDeleting]     = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Ground | null>(null);
+  const [error,        setError]        = useState("");
+  const [qrGround,     setQrGround]     = useState<Ground | null>(null);
 
   useEffect(() => {
     fetch("/api/ground-owner/grounds")
@@ -52,17 +84,22 @@ export default function GroundOwnerGrounds() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  const handleDelete = async (id: string) => {
+    setDeleteTarget(null);
     setDeleting(id);
     setError("");
-    const res  = await fetch(`/api/ground-owner/grounds/${id}`, { method: "DELETE" });
-    const data = await res.json();
-    setDeleting(null);
-    if (!res.ok) {
-      setError(data.error ?? "Failed to delete ground.");
-    } else {
-      setGrounds((prev) => prev.filter((g) => g.id !== id));
+    try {
+      const res  = await fetch(`/api/ground-owner/grounds/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to delete ground.");
+      } else {
+        setGrounds((prev) => prev.filter((g) => g.id !== id));
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -213,7 +250,7 @@ export default function GroundOwnerGrounds() {
                           <Pencil className="w-4 h-4" />
                         </Link>
                         <button
-                          onClick={() => handleDelete(g.id, g.name)}
+                          onClick={() => setDeleteTarget(g)}
                           disabled={deleting === g.id}
                           className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                           title="Delete"
@@ -282,6 +319,14 @@ export default function GroundOwnerGrounds() {
           city={qrGround.city}
           address={qrGround.address}
           onClose={() => setQrGround(null)}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          ground={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={() => handleDelete(deleteTarget.id)}
         />
       )}
     </div>

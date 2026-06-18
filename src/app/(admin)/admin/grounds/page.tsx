@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
-import { MapPin, Search, Loader2, CheckCircle, XCircle, PauseCircle, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, Search, Loader2, CheckCircle, XCircle, PauseCircle, Eye, ChevronLeft, ChevronRight, Globe, Clock, AlertTriangle } from "lucide-react";
 
 interface Ground {
   id:            string;
@@ -36,6 +36,7 @@ function GroundsContent() {
   const searchParams = useSearchParams();
   const [grounds,  setGrounds]  = useState<Ground[]>([]);
   const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState("");
   const [q,        setQ]        = useState("");
   const [status,   setStatus]   = useState(searchParams.get("status") ?? "");
   const [updating, setUpdating] = useState<string | null>(null);
@@ -46,24 +47,40 @@ function GroundsContent() {
 
   const load = useCallback(async (query: string, statusFilter: string, pageNum = 1) => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (query)        params.set("q",      query);
-    if (statusFilter) params.set("status", statusFilter);
-    if (pageNum > 1)  params.set("page",   String(pageNum));
-    const res  = await fetch(`/api/admin/grounds?${params}`);
-    const data = await res.json();
-    setGrounds(data.grounds ?? []);
-    setTotal(data.total ?? 0);
-    setHasMore(data.hasMore ?? false);
-    setPage(pageNum);
-    if (data.counts) setCounts(data.counts);
-    setLoading(false);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      if (query)        params.set("q",      query);
+      if (statusFilter) params.set("status", statusFilter);
+      if (pageNum > 1)  params.set("page",   String(pageNum));
+      const res  = await fetch(`/api/admin/grounds?${params}`);
+      const data = await res.json();
+      setGrounds(data.grounds ?? []);
+      setTotal(data.total ?? 0);
+      setHasMore(data.hasMore ?? false);
+      setPage(pageNum);
+      if (data.counts) setCounts(data.counts);
+    } catch {
+      setError("Failed to load grounds. Please refresh the page.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(q, status); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const initializedRef = useRef(false);
+  const debounceRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!initializedRef.current) { initializedRef.current = true; return; }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { load(q, status, 1); }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const updateStatus = async (id: string, newStatus: string) => {
     setUpdating(id);
+    setError("");
     try {
       const res = await fetch(`/api/admin/grounds/${id}/status`, {
         method:  "PUT",
@@ -72,7 +89,12 @@ function GroundsContent() {
       });
       if (res.ok) {
         setGrounds((prev) => prev.map((g) => g.id === id ? { ...g, status: newStatus } : g));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Failed to update ground status.");
       }
+    } catch {
+      setError("Network error. Please try again.");
     } finally {
       setUpdating(null);
     }
@@ -90,32 +112,39 @@ function GroundsContent() {
         <p className="text-slate-500 text-sm mt-0.5">Approve, manage and monitor all sports grounds</p>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-xl">{error}</div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "All Grounds", value: counts.all,      click: "",         active: status === ""         },
-          { label: "Active",      value: counts.active,   click: "ACTIVE",   active: status === "ACTIVE"   },
-          { label: "Pending",     value: counts.pending,  click: "PENDING",  active: status === "PENDING"  },
-          { label: "Rejected",    value: counts.rejected, click: "REJECTED", active: status === "REJECTED" },
-        ].map(({ label, value, click, active }) => (
-          <button
-            key={label}
-            onClick={() => { setStatus(click); load(q, click, 1); }}
-            className={`bg-white rounded-2xl border p-5 text-left transition-all ${
-              active ? "border-blue-300 ring-2 ring-blue-100" : "border-slate-100 hover:border-slate-200"
-            }`}
-          >
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 bg-slate-50 text-slate-600">
-              <MapPin className="w-5 h-5" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{value}</p>
-            <p className="text-xs text-slate-500 mt-1">{label}</p>
-          </button>
-        ))}
+          { label: "All Grounds", value: counts.all,      key: "",         icon: Globe,         color: "bg-blue-50 text-blue-600",   ring: "ring-blue-100 border-blue-300"   },
+          { label: "Active",      value: counts.active,   key: "ACTIVE",   icon: CheckCircle,   color: "bg-green-50 text-green-600", ring: "ring-green-100 border-green-300" },
+          { label: "Pending",     value: counts.pending,  key: "PENDING",  icon: Clock,         color: "bg-amber-50 text-amber-600", ring: "ring-amber-100 border-amber-300" },
+          { label: "Rejected",    value: counts.rejected, key: "REJECTED", icon: AlertTriangle, color: "bg-red-50 text-red-600",     ring: "ring-red-100 border-red-300"     },
+        ].map(({ label, value, key, icon: Icon, color, ring }) => {
+          const active = status === key;
+          return (
+            <button
+              key={label}
+              onClick={() => { setStatus(key); load(q, key, 1); }}
+              className={`bg-white rounded-2xl border p-5 text-left transition-all ${
+                active ? `${ring} ring-2` : "border-slate-100 hover:border-slate-200 hover:shadow-sm"
+              }`}
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${color}`}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <p className="text-2xl font-bold text-slate-900">{value}</p>
+              <p className="text-xs text-slate-500 mt-1">{label}</p>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-wrap gap-3 items-end">
+      <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -123,14 +152,13 @@ function GroundsContent() {
             placeholder="Search name or city…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") load(q, status, 1); }}
-            className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
+            className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
           />
         </div>
         <select
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600"
+          onChange={(e) => { setStatus(e.target.value); load(q, e.target.value, 1); }}
+          className="text-sm border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600"
         >
           <option value="">All Status</option>
           <option value="PENDING">Pending</option>
@@ -138,18 +166,14 @@ function GroundsContent() {
           <option value="INACTIVE">Inactive</option>
           <option value="REJECTED">Rejected</option>
         </select>
-        <button
-          onClick={() => load(q, status, 1)}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          Search
-        </button>
-        <button
-          onClick={() => { setQ(""); setStatus(""); load("", "", 1); }}
-          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium rounded-lg transition-colors"
-        >
-          Clear
-        </button>
+        {(q || status) && (
+          <button
+            onClick={() => { setQ(""); setStatus(""); load("", "", 1); }}
+            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium rounded-xl transition-colors"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Table */}

@@ -160,6 +160,27 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "This time slot is already booked. Please choose another." }, { status: 409 });
     }
 
+    // Block the slot if an active open match lobby has reserved it
+    const lobbyConflict = await db.openMatch.findFirst({
+      where: {
+        facilityId,
+        preferredDate: { gte: startOfDay, lte: endOfDay },
+        status:        "COLLECTING",
+        expiresAt:     { gt: new Date() },
+        AND: [
+          { preferredStartTime: { lt: endTime } },
+          { preferredEndTime:   { gt: startTime } },
+        ],
+      },
+      select: { id: true, category: { select: { name: true } } },
+    });
+    if (lobbyConflict) {
+      return Response.json({
+        error:   `This slot has an active ${lobbyConflict.category.name} open match lobby. Join the lobby instead!`,
+        lobbyId: lobbyConflict.id,
+      }, { status: 409 });
+    }
+
     // Calculate total
     const [sh, sm] = startTime.split(":").map(Number);
     const [eh, em] = endTime.split(":").map(Number);
@@ -243,10 +264,12 @@ export async function POST(req: NextRequest) {
 
     // ── Online payment: return PayHere params for client-side checkout ──
     if (paymentMethod === "ONLINE") {
-      const appUrl  = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-      const orderId = booking.id;
-      const hash    = buildPayHereHash(orderId, totalAmount);
-      const user    = session.user;
+      const appUrl       = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const orderId      = booking.id;
+      // Add 2.5% payment processing fee on top of the court rate for online payments
+      const chargeAmount = Math.round(totalAmount * 1.025 * 100) / 100;
+      const hash         = buildPayHereHash(orderId, chargeAmount);
+      const user         = session.user;
 
       const payHereParams = {
         merchant_id:  PAYHERE_MERCHANT_ID,
@@ -256,7 +279,7 @@ export async function POST(req: NextRequest) {
         order_id:     orderId,
         items:        `Booking at ${facility.name} on ${bookingDate} ${startTime}-${endTime}`,
         currency:     "LKR",
-        amount:       totalAmount.toFixed(2),
+        amount:       chargeAmount.toFixed(2),
         first_name:   (user.name ?? "").split(" ")[0] || "Customer",
         last_name:    (user.name ?? "").split(" ").slice(1).join(" ") || "-",
         email:        user.email ?? "",

@@ -38,17 +38,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       },
     });
 
+    // Use refundAmount (partial refund is possible); fall back to totalAmount if unset
+    const refundAmt = booking.refundAmount ?? booking.totalAmount;
+
     await createNotification({
       userId:  booking.user.id,
       title:   "Refund Processed",
-      message: `Your refund of Rs. ${booking.totalAmount.toLocaleString()} for the cancelled booking at ${booking.facility.name} has been processed.${note ? ` Note: ${note}` : ""}`,
+      message: `Your refund of Rs. ${refundAmt.toLocaleString()} for the cancelled booking at ${booking.facility.name} has been processed.${note ? ` Note: ${note}` : ""}`,
       type:    "success",
     });
 
     await createNotification({
       userId:  booking.facility.owner.user.id,
       title:   "Refund Issued to Player",
-      message: `A refund of Rs. ${booking.totalAmount.toLocaleString()} for a cancelled booking at ${booking.facility.name} has been processed to ${booking.user.name}.`,
+      message: `A refund of Rs. ${refundAmt.toLocaleString()} for a cancelled booking at ${booking.facility.name} has been processed to ${booking.user.name}.`,
       type:    "info",
     });
 

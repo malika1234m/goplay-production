@@ -217,15 +217,20 @@ function RequestModal({
   const submit = async () => {
     setLoading(true);
     setError("");
-    const res  = await fetch(`/api/admin/commissions/${owner.ownerId}/request`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ note }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) { setError(data.error ?? "Request failed."); return; }
-    onDone();
+    try {
+      const res  = await fetch(`/api/admin/commissions/${owner.ownerId}/request`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ note }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Request failed."); return; }
+      onDone();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -297,15 +302,20 @@ function SettleModal({
   const submit = async () => {
     setLoading(true);
     setError("");
-    const res  = await fetch(`/api/admin/commissions/${owner.ownerId}/settle`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ type, note }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) { setError(data.error ?? "Settlement failed."); return; }
-    onDone();
+    try {
+      const res  = await fetch(`/api/admin/commissions/${owner.ownerId}/settle`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ type, note }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Settlement failed."); return; }
+      onDone();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -420,10 +430,14 @@ export default function AdminCommissionsPage() {
   const [showExport,     setShowExport]     = useState(false);
 
   const load = async () => {
-    const res  = await fetch("/api/admin/commissions");
-    const data = await res.json();
-    setSummary(data.summary ?? null);
-    setOwners(data.owners   ?? []);
+    try {
+      const res  = await fetch("/api/admin/commissions");
+      const data = await res.json();
+      setSummary(data.summary ?? null);
+      setOwners(data.owners   ?? []);
+    } catch {
+      // silently keep existing state on reload failure
+    }
   };
 
   useEffect(() => { load().finally(() => setLoading(false)); }, []);
@@ -431,33 +445,36 @@ export default function AdminCommissionsPage() {
   const handleSettled = async () => {
     setSettling(null);
     setLoading(true);
-    await load();
-    setLoading(false);
+    try { await load(); } finally { setLoading(false); }
   };
 
   const handleRequested = async () => {
     setRequesting(null);
     setLoading(true);
-    await load();
-    setLoading(false);
+    try { await load(); } finally { setLoading(false); }
   };
 
   const handleExport = async () => {
     setExporting(true);
-    const params = new URLSearchParams({ status: exportStatus });
-    if (exportOwner) params.set("ownerId", exportOwner);
-    if (exportFrom)  params.set("from",    exportFrom);
-    if (exportTo)    params.set("to",      exportTo);
+    try {
+      const params = new URLSearchParams({ status: exportStatus });
+      if (exportOwner) params.set("ownerId", exportOwner);
+      if (exportFrom)  params.set("from",    exportFrom);
+      if (exportTo)    params.set("to",      exportTo);
 
-    const res  = await fetch(`/api/admin/commissions/export?${params}`);
-    const blob = await res.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = `goplay-commissions-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setExporting(false);
+      const res  = await fetch(`/api/admin/commissions/export?${params}`);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `goplay-commissions-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently fail — no stuck spinner
+    } finally {
+      setExporting(false);
+    }
   };
 
   const s = summary ?? { totalUnpaid: 0, totalCashUnpaid: 0, totalOnlineUnpaid: 0, totalCollected: 0, ownersWithDebt: 0 };

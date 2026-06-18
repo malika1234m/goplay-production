@@ -585,14 +585,14 @@ export default function AdminCancellationsPage() {
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { icon: XCircle,      label: "Total Cancellations",      value: s.totalCancellations,     sub: `${s.cancelledByUser} by player · ${s.cancelledByOwner} by owner`, color: "red"    },
-              { icon: UserX,        label: "No-Shows",                 value: s.noShowTotal,            sub: "player didn't arrive",                                             color: "purple" },
-              { icon: AlertTriangle,label: "Facilities w/ Strikes",    value: s.facilitiesWithStrikes,  sub: `${s.suspendedListings} suspended`,                                 color: "amber"  },
-              { icon: Ban,          label: "Flagged Users",            value: (s.suspendedUsers ?? 0) + (s.restrictedUsers ?? 0), sub: `${s.suspendedUsers} suspended · ${s.restrictedUsers} online-only`, color: "slate" },
-            ].map(({ icon: Icon, label, value, sub, color }) => (
+              { icon: XCircle,       label: "Total Cancellations",  value: s.totalCancellations,  sub: `${s.cancelledByUser} by player · ${s.cancelledByOwner} by owner`,             iconCls: "bg-red-50 text-red-600"     },
+              { icon: UserX,         label: "No-Shows",             value: s.noShowTotal,         sub: "player didn't arrive",                                                         iconCls: "bg-purple-50 text-purple-600"},
+              { icon: AlertTriangle, label: "Facilities w/ Strikes",value: s.facilitiesWithStrikes,sub: `${s.suspendedListings} suspended`,                                            iconCls: "bg-amber-50 text-amber-600" },
+              { icon: Ban,           label: "Flagged Users",        value: (s.suspendedUsers ?? 0) + (s.restrictedUsers ?? 0), sub: `${s.suspendedUsers} suspended · ${s.restrictedUsers} online-only`, iconCls: "bg-slate-100 text-slate-600" },
+            ].map(({ icon: Icon, label, value, sub, iconCls }) => (
               <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 bg-${color}-50`}>
-                  <Icon className={`w-5 h-5 text-${color}-600`} />
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${iconCls}`}>
+                  <Icon className="w-5 h-5" />
                 </div>
                 <p className="text-2xl font-bold text-slate-900">{value}</p>
                 <p className="text-xs font-medium text-slate-600 mt-0.5">{label}</p>

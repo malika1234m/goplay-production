@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import {
   ChevronLeft, ChevronRight, CalendarDays, LayoutGrid, CalendarClock, Loader2,
   X, Clock, User, Phone, Mail, CreditCard, StickyNote, CheckCircle2,
-  AlertCircle, XCircle, CalendarCheck,
+  AlertCircle, XCircle, CalendarCheck, Zap, Users,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -25,6 +26,20 @@ interface BookingEv {
   contactNumber: string | null; specialRequests: string | null;
   playerEmail: string; playerPhone: string | null;
   isPhoneBooking?: boolean;
+  isOpenMatch?: boolean;
+  openMatchId?: string | null;
+}
+
+interface OpenMatchEv {
+  id: string;
+  preferredDate: string;
+  preferredStartTime: string;
+  preferredEndTime: string;
+  lobbyCode: string | null;
+  categoryName: string;
+  minPlayers: number;
+  spotsReserved: number;
+  totalSpotsNeeded: number;
 }
 
 interface BlockedEv {
@@ -100,9 +115,14 @@ function BookingDetailModal({ bk, onClose }: { bk: BookingEv; onClose: () => voi
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`px-5 py-4 border-b flex items-start justify-between gap-3 ${bk.isPhoneBooking ? "bg-purple-50" : "bg-slate-50"}`}>
+        <div className={`px-5 py-4 border-b flex items-start justify-between gap-3 ${bk.isOpenMatch ? "bg-teal-50" : bk.isPhoneBooking ? "bg-purple-50" : "bg-slate-50"}`}>
           <div>
             <div className="flex items-center gap-2 mb-1">
+              {bk.isOpenMatch && (
+                <span className="text-xs font-semibold bg-teal-100 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Zap className="w-3 h-3" /> GoPlay Open Match
+                </span>
+              )}
               {bk.isPhoneBooking && (
                 <span className="text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">
                   📞 Phone / Walk-in
@@ -185,6 +205,21 @@ function BookingDetailModal({ bk, onClose }: { bk: BookingEv; onClose: () => voi
               <p className="text-sm text-slate-600 italic">{bk.specialRequests}</p>
             </div>
           )}
+
+          {/* Open match link */}
+          {bk.isOpenMatch && bk.openMatchId && (
+            <div className="flex items-center gap-3 pt-1">
+              <Zap className="w-4 h-4 text-teal-500 shrink-0" />
+              <Link
+                href={`/open-matches/${bk.openMatchId}`}
+                target="_blank"
+                className="text-sm text-teal-700 hover:underline font-medium"
+                onClick={onClose}
+              >
+                View open match lobby →
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -207,12 +242,14 @@ function Legend() {
   return (
     <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
       {[
-        { color:"bg-green-500",  label:"Confirmed"       },
-        { color:"bg-purple-400", label:"Phone booking"   },
-        { color:"bg-amber-400",  label:"Pending"         },
-        { color:"bg-red-400",    label:"Blocked hours"   },
-        { color:"bg-orange-400", label:"Full-day closed" },
-        { color:"bg-slate-200",  label:"Outside hours"   },
+        { color:"bg-green-500",  label:"Confirmed"           },
+        { color:"bg-teal-500",   label:"Open match confirmed"},
+        { color:"bg-blue-400",   label:"Open match lobby"    },
+        { color:"bg-purple-400", label:"Phone booking"       },
+        { color:"bg-amber-400",  label:"Pending"             },
+        { color:"bg-red-400",    label:"Blocked hours"       },
+        { color:"bg-orange-400", label:"Full-day closed"     },
+        { color:"bg-slate-200",  label:"Outside hours"       },
       ].map(({ color, label }) => (
         <div key={label} className="flex items-center gap-1.5">
           <span className={`w-2.5 h-2.5 rounded-sm ${color} inline-block`} />
@@ -228,20 +265,24 @@ function Legend() {
 function BookingPill({
   bk, showCourt = false, onClick,
 }: { bk: BookingEv; showCourt?: boolean; onClick?: () => void }) {
-  const top   = (toMins(bk.startTime)/60)*HOUR_H;
-  const h     = ((toMins(bk.endTime)-toMins(bk.startTime))/60)*HOUR_H;
-  const phone = bk.isPhoneBooking;
-  const ok    = bk.status === "CONFIRMED";
+  const top       = (toMins(bk.startTime)/60)*HOUR_H;
+  const h         = ((toMins(bk.endTime)-toMins(bk.startTime))/60)*HOUR_H;
+  const phone     = bk.isPhoneBooking;
+  const openMatch = bk.isOpenMatch;
+  const ok        = bk.status === "CONFIRMED";
 
-  const bg    = phone ? "bg-purple-100 border-purple-300"
-              : ok    ? "bg-green-100  border-green-300"
-              :         "bg-amber-50   border-amber-300";
-  const txt   = phone ? "text-purple-700"
-              : ok    ? "text-green-700"
-              :         "text-amber-700";
-  const sub   = phone ? "text-purple-600"
-              : ok    ? "text-green-600"
-              :         "text-amber-600";
+  const bg  = openMatch ? "bg-teal-100  border-teal-300"
+            : phone     ? "bg-purple-100 border-purple-300"
+            : ok        ? "bg-green-100  border-green-300"
+            :             "bg-amber-50   border-amber-300";
+  const txt = openMatch ? "text-teal-700"
+            : phone     ? "text-purple-700"
+            : ok        ? "text-green-700"
+            :             "text-amber-700";
+  const sub = openMatch ? "text-teal-600"
+            : phone     ? "text-purple-600"
+            : ok        ? "text-green-600"
+            :             "text-amber-600";
 
   return (
     <div
@@ -251,14 +292,14 @@ function BookingPill({
       onKeyDown={(e) => e.key === "Enter" && onClick?.()}
       className={`absolute inset-x-1 rounded-lg z-20 overflow-hidden px-2 pt-1 border ${bg} ${onClick ? "cursor-pointer hover:brightness-95 transition-[filter]" : ""}`}
       style={{ top, height: Math.max(h, 24) }}
-      title={`${phone?"📞 ":""}${bk.playerName}${bk.courtName?` · ${bk.courtName}`:""} · Rs. ${bk.totalAmount.toLocaleString()}`}
+      title={`${openMatch?"⚡ ":phone?"📞 ":""}${bk.playerName}${bk.courtName?` · ${bk.courtName}`:""} · Rs. ${bk.totalAmount.toLocaleString()}`}
     >
       <p className={`text-[10px] font-bold leading-tight ${txt}`}>
         {bk.startTime}–{bk.endTime}
       </p>
       {h >= 24 && (
         <p className={`text-[9px] leading-tight truncate ${sub}`}>
-          {phone ? "📞 " : ""}{bk.playerName}
+          {openMatch ? "⚡ " : phone ? "📞 " : ""}{bk.playerName}
         </p>
       )}
       {showCourt && bk.courtName && h >= 40 && (
@@ -273,12 +314,49 @@ function BookingPill({
   );
 }
 
+function OpenMatchPill({ om }: { om: OpenMatchEv }) {
+  const top = (toMins(om.preferredStartTime)/60)*HOUR_H;
+  const h   = ((toMins(om.preferredEndTime)-toMins(om.preferredStartTime))/60)*HOUR_H;
+  const pct = Math.round((om.spotsReserved / om.minPlayers) * 100);
+
+  return (
+    <Link
+      href={`/open-matches/${om.id}`}
+      target="_blank"
+      className="absolute inset-x-1 rounded-lg z-10 overflow-hidden px-2 pt-1 border bg-blue-100 border-blue-300 hover:brightness-95 transition-[filter]"
+      style={{ top, height: Math.max(h, 24) }}
+      title={`Open Match: ${om.categoryName} · ${om.spotsReserved}/${om.minPlayers} players · ${om.lobbyCode ? `#${om.lobbyCode}` : ""}`}
+    >
+      <p className="text-[10px] font-bold leading-tight text-blue-700">
+        ⚡ {om.preferredStartTime}–{om.preferredEndTime}
+      </p>
+      {h >= 24 && (
+        <p className="text-[9px] leading-tight truncate text-blue-600">
+          {om.categoryName} lobby
+        </p>
+      )}
+      {h >= 40 && (
+        <p className="text-[9px] text-blue-600 flex items-center gap-0.5">
+          <Users style={{ width: 8, height: 8, display: "inline" }} />
+          {" "}{om.spotsReserved}/{om.minPlayers}
+          {om.lobbyCode && <span className="ml-1 font-mono">#{om.lobbyCode}</span>}
+        </p>
+      )}
+      {h >= 52 && (
+        <div className="mt-0.5 h-1 bg-blue-200 rounded-full overflow-hidden">
+          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} />
+        </div>
+      )}
+    </Link>
+  );
+}
+
 // ─── Day Column Body ──────────────────────────────────────────────────────────
 
 function DayColumn({
-  bkList, blList, sched, fullDayBlock, showCourt = false, onBookingClick,
+  bkList, blList, omList = [], sched, fullDayBlock, showCourt = false, onBookingClick,
 }: {
-  bkList: BookingEv[]; blList: BlockedEv[];
+  bkList: BookingEv[]; blList: BlockedEv[]; omList?: OpenMatchEv[];
   sched: AvailDay | undefined; fullDayBlock: BlockedEv | undefined;
   showCourt?: boolean; onBookingClick?: (bk: BookingEv) => void;
 }) {
@@ -335,6 +413,11 @@ function DayColumn({
         );
       })}
 
+      {/* Open match lobbies (COLLECTING) */}
+      {!fullDayBlock && omList.map((om) => (
+        <OpenMatchPill key={om.id} om={om} />
+      ))}
+
       {/* Bookings */}
       {!fullDayBlock && bkList.map((bk) => (
         <BookingPill key={bk.id} bk={bk} showCourt={showCourt} onClick={() => onBookingClick?.(bk)} />
@@ -346,12 +429,13 @@ function DayColumn({
 // ─── Day View ────────────────────────────────────────────────────────────────
 
 function DayView({
-  date, courts, availByDow, bookingsByDate, blockedByDate, onBookingClick,
+  date, courts, availByDow, bookingsByDate, blockedByDate, openMatchesByDate, onBookingClick,
 }: {
   date: Date; courts: Court[];
   availByDow: Map<number,AvailDay>;
   bookingsByDate: Map<string,BookingEv[]>;
   blockedByDate: Map<string,BlockedEv[]>;
+  openMatchesByDate: Map<string,OpenMatchEv[]>;
   onBookingClick: (bk: BookingEv) => void;
 }) {
   const key    = dateKey(date);
@@ -359,6 +443,7 @@ function DayView({
   const sched  = availByDow.get(dow);
   const allBk  = bookingsByDate.get(key) ?? [];
   const blList = blockedByDate.get(key) ?? [];
+  const omList = openMatchesByDate.get(key) ?? [];
   const fullDayBlock = blList.find((b) => !b.startTime || !b.endTime);
 
   // Build columns: one per court when courts exist
@@ -378,6 +463,9 @@ function DayView({
           : []),
       ]
     : [{ id: null, label: "All Bookings", bookings: allBk }];
+
+  // Open match lobbies are always shown in the first column (they're facility-wide, not per-court)
+  const firstColOmList = omList;
 
   const minWidth = hasCourts ? `${columns.length * 200 + 56}px` : "420px";
 
@@ -414,12 +502,13 @@ function DayView({
             ))}
           </div>
 
-          {columns.map((col) => (
+          {columns.map((col, colIdx) => (
             <div key={col.id ?? "gen"}
               className="flex-1 border-l border-slate-100 relative">
               <DayColumn
                 bkList={col.bookings}
                 blList={blList}
+                omList={colIdx === 0 ? firstColOmList : []}
                 sched={sched}
                 fullDayBlock={fullDayBlock}
                 showCourt={false}
@@ -437,12 +526,13 @@ function DayView({
 // ─── Week View ───────────────────────────────────────────────────────────────
 
 function WeekView({
-  weekStart, availByDow, bookingsByDate, blockedByDate, onDayClick, onBookingClick,
+  weekStart, availByDow, bookingsByDate, blockedByDate, openMatchesByDate, onDayClick, onBookingClick,
 }: {
   weekStart: Date;
   availByDow: Map<number,AvailDay>;
   bookingsByDate: Map<string,BookingEv[]>;
   blockedByDate: Map<string,BlockedEv[]>;
+  openMatchesByDate: Map<string,OpenMatchEv[]>;
   onDayClick: (d: Date) => void;
   onBookingClick: (bk: BookingEv) => void;
 }) {
@@ -496,9 +586,10 @@ function WeekView({
 
           {days.map((day) => {
             const key = dateKey(day); const dow = day.getDay();
-            const sched       = availByDow.get(dow);
-            const bkList      = bookingsByDate.get(key) ?? [];
-            const blList      = blockedByDate.get(key) ?? [];
+            const sched        = availByDow.get(dow);
+            const bkList       = bookingsByDate.get(key) ?? [];
+            const blList       = blockedByDate.get(key) ?? [];
+            const omList       = openMatchesByDate.get(key) ?? [];
             const fullDayBlock = blList.find((b) => !b.startTime || !b.endTime);
 
             return (
@@ -506,6 +597,7 @@ function WeekView({
                 <DayColumn
                   bkList={bkList}
                   blList={blList}
+                  omList={omList}
                   sched={sched}
                   fullDayBlock={fullDayBlock}
                   showCourt={true}
@@ -524,12 +616,13 @@ function WeekView({
 // ─── Month View ───────────────────────────────────────────────────────────────
 
 function MonthView({
-  year, month, availByDow, bookingsByDate, blockedByDate, onDayClick,
+  year, month, availByDow, bookingsByDate, blockedByDate, openMatchesByDate, onDayClick,
 }: {
   year: number; month: number;
   availByDow: Map<number,AvailDay>;
   bookingsByDate: Map<string,BookingEv[]>;
   blockedByDate: Map<string,BlockedEv[]>;
+  openMatchesByDate: Map<string,OpenMatchEv[]>;
   onDayClick: (d: Date) => void;
 }) {
   const today = dateKey(new Date());
@@ -552,19 +645,22 @@ function MonthView({
             return <div key={`e-${idx}`} className="border-b border-r border-slate-50 min-h-[100px] bg-slate-50/30" />;
           }
 
-          const key    = dateKey(day);
-          const dow    = day.getDay();
-          const sched  = availByDow.get(dow);
-          const bkList = bookingsByDate.get(key) ?? [];
-          const blList = blockedByDate.get(key) ?? [];
+          const key      = dateKey(day);
+          const dow      = day.getDay();
+          const sched    = availByDow.get(dow);
+          const bkList   = bookingsByDate.get(key) ?? [];
+          const blList   = blockedByDate.get(key) ?? [];
+          const omList   = openMatchesByDate.get(key) ?? [];
           const fullBlock = blList.find((b) => !b.startTime || !b.endTime);
           const partials  = blList.filter((b) => b.startTime && b.endTime);
-          const confirmed = bkList.filter((b) => b.status==="CONFIRMED" && !b.isPhoneBooking).length;
+          const confirmed = bkList.filter((b) => b.status==="CONFIRMED" && !b.isPhoneBooking && !b.isOpenMatch).length;
+          const openMatchBooked = bkList.filter((b) => b.isOpenMatch).length;
           const phone     = bkList.filter((b) => b.isPhoneBooking).length;
           const pending   = bkList.filter((b) => b.status==="PENDING").length;
+          const collecting = omList.length;
           const isToday   = key === today;
           const isClosed  = !sched?.isOpen;
-          const hasEvents = bkList.length > 0 || blList.length > 0;
+          const hasEvents = bkList.length > 0 || blList.length > 0 || omList.length > 0;
 
           return (
             <button
@@ -597,6 +693,16 @@ function MonthView({
               {confirmed > 0 && (
                 <div className="rounded-md text-[9px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 mb-0.5">
                   {confirmed} confirmed
+                </div>
+              )}
+              {openMatchBooked > 0 && (
+                <div className="rounded-md text-[9px] font-semibold text-teal-700 bg-teal-100 px-1.5 py-0.5 mb-0.5">
+                  ⚡ {openMatchBooked} open match
+                </div>
+              )}
+              {collecting > 0 && (
+                <div className="rounded-md text-[9px] font-semibold text-blue-700 bg-blue-100 px-1.5 py-0.5 mb-0.5">
+                  ⚡ {collecting} lobby
                 </div>
               )}
               {phone > 0 && (
@@ -637,9 +743,10 @@ export default function SchedulePage() {
     const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1);
   });
 
-  const [avail,     setAvail]     = useState<AvailDay[]>([]);
-  const [bookings,  setBookings]  = useState<BookingEv[]>([]);
-  const [blocked,   setBlocked]   = useState<BlockedEv[]>([]);
+  const [avail,       setAvail]       = useState<AvailDay[]>([]);
+  const [bookings,    setBookings]    = useState<BookingEv[]>([]);
+  const [blocked,     setBlocked]     = useState<BlockedEv[]>([]);
+  const [openMatches, setOpenMatches] = useState<OpenMatchEv[]>([]);
   const [loading,   setLoading]   = useState(false);
   const [loadingFac, setLoadingFac] = useState(true);
   const [selectedBk, setSelectedBk] = useState<BookingEv | null>(null);
@@ -684,10 +791,11 @@ export default function SchedulePage() {
       if (courtId && view !== "day") params.set("courtId", courtId);
       const r = await fetch(`/api/ground-owner/schedule?${params}`);
       const d = await r.json();
-      setCourts(d.courts    ?? []);
-      setAvail(d.availability ?? []);
-      setBookings(d.bookings  ?? []);
-      setBlocked(d.blocked    ?? []);
+      setCourts(d.courts      ?? []);
+      setAvail(d.availability  ?? []);
+      setBookings(d.bookings   ?? []);
+      setBlocked(d.blocked     ?? []);
+      setOpenMatches(d.openMatches ?? []);
     } finally { setLoading(false); }
   }, [facilityId, from, to, courtId, view]);
 
@@ -719,6 +827,16 @@ export default function SchedulePage() {
     });
     return m;
   }, [blocked]);
+
+  const openMatchesByDate = useMemo(() => {
+    const m = new Map<string,OpenMatchEv[]>();
+    openMatches.forEach((om) => {
+      const k = dateKey(new Date(om.preferredDate));
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(om);
+    });
+    return m;
+  }, [openMatches]);
 
   // Jump to day view
   const goDayView = (d: Date) => { setSelectedDay(d); setView("day"); };
@@ -884,6 +1002,7 @@ export default function SchedulePage() {
             availByDow={availByDow}
             bookingsByDate={bookingsByDate}
             blockedByDate={blockedByDate}
+            openMatchesByDate={openMatchesByDate}
             onBookingClick={setSelectedBk}
           />
         ) : view === "week" ? (
@@ -892,6 +1011,7 @@ export default function SchedulePage() {
             availByDow={availByDow}
             bookingsByDate={bookingsByDate}
             blockedByDate={blockedByDate}
+            openMatchesByDate={openMatchesByDate}
             onDayClick={goDayView}
             onBookingClick={setSelectedBk}
           />
@@ -902,6 +1022,7 @@ export default function SchedulePage() {
             availByDow={availByDow}
             bookingsByDate={bookingsByDate}
             blockedByDate={blockedByDate}
+            openMatchesByDate={openMatchesByDate}
             onDayClick={goDayView}
           />
         )}

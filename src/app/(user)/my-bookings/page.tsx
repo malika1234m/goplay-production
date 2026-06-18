@@ -69,6 +69,7 @@ const categoryEmoji: Record<string, string> = {
   Cricket: "🏏", Football: "⚽", Futsal: "🥅", Tennis: "🎾",
   Badminton: "🏸", Basketball: "🏀", Volleyball: "🏐",
   Netball: "🏐", Rugby: "🏉", Swimming: "🏊", "Table Tennis": "🏓",
+  Pickleball: "🏓", "Billiards & Pool": "🎱",
 };
 
 function StarPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
@@ -381,15 +382,20 @@ export default function MyBookingsPage() {
     if (!cancelTarget) return;
     setConfirming(true);
     setError("");
-    const res  = await fetch(`/api/user/bookings/${cancelTarget.id}/cancel`, { method: "PUT" });
-    const data = await res.json();
-    setConfirming(false);
-    if (!res.ok) {
-      setError(data.error ?? "Failed to cancel booking.");
-    } else {
-      setCancelTarget(null);
-      setCancelPolicy(null);
-      await load();
+    try {
+      const res  = await fetch(`/api/user/bookings/${cancelTarget.id}/cancel`, { method: "PUT" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to cancel booking.");
+      } else {
+        setCancelTarget(null);
+        setCancelPolicy(null);
+        await load();
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setConfirming(false);
     }
   };
 

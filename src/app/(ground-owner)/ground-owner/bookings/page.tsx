@@ -6,7 +6,7 @@ import {
   Calendar, Clock, MapPin, Search, Loader2, CheckCircle, XCircle,
   Check, CreditCard, Banknote, AlertTriangle, ChevronDown, Bell, UserPlus, X,
   User, Phone, StickyNote, Clock3, BadgeInfo, CheckCircle2, PhoneCall, History,
-  UserX, ShieldAlert,
+  UserX, ShieldAlert, Zap,
 } from "lucide-react";
 import { TimeRangePicker } from "@/components/booking/TimeRangePicker";
 
@@ -38,9 +38,25 @@ interface Booking {
   contactNumber:   string | null;
   specialRequests: string | null;
   createdAt:       string;
+  isOpenMatch:     boolean;
   user:     { name: string; email: string; phone: string | null };
   facility: { name: string; city: string };
   court:    { name: string } | null;
+  openMatch: {
+    id: string;
+    category: { name: string };
+    spots: { groupSize: number; user: { name: string; phone: string | null } }[];
+  } | null;
+}
+
+/* Resolve the display name regardless of booking type */
+function getDisplayName(b: Booking): string {
+  if (b.isOpenMatch) return "GoPlay Connect";
+  const isWalkIn = b.specialRequests?.startsWith("[Walk-in]");
+  if (isWalkIn) {
+    return b.specialRequests!.replace("[Walk-in]", "").trim().split(" — ")[0].trim() || "Phone Booking";
+  }
+  return b.user.name;
 }
 
 /* True when the session's end time has already passed */
@@ -177,7 +193,7 @@ function NoShowModal({ booking, onClose, onConfirm, loading }: NoShowModalProps)
         <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-slate-500">Player</span>
-            <span className="font-medium">{booking.user.name}</span>
+            <span className="font-medium">{getDisplayName(booking)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Date</span>
@@ -259,7 +275,7 @@ function CompleteModal({ booking, onClose, onConfirm, loading }: CompleteModalPr
         <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm">
           <div className="flex justify-between">
             <span className="text-slate-500">Player</span>
-            <span className="font-medium text-slate-800">{booking.user.name}</span>
+            <span className="font-medium text-slate-800">{getDisplayName(booking)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Date</span>
@@ -355,7 +371,7 @@ interface BookingCardProps {
 function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBooking, onCancelBooking, onMarkComplete, onMarkNoShow }: BookingCardProps) {
   return (
     <div className={`bg-white rounded-2xl border p-5 transition-all ${
-      pastDue ? "border-amber-200 ring-1 ring-amber-100" : "border-slate-100"
+      pastDue ? "border-amber-200 ring-1 ring-amber-100" : b.isOpenMatch ? "border-teal-100" : "border-slate-100"
     }`}>
       {/* Past-due warning strip */}
       {pastDue && (
@@ -367,8 +383,34 @@ function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBook
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex-1 min-w-0">
-          {/* Player */}
-          {(() => {
+          {/* Player / Open Match header */}
+          {b.isOpenMatch && b.openMatch ? (
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center shrink-0">
+                  <Zap className="w-4 h-4 text-white" />
+                </div>
+                <span className="font-semibold text-slate-900">GoPlay Connect</span>
+                <span className="text-[10px] font-semibold bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">Open Match</span>
+                <span className="text-xs text-slate-500">{b.openMatch.category.name}</span>
+                <Link
+                  href={`/open-matches/${b.openMatch.id}`}
+                  target="_blank"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2 py-0.5 rounded-lg transition-colors"
+                >
+                  <Zap className="w-3 h-3" /> View Lobby
+                </Link>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {b.openMatch.spots.map((s, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
+                    <User className="w-3 h-3 text-slate-400" />
+                    {s.user.name}{s.groupSize > 1 ? ` ×${s.groupSize}` : ""}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : (() => {
             const isWalkIn = b.specialRequests?.startsWith("[Walk-in]");
             const walkInName = isWalkIn
               ? b.specialRequests!.replace("[Walk-in] ", "").split(" — ")[0]
@@ -421,7 +463,7 @@ function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBook
             <span className="font-semibold text-slate-900">Rs. {b.totalAmount.toLocaleString()}</span>
           </div>
 
-          {b.specialRequests && (() => {
+          {b.specialRequests && !b.isOpenMatch && (() => {
             const isWalkIn = b.specialRequests.startsWith("[Walk-in]");
             const note = isWalkIn
               ? b.specialRequests.replace("[Walk-in] ", "").split(" — ")[1]
@@ -432,6 +474,7 @@ function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBook
           })()}
 
           {(() => {
+            if (b.isOpenMatch) return null;
             const isWalkIn = b.specialRequests?.startsWith("[Walk-in]");
             const phone = b.contactNumber ?? (!isWalkIn ? b.user.phone : null);
             return phone ? (
@@ -468,14 +511,16 @@ function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBook
                 {updating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
                 Confirm
               </button>
-              <button
-                onClick={onCancelBooking}
-                disabled={updating}
-                className="flex items-center gap-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-600 font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <XCircle className="w-3 h-3" />
-                Cancel
-              </button>
+              {!b.isOpenMatch && (
+                <button
+                  onClick={onCancelBooking}
+                  disabled={updating}
+                  className="flex items-center gap-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-600 font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <XCircle className="w-3 h-3" />
+                  Cancel
+                </button>
+              )}
             </div>
           )}
 
@@ -502,7 +547,7 @@ function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBook
                   </div>
                 )}
               </div>
-              {sessionOver && (
+              {sessionOver && !b.isOpenMatch && (
                 <button
                   onClick={onMarkNoShow}
                   disabled={updating}
@@ -552,7 +597,7 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
     fetch(`/api/ground-owner/grounds/${facilityId}/courts`)
       .then((r) => r.json())
       .then((d) => {
-        const active = (d.courts ?? []).filter((c: any) => c.isActive);
+        const active = (d.courts ?? []).filter((c: { id: string; name: string; isActive: boolean }) => c.isActive);
         setCourts(active);
         setCourtId(active.length === 1 ? active[0].id : "");
       })
@@ -610,17 +655,22 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
       }
     }
     setSaving(true);
-    const res  = await fetch("/api/ground-owner/bookings", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ facilityId, courtId: courtId || undefined, bookingDate, startTime, endTime, playerName: playerName.trim(), contactNumber: contactNumber.trim() || undefined, notes: notes.trim() || undefined }),
-    });
-    const data = await res.json();
-    setSaving(false);
-    if (!res.ok) {
-      setError(data.error ?? "Failed to create phone booking.");
-    } else {
-      onCreated(data.booking);
+    try {
+      const res  = await fetch("/api/ground-owner/bookings", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ facilityId, courtId: courtId || undefined, bookingDate, startTime, endTime, playerName: playerName.trim(), contactNumber: contactNumber.trim() || undefined, notes: notes.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to create phone booking.");
+      } else {
+        onCreated(data.booking);
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -919,23 +969,26 @@ export default function GroundOwnerBookingsPage() {
   const load = useCallback(async (pageNum = 1, append = false) => {
     if (pageNum === 1) setLoading(true);
     else setLoadingMore(true);
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
+      if (pageNum > 1)  params.set("page",   String(pageNum));
 
-    const params = new URLSearchParams();
-    if (statusFilter) params.set("status", statusFilter);
-    if (pageNum > 1)  params.set("page",   String(pageNum));
+      const res  = await fetch(`/api/ground-owner/bookings?${params}`);
+      const data = await res.json();
 
-    const res  = await fetch(`/api/ground-owner/bookings?${params}`);
-    const data = await res.json();
+      if (append) setBookings((prev) => [...prev, ...(data.bookings ?? [])]);
+      else        setBookings(data.bookings ?? []);
 
-    if (append) setBookings((prev) => [...prev, ...(data.bookings ?? [])]);
-    else        setBookings(data.bookings ?? []);
-
-    setTotal(data.total    ?? 0);
-    setHasMore(data.hasMore ?? false);
-    setCurrentPage(pageNum);
-
-    if (pageNum === 1) setLoading(false);
-    else setLoadingMore(false);
+      setTotal(data.total    ?? 0);
+      setHasMore(data.hasMore ?? false);
+      setCurrentPage(pageNum);
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      if (pageNum === 1) setLoading(false);
+      else setLoadingMore(false);
+    }
   }, [statusFilter]);
 
   useEffect(() => { load(1); }, [load]);
@@ -944,17 +997,22 @@ export default function GroundOwnerBookingsPage() {
   const updateStatus = async (id: string, status: string) => {
     setUpdating(id);
     setError("");
-    const res  = await fetch(`/api/ground-owner/bookings/${id}/status`, {
-      method:  "PUT",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ status }),
-    });
-    const data = await res.json();
-    setUpdating(null);
-    if (!res.ok) {
-      setError(data.error ?? "Failed to update status.");
-    } else {
-      setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status } : b));
+    try {
+      const res  = await fetch(`/api/ground-owner/bookings/${id}/status`, {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to update status.");
+      } else {
+        setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status } : b));
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setUpdating(null);
     }
   };
 
@@ -964,17 +1022,22 @@ export default function GroundOwnerBookingsPage() {
     const id = cancelTarget.id;
     setUpdating(id);
     setError("");
-    const res  = await fetch(`/api/ground-owner/bookings/${id}/status`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body:   JSON.stringify({ status: "CANCELLED" }),
-    });
-    const data = await res.json();
-    setUpdating(null);
-    setCancelTarget(null);
-    if (!res.ok) {
-      setError(data.error ?? "Failed to cancel booking.");
-    } else {
-      setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "CANCELLED" } : b));
+    try {
+      const res  = await fetch(`/api/ground-owner/bookings/${id}/status`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body:   JSON.stringify({ status: "CANCELLED" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to cancel booking.");
+      } else {
+        setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "CANCELLED" } : b));
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setUpdating(null);
+      setCancelTarget(null);
     }
   };
 
@@ -984,14 +1047,19 @@ export default function GroundOwnerBookingsPage() {
     const id = noShowTarget.id;
     setUpdating(id);
     setError("");
-    const res  = await fetch(`/api/ground-owner/bookings/${id}/noshow`, { method: "PUT" });
-    const data = await res.json();
-    setUpdating(null);
-    setNoShowTarget(null);
-    if (!res.ok) {
-      setError(data.error ?? "Failed to mark no-show.");
-    } else {
-      setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "NO_SHOW" } : b));
+    try {
+      const res  = await fetch(`/api/ground-owner/bookings/${id}/noshow`, { method: "PUT" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to mark no-show.");
+      } else {
+        setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "NO_SHOW" } : b));
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setUpdating(null);
+      setNoShowTarget(null);
     }
   };
 
@@ -999,41 +1067,40 @@ export default function GroundOwnerBookingsPage() {
   const handleComplete = async (cashReceived: boolean) => {
     if (!completeTarget) return;
     const id = completeTarget.id;
+    const target = completeTarget;
     setUpdating(id);
     setError("");
-    const res  = await fetch(`/api/ground-owner/bookings/${id}/status`, {
-      method:  "PUT",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ status: "COMPLETED", cashReceived }),
-    });
-    const data = await res.json();
-    setUpdating(null);
-    setCompleteTarget(null);
-    if (!res.ok) {
-      setError(data.error ?? "Failed to update status.");
-    } else {
-      const newPaymentStatus = completeTarget.paymentMethod === "ON_ARRIVAL"
-        ? (cashReceived ? "PAID" : "PENDING")
-        : completeTarget.paymentStatus;
-      setBookings((prev) =>
-        prev.map((b) =>
-          b.id === id ? { ...b, status: "COMPLETED", paymentStatus: newPaymentStatus } : b
-        )
-      );
+    try {
+      const res  = await fetch(`/api/ground-owner/bookings/${id}/status`, {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ status: "COMPLETED", cashReceived }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to update status.");
+      } else {
+        const newPaymentStatus = target.paymentMethod === "ON_ARRIVAL"
+          ? (cashReceived ? "PAID" : "PENDING")
+          : target.paymentStatus;
+        setBookings((prev) =>
+          prev.map((b) =>
+            b.id === id ? { ...b, status: "COMPLETED", paymentStatus: newPaymentStatus } : b
+          )
+        );
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setUpdating(null);
+      setCompleteTarget(null);
     }
   };
 
-  const filtered = bookings.filter(
-    (b) => {
-      const term = search.toLowerCase();
-      const isWalkIn = b.specialRequests?.startsWith("[Walk-in]");
-      const walkInName = isWalkIn ? b.specialRequests!.replace("[Walk-in] ", "").split(" — ")[0] : null;
-      return (
-        (walkInName ?? b.user.name).toLowerCase().includes(term) ||
-        b.facility.name.toLowerCase().includes(term)
-      );
-    }
-  );
+  const filtered = bookings.filter((b) => {
+    const term = search.toLowerCase();
+    return getDisplayName(b).toLowerCase().includes(term) || b.facility.name.toLowerCase().includes(term);
+  });
 
   const byDateAsc  = (a: Booking, b: Booking) => a.bookingDate.localeCompare(b.bookingDate) || a.startTime.localeCompare(b.startTime);
   const byDateDesc = (a: Booking, b: Booking) => b.bookingDate.localeCompare(a.bookingDate) || b.startTime.localeCompare(a.startTime);

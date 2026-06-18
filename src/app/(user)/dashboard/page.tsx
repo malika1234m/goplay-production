@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { CalendarCheck, Clock, CheckCircle, XCircle, ChevronRight, MapPin, Star, Building2 } from "lucide-react";
+import { CalendarCheck, Clock, CheckCircle, XCircle, ChevronRight, MapPin, Building2, Zap, Users } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 
 async function getUserStats(userId: string) {
-  const [bookings, recent] = await Promise.all([
+  const [bookings, recent, activeSpots] = await Promise.all([
     db.facilityBooking.findMany({
       where: { userId },
       select: { status: true },
@@ -14,6 +14,22 @@ async function getUserStats(userId: string) {
       where: { userId },
       include: {
         facility: { select: { name: true, city: true, categories: { select: { name: true, icon: true } } } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+    }),
+    db.openMatchSpot.findMany({
+      where: { userId, status: { in: ["RESERVED", "CONFIRMED"] }, match: { status: { in: ["COLLECTING", "MATCHED"] }, expiresAt: { gt: new Date() } } },
+      include: {
+        match: {
+          select: {
+            id: true, status: true, preferredDate: true,
+            preferredStartTime: true, preferredEndTime: true,
+            totalSpotsNeeded: true, spotsReserved: true,
+            category: { select: { name: true, icon: true } },
+            facility: { select: { name: true, city: true } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: 3,
@@ -27,7 +43,7 @@ async function getUserStats(userId: string) {
     cancelled: bookings.filter((b) => b.status === "CANCELLED").length,
   };
 
-  return { stats, recent };
+  return { stats, recent, activeSpots };
 }
 
 const statusStyles: Record<string, string> = {
@@ -41,13 +57,14 @@ const categoryEmoji: Record<string, string> = {
   Cricket: "🏏", Football: "⚽", Futsal: "🥅", Tennis: "🎾",
   Badminton: "🏸", Basketball: "🏀", Volleyball: "🏐",
   Netball: "🏐", Rugby: "🏉", Swimming: "🏊", "Table Tennis": "🏓",
+  Pickleball: "🏓", "Billiards & Pool": "🎱",
 };
 
 export default async function UserDashboard() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { stats, recent } = await getUserStats(session.user.id);
+  const { stats, recent, activeSpots } = await getUserStats(session.user.id);
 
   const statCards = [
     { label: "Total Bookings", value: stats.total,     icon: CalendarCheck, color: "bg-blue-50 text-blue-600",   href: "/my-bookings" },
@@ -158,22 +175,103 @@ export default async function UserDashboard() {
         )}
       </div>
 
+      {/* GoPlay Connect — active lobbies widget */}
+      {activeSpots.length > 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-green-100 rounded-lg flex items-center justify-center">
+                <Zap className="w-3.5 h-3.5 text-green-700" />
+              </div>
+              <h2 className="text-base font-semibold text-slate-900">Active Lobbies</h2>
+            </div>
+            <Link href="/open-matches/my-matches" className="flex items-center gap-1 text-sm text-green-600 hover:text-green-700 font-medium">
+              View all <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {activeSpots.map((s) => {
+              const m          = s.match;
+              const spotsLeft  = m.totalSpotsNeeded - m.spotsReserved;
+              const pct        = Math.round((m.spotsReserved / m.totalSpotsNeeded) * 100);
+              const isMatched  = m.status === "MATCHED";
+              return (
+                <Link key={s.id} href={`/open-matches/${m.id}`}
+                  className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors group">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${isMatched ? "bg-green-100" : "bg-amber-50"}`}>
+                    {m.category.icon || "⚡"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{m.category.name} — {m.facility.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden max-w-[120px]">
+                        <div className={`h-full rounded-full ${isMatched ? "bg-green-500" : "bg-amber-400"}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs text-slate-400">
+                        {isMatched ? "Matched! ✓" : `${spotsLeft} spot${spotsLeft !== 1 ? "s" : ""} left`}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-400 shrink-0 text-right">
+                    <p>{new Date(m.preferredDate).toLocaleDateString("en-LK", { month: "short", day: "numeric" })}</p>
+                    <p>{m.preferredStartTime}</p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-6 sm:p-7 flex flex-col sm:flex-row items-start sm:items-center gap-5">
+          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+            <Zap className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-white text-base">GoPlay Connect</h3>
+              <span className="text-[10px] bg-white/25 text-white px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">New</span>
+            </div>
+            <p className="text-green-100 text-sm leading-relaxed">
+              No full team? Create or join an open match lobby. GoPlay auto-books the court when all spots fill.
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Link href="/open-matches"
+              className="bg-white hover:bg-green-50 text-green-700 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
+              Browse Lobbies
+            </Link>
+            <Link href="/open-matches/create"
+              className="bg-white/20 hover:bg-white/30 border border-white/30 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
+              Start One
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Quick links */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link
           href="/grounds"
-          className="bg-gradient-to-br from-green-600 to-green-700 text-white rounded-2xl p-6 hover:from-green-700 hover:to-green-800 transition-all"
+          className="bg-white border border-slate-100 rounded-2xl p-6 hover:shadow-md hover:-translate-y-0.5 transition-all"
         >
-          <MapPin className="w-8 h-8 mb-3 opacity-80" />
-          <h3 className="font-semibold text-lg">Browse Grounds</h3>
-          <p className="text-green-100 text-sm mt-1">Find and book a ground near you</p>
+          <MapPin className="w-7 h-7 mb-3 text-green-600" />
+          <h3 className="font-semibold text-slate-900">Browse Grounds</h3>
+          <p className="text-slate-500 text-sm mt-1">Find and book a ground near you</p>
+        </Link>
+        <Link
+          href="/open-matches"
+          className="bg-white border border-green-200 rounded-2xl p-6 hover:shadow-md hover:shadow-green-100 hover:-translate-y-0.5 transition-all"
+        >
+          <Zap className="w-7 h-7 mb-3 text-green-600" />
+          <h3 className="font-semibold text-slate-900">Open Matches</h3>
+          <p className="text-slate-500 text-sm mt-1">Find players and fill a lobby</p>
         </Link>
         <Link
           href="/my-bookings"
-          className="bg-white border border-slate-100 rounded-2xl p-6 hover:shadow-md transition-all"
+          className="bg-white border border-slate-100 rounded-2xl p-6 hover:shadow-md hover:-translate-y-0.5 transition-all"
         >
-          <CalendarCheck className="w-8 h-8 mb-3 text-green-600" />
-          <h3 className="font-semibold text-lg text-slate-900">My Bookings</h3>
+          <CalendarCheck className="w-7 h-7 mb-3 text-green-600" />
+          <h3 className="font-semibold text-slate-900">My Bookings</h3>
           <p className="text-slate-500 text-sm mt-1">View and manage all your bookings</p>
         </Link>
       </div>

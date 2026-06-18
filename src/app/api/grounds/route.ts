@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
         capacity:  true,
         amenities: true,
         images:    true,
-        categories: { select: { name: true, icon: true } },
+        categories: { select: { id: true, name: true, icon: true, minPlayers: true, maxPlayers: true, allowOpenMatch: true } },
         _count:    { select: { reviews: true } },
         reviews:   { select: { rating: true } },
       },

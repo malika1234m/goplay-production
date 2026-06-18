@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   DollarSign, CalendarCheck, Building2, Star,
   Clock, ChevronRight, Check, X, Loader2, TrendingUp,
-  MapPin, Wrench, CreditCard, Banknote,
+  MapPin, Wrench, CreditCard, Banknote, Zap,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area,
@@ -23,16 +23,18 @@ interface Stats {
 }
 
 interface TodayBooking {
-  id:            string;
-  userName:      string;
-  facilityName:  string;
-  courtName:     string | null;
-  startTime:     string;
-  endTime:       string;
-  totalAmount:   number;
-  status:        string;
-  paymentMethod: string;
-  paymentStatus: string;
+  id:              string;
+  userName:        string;
+  facilityName:    string;
+  courtName:       string | null;
+  startTime:       string;
+  endTime:         string;
+  totalAmount:     number;
+  status:          string;
+  paymentMethod:   string;
+  paymentStatus:   string;
+  isOpenMatch?:    boolean;
+  isPhoneBooking?: boolean;
 }
 
 interface PendingBooking {
@@ -178,8 +180,7 @@ export default function GroundOwnerDashboard() {
       loadPerformance(),
       loadReviews(),
     ]).finally(() => setLoading(false));
-    loadChart(30);
-  }, [loadStats, loadPending, loadPerformance, loadReviews, loadChart]);
+  }, [loadStats, loadPending, loadPerformance, loadReviews]);
 
   useEffect(() => { loadChart(chartDays); }, [chartDays, loadChart]);
 
@@ -207,7 +208,7 @@ export default function GroundOwnerDashboard() {
     {
       label: "Monthly Earnings",
       value: `Rs. ${(stats?.monthlyRevenue ?? 0).toLocaleString()}`,
-      sub:   `Rs. ${(stats?.monthlyRevenue ?? 0).toLocaleString()} this month`,
+      sub:   `${stats?.totalBookings ?? 0} total booking${stats?.totalBookings !== 1 ? "s" : ""} all time`,
       icon:  DollarSign,
       color: "bg-green-50 text-green-600",
     },
@@ -355,12 +356,25 @@ export default function GroundOwnerDashboard() {
             </div>
           ) : (
             <div className="divide-y divide-slate-50">
-              {todayList.map((b) => (
+              {todayList.map((b) => {
+                const isOpenMatch  = b.isOpenMatch    ?? false;
+                const isPhoneBook  = b.isPhoneBooking ?? false;
+                return (
                 <div key={b.id} className="px-5 py-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-900 truncate">{b.facilityName}</p>
-                      <p className="text-xs text-slate-500 truncate">{b.userName}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                        {isOpenMatch && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium bg-teal-50 text-teal-700 border border-teal-100 px-1.5 py-0.5 rounded-full">
+                            <Zap className="w-2.5 h-2.5" /> Open Match
+                          </span>
+                        )}
+                        {isPhoneBook && !isOpenMatch && (
+                          <span className="text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-full">Phone</span>
+                        )}
+                        <p className="text-xs text-slate-500 truncate">{b.userName}</p>
+                      </div>
                       <div className="flex items-center gap-1 text-xs text-slate-400 mt-0.5">
                         <Clock className="w-3 h-3" />
                         {b.startTime} – {b.endTime}
@@ -389,7 +403,8 @@ export default function GroundOwnerDashboard() {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -398,7 +413,7 @@ export default function GroundOwnerDashboard() {
         <div className="bg-white rounded-2xl border border-slate-100 p-6">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-base font-semibold text-slate-900">Ground Performance</h2>
-            <span className="text-xs text-slate-400 bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-full">This Month</span>
+            <span className="text-xs text-slate-400 bg-slate-50 border border-slate-100 px-2.5 py-1 rounded-full">All Time</span>
           </div>
           {performance.length === 0 ? (
             <div className="py-8 text-center">

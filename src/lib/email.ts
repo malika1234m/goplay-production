@@ -311,3 +311,72 @@ export async function sendCommissionSettledEmail(opts: {
   `);
   await send(opts.to, `Platform Commission Settled — ${amountStr}`, html);
 }
+
+// ── MERGE CONFLICT NOTE ────────────────────────────────────────────────────────
+// When merging subscription-plans branch, email.ts will conflict here.
+// Keep BOTH sets of additions:
+//   - subscription-plans adds: sendPlanActivationEmail, sendPlanUpgradeEmail,
+//     sendPlanCancelledEmail (add those above or below this block)
+//   - Open Match adds: sendMatchFoundEmail, sendMatchExpiredEmail (below)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── 11. Open Match — match found email (to all players) ──────────────────────
+export async function sendMatchFoundEmail(opts: {
+  to: string;
+  playerName: string;
+  sport: string;
+  facilityName: string;
+  facilityAddress: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  matchId: string;
+}) {
+  const html = layout(`
+    <h2 style="margin:0 0 8px;color:#0f172a;font-size:20px">Your Match is On! 🎉</h2>
+    <p style="color:#475569;font-size:14px;margin:0 0 24px">
+      Hi ${opts.playerName}, GoPlay found enough players for your open match. You're all set!
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-radius:10px;padding:16px;border:1px solid #bbf7d0;margin-bottom:20px">
+      ${infoRow("Sport",    opts.sport)}
+      ${infoRow("Venue",    opts.facilityName)}
+      ${infoRow("Address",  opts.facilityAddress)}
+      ${infoRow("Date",     opts.date)}
+      ${infoRow("Time",     `${opts.startTime} – ${opts.endTime}`)}
+    </table>
+    <p style="color:#475569;font-size:13px;margin:0 0 4px">
+      You can view your co-players' contact details in the GoPlay app.
+    </p>
+    ${button(`https://goplay.lk/open-matches/${opts.matchId}`, "View Match Details")}
+  `);
+  await send(opts.to, "Your GoPlay Open Match is Confirmed! 🏆", html);
+}
+
+// ── 12. Open Match — lobby expired / refund email ────────────────────────────
+export async function sendMatchExpiredEmail(opts: {
+  to: string;
+  playerName: string;
+  sport: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+}) {
+  const html = layout(`
+    <h2 style="margin:0 0 8px;color:#0f172a;font-size:20px">Match Not Found</h2>
+    <p style="color:#475569;font-size:14px;margin:0 0 24px">
+      Hi ${opts.playerName}, unfortunately we couldn't fill the open match lobby for the session below.
+      Your payment has been fully refunded.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff7ed;border-radius:10px;padding:16px;border:1px solid #fed7aa;margin-bottom:20px">
+      ${infoRow("Sport",  opts.sport)}
+      ${infoRow("Date",   opts.date)}
+      ${infoRow("Time",   `${opts.startTime} – ${opts.endTime}`)}
+      ${infoRow("Status", "Refunded")}
+    </table>
+    <p style="color:#475569;font-size:13px;margin:0 0 4px">
+      Don't give up — try creating a new lobby or browse available ones on GoPlay.
+    </p>
+    ${button("https://goplay.lk/open-matches", "Browse Open Matches")}
+  `);
+  await send(opts.to, "GoPlay Open Match — Lobby Expired (Refund Issued)", html);
+}

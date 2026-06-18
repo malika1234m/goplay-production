@@ -262,15 +262,20 @@ function RefundModal({
   const submit = async () => {
     setLoading(true);
     setError("");
-    const res  = await fetch(`/api/admin/refunds/${booking.id}`, {
-      method:  "PUT",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ note }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) { setError(data.error ?? "Failed."); return; }
-    onDone();
+    try {
+      const res  = await fetch(`/api/admin/refunds/${booking.id}`, {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ note }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Failed."); return; }
+      onDone();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -471,8 +476,7 @@ export default function AdminRefundsPage() {
   const handleDone = async () => {
     setModal(null);
     setLoading(true);
-    await load();
-    setLoading(false);
+    try { await load(); } finally { setLoading(false); }
   };
 
   const s = summary ?? {

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   History, Search, Calendar, Filter, Download,
   ChevronLeft, ChevronRight, User, Phone, Clock,
-  CheckCircle2, XCircle, Ban, AlertCircle, StickyNote,
+  CheckCircle2, XCircle, Ban, AlertCircle, StickyNote, Zap,
 } from "lucide-react";
 
 interface Booking {
@@ -19,6 +19,7 @@ interface Booking {
   totalHours: number;
   contactNumber: string | null;
   specialRequests: string | null;
+  isOpenMatch?: boolean;
   user: { name: string; email: string; phone: string | null };
   facility: { name: string; city: string };
   court: { name: string } | null;
@@ -41,7 +42,7 @@ function fmtTime(t: string) {
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 function isWalkIn(b: Booking) {
-  return b.specialRequests?.startsWith("[Walk-in]") ?? false;
+  return !b.isOpenMatch && (b.specialRequests?.startsWith("[Walk-in]") ?? false);
 }
 function walkInName(b: Booking) {
   if (!isWalkIn(b)) return null;
@@ -49,6 +50,7 @@ function walkInName(b: Booking) {
   return raw.split(" — ")[0].trim();
 }
 function displayName(b: Booking) {
+  if (b.isOpenMatch) return "GoPlay Connect";
   return isWalkIn(b) ? walkInName(b) ?? b.user.name : b.user.name;
 }
 
@@ -91,7 +93,7 @@ export default function BookingHistoryPage() {
     const q = search.toLowerCase();
     return (
       displayName(b).toLowerCase().includes(q) ||
-      b.user.email.toLowerCase().includes(q) ||
+      (!b.isOpenMatch && b.user.email.toLowerCase().includes(q)) ||
       (b.contactNumber ?? "").includes(q) ||
       b.facility.name.toLowerCase().includes(q) ||
       b.facility.city.toLowerCase().includes(q)
@@ -109,10 +111,10 @@ export default function BookingHistoryPage() {
         `${b.facility.name} (${b.facility.city})`,
         b.court?.name ?? "",
         displayName(b),
-        b.contactNumber ?? "",
+        b.isOpenMatch ? "" : (b.contactNumber ?? ""),
         fmtTime(b.startTime),
         fmtTime(b.endTime),
-        b.totalHours.toFixed(1),
+        (b.totalHours ?? 0).toFixed(1),
         b.totalAmount.toFixed(2),
         b.status,
         b.paymentMethod,
@@ -248,10 +250,11 @@ export default function BookingHistoryPage() {
 
           <div className="space-y-3">
             {paginated.map((b) => {
-              const sm    = STATUS_META[b.status];
-              const Icon  = sm.icon;
-              const phone = b.contactNumber;
-              const walkin = isWalkIn(b);
+              const sm       = STATUS_META[b.status];
+              const Icon     = sm.icon;
+              const openMatch = b.isOpenMatch ?? false;
+              const walkin    = isWalkIn(b);
+              const phone     = openMatch ? null : b.contactNumber;
               return (
                 <div key={b.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
                   <div className="flex flex-wrap items-start gap-4">
@@ -278,8 +281,13 @@ export default function BookingHistoryPage() {
 
                     {/* Player */}
                     <div className="flex-1 min-w-[160px]">
-                      <div className="flex items-center gap-1.5">
-                        {walkin && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {openMatch && (
+                          <span className="inline-flex items-center gap-0.5 text-xs bg-teal-500/10 text-teal-400 border border-teal-500/20 px-1.5 py-0.5 rounded-md font-medium">
+                            <Zap className="w-3 h-3" /> Open Match
+                          </span>
+                        )}
+                        {walkin && !openMatch && (
                           <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded-md font-medium">
                             Phone
                           </span>
@@ -289,7 +297,7 @@ export default function BookingHistoryPage() {
                           {displayName(b)}
                         </p>
                       </div>
-                      <p className="text-slate-500 text-xs mt-0.5">{b.user.email}</p>
+                      {!openMatch && <p className="text-slate-500 text-xs mt-0.5">{b.user.email}</p>}
                       {phone && (
                         <a
                           href={`tel:${phone}`}
@@ -302,7 +310,7 @@ export default function BookingHistoryPage() {
                     </div>
 
                     {/* Notes */}
-                    {b.specialRequests && !walkin && (
+                    {b.specialRequests && !walkin && !openMatch && (
                       <div className="min-w-[120px] max-w-[200px]">
                         <p className="text-slate-500 text-xs flex items-center gap-1">
                           <StickyNote className="w-3 h-3" />

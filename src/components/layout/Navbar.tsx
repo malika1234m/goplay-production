@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
-import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Building2 } from "lucide-react";
+import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Building2, Zap, Trophy, CalendarDays } from "lucide-react";
 import NotificationBell from "@/components/layout/NotificationBell";
 
 export default function Navbar() {
@@ -35,6 +35,13 @@ export default function Navbar() {
           <nav className="hidden md:flex items-center gap-8">
             <Link href="/grounds" className="text-slate-600 hover:text-green-600 text-sm font-medium transition-colors">
               Browse Grounds
+            </Link>
+            <Link
+              href="/open-matches"
+              className="flex items-center gap-1.5 text-sm font-semibold text-green-700 hover:text-green-800 bg-green-50 hover:bg-green-100 border border-green-200 px-3 py-1.5 rounded-xl transition-colors"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Find a Match
             </Link>
             <Link href="/#how-it-works" className="text-slate-600 hover:text-green-600 text-sm font-medium transition-colors">
               How It Works
@@ -75,14 +82,32 @@ export default function Navbar() {
                       Profile
                     </Link>
                     {session?.user?.role === "USER" && (
-                      <Link
-                        href="/become-provider"
-                        onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-green-700 hover:bg-green-50"
-                      >
-                        <Building2 className="w-4 h-4 text-green-500" />
-                        Join as Provider
-                      </Link>
+                      <>
+                        <Link
+                          href="/my-bookings"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          <CalendarDays className="w-4 h-4 text-slate-400" />
+                          My Bookings
+                        </Link>
+                        <Link
+                          href="/open-matches/my-matches"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-green-700 hover:bg-green-50"
+                        >
+                          <Zap className="w-4 h-4 text-green-500" />
+                          My Matches
+                        </Link>
+                        <Link
+                          href="/become-provider"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          <Building2 className="w-4 h-4 text-slate-400" />
+                          Join as Provider
+                        </Link>
+                      </>
                     )}
                     <hr className="my-1 border-slate-100" />
                     <button
@@ -126,6 +151,9 @@ export default function Navbar() {
           <Link href="/grounds" className="text-sm font-medium text-slate-700 py-2" onClick={() => setMenuOpen(false)}>
             Browse Grounds
           </Link>
+          <Link href="/open-matches" className="flex items-center gap-1.5 text-sm font-semibold text-green-700 py-2" onClick={() => setMenuOpen(false)}>
+            <Zap className="w-4 h-4" /> Find a Match
+          </Link>
           <Link href="/#how-it-works" className="text-sm font-medium text-slate-700 py-2" onClick={() => setMenuOpen(false)}>
             How It Works
           </Link>
@@ -135,9 +163,17 @@ export default function Navbar() {
                 Dashboard
               </Link>
               {session.user?.role === "USER" && (
-                <Link href="/become-provider" className="text-sm font-medium text-green-700 py-2" onClick={() => setMenuOpen(false)}>
-                  Join as Provider
-                </Link>
+                <>
+                  <Link href="/my-bookings" className="flex items-center gap-1.5 text-sm font-medium text-slate-700 py-2" onClick={() => setMenuOpen(false)}>
+                    <CalendarDays className="w-4 h-4" /> My Bookings
+                  </Link>
+                  <Link href="/open-matches/my-matches" className="flex items-center gap-1.5 text-sm font-medium text-green-700 py-2" onClick={() => setMenuOpen(false)}>
+                    <Zap className="w-4 h-4" /> My Matches
+                  </Link>
+                  <Link href="/become-provider" className="text-sm font-medium text-slate-600 py-2" onClick={() => setMenuOpen(false)}>
+                    Join as Provider
+                  </Link>
+                </>
               )}
               <button onClick={() => signOut({ callbackUrl: "/" })} className="text-sm font-medium text-red-600 text-left py-2">
                 Sign out

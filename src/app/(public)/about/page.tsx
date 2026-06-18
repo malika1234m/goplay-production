@@ -45,6 +45,7 @@ export default function AboutPage() {
             <p className="text-slate-600 leading-relaxed">
               A Sri Lanka where every sports enthusiast can find a ground near them in under 60 seconds,
               and every facility owner can run a fully digital operation — bookings, payments, and staff — from one dashboard.
+              With <strong>GoPlay Connect</strong>, we're taking it further: even players without a full team can show up and play.
             </p>
           </div>
         </div>
@@ -95,10 +96,10 @@ export default function AboutPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center">
           {[
-            { value: "Colombo",        label: "Launching First",              sub: "More cities coming soon" },
-            { value: "Instant",        label: "Booking Confirmation",         sub: "No calls. No waiting." },
-            { value: "Free",           label: "To List Your Facility",        sub: "Ground owners pay nothing upfront" },
-            { value: "24/7",           label: "Bookings Stay Open",           sub: "Players can book any time" },
+            { value: "Colombo",  label: "Launching First",         sub: "More cities coming soon" },
+            { value: "Instant",  label: "Booking Confirmation",    sub: "No calls. No waiting." },
+            { value: "Free",     label: "To List Your Facility",   sub: "Ground owners pay nothing upfront" },
+            { value: "24/7",     label: "Bookings Stay Open",      sub: "Players can book any time" },
           ].map(({ value, label, sub }) => (
             <div key={label} className="bg-slate-50 rounded-2xl border border-slate-100 py-8 px-4">
               <p className="text-3xl font-extrabold text-green-600 mb-1">{value}</p>
@@ -106,6 +107,25 @@ export default function AboutPage() {
               <p className="text-xs text-slate-400 mt-1">{sub}</p>
             </div>
           ))}
+        </div>
+
+        {/* GoPlay Connect highlight */}
+        <div className="mt-10 bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-8 text-white flex flex-col sm:flex-row items-start sm:items-center gap-6">
+          <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+            <Zap className="w-7 h-7 text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-bold">GoPlay Connect</h3>
+              <span className="text-[10px] bg-white/25 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">New</span>
+            </div>
+            <p className="text-green-100 text-sm leading-relaxed max-w-lg">
+              Don't have a full team? Create or join an open match lobby. When all spots fill, GoPlay automatically books the court for everyone — no team needed, no calls required.
+            </p>
+          </div>
+          <Link href="/open-matches" className="shrink-0 bg-white hover:bg-green-50 text-green-700 font-semibold text-sm px-5 py-3 rounded-xl transition-colors">
+            Browse Lobbies
+          </Link>
         </div>
       </section>
 

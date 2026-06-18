@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Users, Search, Loader2, UserCheck, Building2, Shield, Ban, CircleCheck, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -20,15 +20,17 @@ interface Counts { all: number; users: number; owners: number; admins: number }
 const PER_PAGE = 25;
 
 const ROLE_BADGE: Record<string, string> = {
-  USER:         "bg-blue-50 text-blue-700",
-  GROUND_OWNER: "bg-amber-50 text-amber-700",
-  ADMIN:        "bg-red-50 text-red-700",
+  USER:          "bg-blue-50 text-blue-700",
+  GROUND_OWNER:  "bg-amber-50 text-amber-700",
+  ADMIN:         "bg-red-50 text-red-700",
+  GROUND_WORKER: "bg-purple-50 text-purple-700",
 };
 
 const ROLE_ICON: Record<string, React.ElementType> = {
-  USER:         UserCheck,
-  GROUND_OWNER: Building2,
-  ADMIN:        Shield,
+  USER:          UserCheck,
+  GROUND_OWNER:  Building2,
+  ADMIN:         Shield,
+  GROUND_WORKER: UserCheck,
 };
 
 export default function AdminUsersPage() {
@@ -61,6 +63,15 @@ export default function AdminUsersPage() {
 
   useEffect(() => { load("", ""); }, [load]);
 
+  const initializedRef = useRef(false);
+  const debounceRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!initializedRef.current) { initializedRef.current = true; return; }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { load(q, role, 1); }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [q, role]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const toggleActive = async (u: User) => {
     setToggling(u.id);
     const res = await fetch(`/api/admin/users/${u.id}/status`, {
@@ -89,23 +100,32 @@ export default function AdminUsersPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total Users",   value: counts.all,    icon: Users,    color: "bg-blue-50 text-blue-600"   },
-          { label: "Players",       value: counts.users,  icon: UserCheck,color: "bg-green-50 text-green-600" },
-          { label: "Ground Owners", value: counts.owners, icon: Building2,color: "bg-amber-50 text-amber-600" },
-          { label: "Admins",        value: counts.admins, icon: Shield,   color: "bg-red-50 text-red-600"     },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${color}`}>
-              <Icon className="w-5 h-5" />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{value}</p>
-            <p className="text-xs text-slate-500 mt-1">{label}</p>
-          </div>
-        ))}
+          { label: "Total Users",   value: counts.all,    icon: Users,    color: "bg-blue-50 text-blue-600",   roleKey: ""             },
+          { label: "Players",       value: counts.users,  icon: UserCheck,color: "bg-green-50 text-green-600", roleKey: "USER"         },
+          { label: "Ground Owners", value: counts.owners, icon: Building2,color: "bg-amber-50 text-amber-600", roleKey: "GROUND_OWNER" },
+          { label: "Admins",        value: counts.admins, icon: Shield,   color: "bg-red-50 text-red-600",     roleKey: "ADMIN"        },
+        ].map(({ label, value, icon: Icon, color, roleKey }) => {
+          const active = role === roleKey;
+          return (
+            <button
+              key={label}
+              onClick={() => setRole(active && roleKey !== "" ? "" : roleKey)}
+              className={`bg-white rounded-2xl border p-5 text-left transition-all ${
+                active ? "border-blue-300 ring-2 ring-blue-100" : "border-slate-100 hover:border-slate-200 hover:shadow-sm"
+              }`}
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${color}`}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <p className="text-2xl font-bold text-slate-900">{value}</p>
+              <p className="text-xs text-slate-500 mt-1">{label}</p>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-wrap gap-3 items-end">
+      <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -113,32 +133,27 @@ export default function AdminUsersPage() {
             placeholder="Search name or email…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") load(q, role, 1); }}
-            className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
+            className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400"
           />
         </div>
         <select
           value={role}
           onChange={(e) => setRole(e.target.value)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600"
+          className="text-sm border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-600"
         >
           <option value="">All Roles</option>
           <option value="USER">Players</option>
           <option value="GROUND_OWNER">Ground Owners</option>
           <option value="ADMIN">Admins</option>
         </select>
-        <button
-          onClick={() => load(q, role, 1)}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          Search
-        </button>
-        <button
-          onClick={() => { setQ(""); setRole(""); load("", "", 1); }}
-          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium rounded-lg transition-colors"
-        >
-          Clear
-        </button>
+        {(q || role) && (
+          <button
+            onClick={() => { setQ(""); setRole(""); }}
+            className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium rounded-xl transition-colors"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -195,7 +210,7 @@ export default function AdminUsersPage() {
                       <td className="px-6 py-3.5">
                         <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${ROLE_BADGE[u.role] ?? "bg-slate-100 text-slate-600"}`}>
                           <RoleIcon className="w-3 h-3" />
-                          {u.role === "GROUND_OWNER" ? "Ground Owner" : u.role.charAt(0) + u.role.slice(1).toLowerCase()}
+                          {u.role === "GROUND_OWNER" ? "Ground Owner" : u.role === "GROUND_WORKER" ? "Ground Worker" : u.role.charAt(0) + u.role.slice(1).toLowerCase()}
                         </span>
                       </td>
                       <td className="px-6 py-3.5 text-slate-500 text-xs">{u.phone ?? "—"}</td>

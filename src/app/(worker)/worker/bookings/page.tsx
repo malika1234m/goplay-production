@@ -6,7 +6,7 @@ import {
   CalendarCheck, Plus, Loader2, X, AlertTriangle,
   CheckCircle2, Clock3, XCircle, User, Phone,
   StickyNote, Calendar, Clock, MapPin, BadgeInfo, History,
-  UserX, ShieldAlert,
+  UserX, ShieldAlert, Zap,
 } from "lucide-react";
 import { TimeRangePicker } from "@/components/booking/TimeRangePicker";
 
@@ -25,6 +25,9 @@ interface Booking {
   contactNumber:   string | null;
   specialRequests: string | null;
   courtName:       string | null;
+  isOpenMatch?:    boolean;
+  isPhoneBooking?: boolean;
+  openMatchId?:    string | null;
 }
 
 interface FacilityInfo {
@@ -97,9 +100,7 @@ function CancelWarningModal({
           <div>
             <h3 className="font-bold text-slate-900 text-base">Cancel Booking?</h3>
             <p className="text-sm text-slate-500 mt-0.5">
-              {booking.specialRequests?.startsWith("[Walk-in]")
-                ? booking.specialRequests.replace("[Walk-in] ", "").split(" — ")[0]
-                : booking.playerName}
+              {booking.playerName}
               {" · "}{new Date(dateOnly(booking.bookingDate) + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
               {" · "}{booking.startTime}–{booking.endTime}
             </p>
@@ -159,9 +160,7 @@ function NoShowModal({
           <div>
             <h3 className="font-bold text-slate-900 text-base">Mark as No-Show?</h3>
             <p className="text-sm text-slate-500 mt-0.5">
-              {booking.specialRequests?.startsWith("[Walk-in]")
-                ? booking.specialRequests.replace("[Walk-in] ", "").split(" — ")[0]
-                : booking.playerName}
+              {booking.playerName}
               {" · "}{new Date(dateOnly(booking.bookingDate) + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
               {" · "}{booking.startTime}–{booking.endTime}
             </p>
@@ -227,14 +226,13 @@ function BookingRow({
   onCancel:   () => void;
   onNoShow:   () => void;
 }) {
-  const isWalkIn    = b.specialRequests?.startsWith("[Walk-in]");
-  const displayName = isWalkIn
-    ? b.specialRequests!.replace("[Walk-in] ", "").split(" — ")[0]
-    : b.playerName;
+  const isOpenMatch = b.isOpenMatch ?? false;
+  const isWalkIn    = b.isPhoneBooking ?? false;
+  const displayName = b.playerName;
   const sessionOver = isSessionOver(b);
 
   return (
-    <div className={`bg-white rounded-2xl border p-4 transition-all ${pastDue ? "border-amber-200 ring-1 ring-amber-100" : "border-slate-100"}`}>
+    <div className={`bg-white rounded-2xl border p-4 transition-all ${pastDue ? "border-amber-200 ring-1 ring-amber-100" : isOpenMatch ? "border-teal-100" : "border-slate-100"}`}>
       {pastDue && (
         <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5 mb-3">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
@@ -246,10 +244,15 @@ function BookingRow({
         <div className="min-w-0 flex-1">
           {/* Player */}
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isWalkIn ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>
-              {displayName[0]?.toUpperCase()}
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isOpenMatch ? "bg-teal-100 text-teal-700" : isWalkIn ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>
+              {isOpenMatch ? <Zap className="w-3.5 h-3.5" /> : displayName[0]?.toUpperCase()}
             </div>
             <span className="font-semibold text-slate-900 text-sm">{displayName}</span>
+            {isOpenMatch && (
+              <span className="text-[10px] font-medium bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                <Zap className="w-2.5 h-2.5" /> Open Match
+              </span>
+            )}
             {isWalkIn && <span className="text-[10px] font-medium bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">Phone</span>}
             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColor[b.status] ?? "bg-slate-100 text-slate-500"}`}>
               {b.status.charAt(0) + b.status.slice(1).toLowerCase()}
@@ -279,8 +282,7 @@ function BookingRow({
 
           {/* Contact */}
           {(() => {
-            const isWalkIn = b.specialRequests?.startsWith("[Walk-in]");
-            const phone = b.contactNumber ?? (!isWalkIn ? b.playerPhone : null);
+            const phone = isOpenMatch ? null : (b.contactNumber ?? b.playerPhone);
             return phone ? (
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-xs text-slate-400 flex items-center gap-1">
@@ -320,7 +322,8 @@ function BookingRow({
                 {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock3 className="w-3.5 h-3.5" />}
                 {sessionOver ? "Complete" : "Ongoing"}
               </button>
-              {sessionOver && (
+              {/* No-show only makes sense for individual player bookings, not system open match bookings */}
+              {sessionOver && !isOpenMatch && (
                 <button onClick={onNoShow} disabled={updating}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 disabled:opacity-40 rounded-lg transition-colors">
                   {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserX className="w-3.5 h-3.5" />}
@@ -329,12 +332,22 @@ function BookingRow({
               )}
             </>
           )}
-          {(b.status === "PENDING" || b.status === "CONFIRMED") && (
+          {/* Open match bookings cannot be cancelled — contact GoPlay support */}
+          {(b.status === "PENDING" || b.status === "CONFIRMED") && !isOpenMatch && (
             <button onClick={onCancel} disabled={updating}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-40 rounded-lg transition-colors">
               {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
               Cancel
             </button>
+          )}
+          {isOpenMatch && b.openMatchId && (
+            <Link
+              href={`/open-matches/${b.openMatchId}`}
+              target="_blank"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors"
+            >
+              <Zap className="w-3.5 h-3.5" /> View Lobby
+            </Link>
           )}
         </div>
       </div>
@@ -615,6 +628,7 @@ function CashModal({ onConfirm, onClose, updating }: { onConfirm: (r: boolean) =
 export default function WorkerBookingsPage() {
   const [bookings,      setBookings]      = useState<Booking[]>([]);
   const [loading,       setLoading]       = useState(true);
+  const [actionError,   setActionError]   = useState("");
   const [showModal,     setShowModal]     = useState(false);
   const [updating,      setUpdating]      = useState<string | null>(null);
   const [facility,      setFacility]      = useState<FacilityInfo | null>(null);
@@ -639,6 +653,7 @@ export default function WorkerBookingsPage() {
 
   const updateStatus = async (id: string, status: "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW", cashReceived?: boolean) => {
     setUpdating(id);
+    setActionError("");
     try {
       const res = await fetch(`/api/worker/bookings/${id}/status`, {
         method:  "PUT",
@@ -649,8 +664,10 @@ export default function WorkerBookingsPage() {
       if (res.ok) {
         setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status } : b));
       } else {
-        alert(d.error ?? "Failed to update.");
+        setActionError(d.error ?? "Failed to update booking.");
       }
+    } catch {
+      setActionError("Network error. Please try again.");
     } finally {
       setUpdating(null);
       setCashTarget(null);
@@ -714,6 +731,10 @@ export default function WorkerBookingsPage() {
           </button>
         </div>
       </div>
+
+      {actionError && (
+        <div className="bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-xl">{actionError}</div>
+      )}
 
       {/* Stats strip */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">

@@ -198,11 +198,15 @@ export default function AdminPayoutsPage() {
   const [modalError,    setModalError]    = useState("");
 
   const load = async () => {
-    const res  = await fetch("/api/admin/payouts");
-    const data = await res.json();
-    setSummary(data.summary   ?? null);
-    setPayouts(data.payouts   ?? []);
-    setOwedToOwners(data.owedToOwners ?? []);
+    try {
+      const res  = await fetch("/api/admin/payouts");
+      const data = await res.json();
+      setSummary(data.summary   ?? null);
+      setPayouts(data.payouts   ?? []);
+      setOwedToOwners(data.owedToOwners ?? []);
+    } catch {
+      // silently keep existing state on reload failure
+    }
   };
 
   useEffect(() => { load().finally(() => setLoading(false)); }, []);
@@ -221,18 +225,22 @@ export default function AdminPayoutsPage() {
     if (!selected) return;
     setUpdating(true);
     setModalError("");
-    const res  = await fetch(`/api/admin/payouts/${selected.id}`, {
-      method:  "PUT",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ status: newStatus, reference, notes }),
-    });
-    const data = await res.json();
-    setUpdating(false);
-    if (!res.ok) { setModalError(data.error ?? "Update failed."); return; }
-    closeModal();
-    setLoading(true);
-    await load();
-    setLoading(false);
+    try {
+      const res  = await fetch(`/api/admin/payouts/${selected.id}`, {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ status: newStatus, reference, notes }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setModalError(data.error ?? "Update failed."); return; }
+      closeModal();
+      setLoading(true);
+      try { await load(); } finally { setLoading(false); }
+    } catch {
+      setModalError("Network error. Please try again.");
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const filteredPayouts = payouts.filter((p) => {

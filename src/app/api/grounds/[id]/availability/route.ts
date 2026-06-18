@@ -29,8 +29,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     endOfDay.setUTCHours(23, 59, 59, 999);
     const dayOfWeek = startOfDay.getUTCDay();
 
-    // All 3 queries run in parallel — saves ~60-100ms vs sequential
-    const [schedule, blockedEntries, bookings] = await Promise.all([
+    // All 4 queries run in parallel
+    const [schedule, blockedEntries, bookings, openMatches] = await Promise.all([
       db.facilityAvailability.findFirst({
         where: { facilityId, dayOfWeek, isOpen: true },
       }),
@@ -53,6 +53,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         },
         select: { startTime: true, endTime: true },
       }),
+      db.openMatch.findMany({
+        where: {
+          facilityId,
+          preferredDate: { gte: startOfDay, lte: endOfDay },
+          status:        "COLLECTING",
+          expiresAt:     { gt: new Date() },
+        },
+        select: {
+          id:               true,
+          preferredStartTime: true,
+          preferredEndTime:   true,
+          totalSpotsNeeded:   true,
+          spotsReserved:      true,
+          category: { select: { name: true } },
+        },
+      }),
     ]);
 
     if (!schedule) {
@@ -71,7 +87,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const partialBlocks = blockedEntries.filter((b) => b.startTime && b.endTime);
 
-    // Build a Set of booked minute-ranges for O(1) slot checking
     const bookedRanges = bookings.map((b) => ({
       start: timeToMinutes(b.startTime),
       end:   timeToMinutes(b.endTime),
@@ -80,7 +95,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const openMins  = timeToMinutes(schedule.openTime);
     const closeMins = timeToMinutes(schedule.closeTime);
 
-    const slots: { start: string; end: string; available: boolean; blocked: boolean; blockReason?: string }[] = [];
+    type OpenMatchSlotInfo = { id: string; categoryName: string; spotsLeft: number; totalSpotsNeeded: number };
+    const slots: {
+      start: string; end: string; available: boolean; blocked: boolean;
+      blockReason?: string; openMatch?: OpenMatchSlotInfo;
+    }[] = [];
 
     for (let m = openMins; m < closeMins - 59; m += 60) {
       const start = minutesToTime(m);
@@ -92,12 +111,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       );
       const blocked = !!blockEntry;
 
+      // A COLLECTING lobby overlapping this hour shows as "open match" (only when not already booked)
+      const lobby = !booked && !blocked
+        ? openMatches.find(
+            (om) => timeToMinutes(om.preferredStartTime) < m + 60 &&
+                    timeToMinutes(om.preferredEndTime)   > m
+          )
+        : undefined;
+
       slots.push({
         start,
         end,
-        available:   !booked && !blocked,
+        available: !booked && !blocked && !lobby,
         blocked,
         ...(blocked && blockEntry?.reason ? { blockReason: blockEntry.reason } : {}),
+        ...(lobby ? {
+          openMatch: {
+            id:               lobby.id,
+            categoryName:     lobby.category.name,
+            spotsLeft:        lobby.totalSpotsNeeded - lobby.spotsReserved,
+            totalSpotsNeeded: lobby.totalSpotsNeeded,
+          },
+        } : {}),
       });
     }
 

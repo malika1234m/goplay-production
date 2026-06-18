@@ -31,9 +31,15 @@ interface Application {
 interface Summary { pending: number; approved: number; rejected: number }
 
 const STATUS_COLORS: Record<string, string> = {
-  PENDING:  "bg-yellow-100 text-yellow-700 border-yellow-200",
-  APPROVED: "bg-green-100 text-green-700 border-green-200",
-  REJECTED: "bg-red-100 text-red-700 border-red-200",
+  PENDING:  "bg-amber-50 text-amber-700 border-amber-200",
+  APPROVED: "bg-green-50 text-green-700 border-green-200",
+  REJECTED: "bg-red-50 text-red-700 border-red-200",
+};
+
+const CARD_STYLE: Record<string, { icon: string; bg: string; border: string; ring: string; num: string }> = {
+  PENDING:  { icon: "bg-amber-100 text-amber-600",  bg: "bg-amber-50",  border: "border-amber-400",  ring: "ring-amber-200",  num: "text-amber-700"  },
+  APPROVED: { icon: "bg-green-100 text-green-600",  bg: "bg-green-50",  border: "border-green-400",  ring: "ring-green-200",  num: "text-green-700"  },
+  REJECTED: { icon: "bg-red-100   text-red-600",    bg: "bg-red-50",    border: "border-red-400",    ring: "ring-red-200",    num: "text-red-700"    },
 };
 
 function Modal({ app, onClose, onDone }: { app: Application; onClose: () => void; onDone: () => void }) {
@@ -48,18 +54,23 @@ function Modal({ app, onClose, onDone }: { app: Application; onClose: () => void
     if (!action) return;
     if (action === "reject" && !rejectionReason.trim()) { setError("Rejection reason is required."); return; }
     setLoading(true); setError("");
-    const res = await fetch(`/api/admin/applications/${app.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, rejectionReason, adminNotes }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) { setError((data.detail ?? data.error) ?? "Failed."); return; }
-    if (action === "approve" && data.facilityId) {
-      setApproved({ id: data.facilityId, name: data.facilityName });
-    } else {
-      onDone();
+    try {
+      const res = await fetch(`/api/admin/applications/${app.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, rejectionReason, adminNotes }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError((data.detail ?? data.error) ?? "Failed."); return; }
+      if (action === "approve" && data.facilityId) {
+        setApproved({ id: data.facilityId, name: data.facilityName });
+      } else {
+        onDone();
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -275,14 +286,19 @@ export default function AdminApplicationsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (statusFilter) params.set("status", statusFilter);
-    if (search.trim()) params.set("q", search.trim());
-    const res  = await fetch(`/api/admin/applications?${params}`);
-    const data = await res.json();
-    setApplications(data.applications ?? []);
-    setSummary(data.summary ?? { pending: 0, approved: 0, rejected: 0 });
-    setLoading(false);
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
+      if (search.trim()) params.set("q", search.trim());
+      const res  = await fetch(`/api/admin/applications?${params}`);
+      const data = await res.json();
+      setApplications(data.applications ?? []);
+      setSummary(data.summary ?? { pending: 0, approved: 0, rejected: 0 });
+    } catch {
+      // silently keep existing state on network error
+    } finally {
+      setLoading(false);
+    }
   }, [statusFilter, search]);
 
   useEffect(() => { load(); }, [load]);
@@ -306,31 +322,30 @@ export default function AdminApplicationsPage() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: "Pending Review", count: summary.pending,  color: "yellow", icon: Clock       },
-          { label: "Approved",       count: summary.approved, color: "green",  icon: CheckCircle },
-          { label: "Rejected",       count: summary.rejected, color: "red",    icon: XCircle     },
-        ].map(({ label, count, color, icon: Icon }) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => setStatusFilter(
-              label === "Pending Review" ? "PENDING" :
-              label === "Approved"       ? "APPROVED" : "REJECTED"
-            )}
-            className={`bg-white rounded-2xl border p-4 text-left hover:shadow-md transition-shadow ${
-              statusFilter === (label === "Pending Review" ? "PENDING" : label === "Approved" ? "APPROVED" : "REJECTED")
-                ? `border-${color}-400 ring-2 ring-${color}-200`
-                : "border-slate-100"
-            }`}
-          >
-            <div className={`w-9 h-9 bg-${color}-100 rounded-xl flex items-center justify-center mb-3`}>
-              <Icon className={`w-5 h-5 text-${color}-600`} />
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{count}</p>
-            <p className="text-sm text-slate-500 mt-0.5">{label}</p>
-          </button>
-        ))}
+        {([
+          { label: "Pending Review", count: summary.pending,  key: "PENDING",  icon: Clock       },
+          { label: "Approved",       count: summary.approved, key: "APPROVED", icon: CheckCircle },
+          { label: "Rejected",       count: summary.rejected, key: "REJECTED", icon: XCircle     },
+        ] as const).map(({ label, count, key, icon: Icon }) => {
+          const cs      = CARD_STYLE[key];
+          const active  = statusFilter === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setStatusFilter(active ? "" : key)}
+              className={`bg-white rounded-2xl border p-5 text-left transition-all ${
+                active ? `${cs.border} ring-2 ${cs.ring} ${cs.bg}` : "border-slate-100 hover:border-slate-200 hover:shadow-sm"
+              }`}
+            >
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${cs.icon}`}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <p className={`text-2xl font-bold ${active ? cs.num : "text-slate-900"}`}>{count}</p>
+              <p className="text-sm text-slate-500 mt-0.5">{label}</p>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters */}

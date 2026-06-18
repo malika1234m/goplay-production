@@ -7,11 +7,13 @@ import { db } from "@/lib/db";
 import BookingForm from "@/components/booking/BookingForm";
 import GroundImageGallery from "@/components/grounds/GroundImageGallery";
 import FacilityMapWrapper from "@/components/maps/FacilityMapWrapper";
+import OpenMatchesSection from "@/components/grounds/OpenMatchesSection";
 
 const categoryEmoji: Record<string, string> = {
   Cricket: "🏏", Football: "⚽", Futsal: "🥅", Tennis: "🎾",
   Badminton: "🏸", Basketball: "🏀", Volleyball: "🏐",
   Netball: "🏐", Rugby: "🏉", Swimming: "🏊", "Table Tennis": "🏓",
+  Pickleball: "🏓", "Billiards & Pool": "🎱",
 };
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -298,6 +300,15 @@ export default async function GroundDetailsPage({
               </div>
             </div>
           )}
+
+          {/* ── Open Matches ── cols 1-2 on desktop */}
+          <div className="lg:col-span-2">
+            <OpenMatchesSection
+              facilityId={ground.id}
+              facilityName={ground.name}
+              hourlyRate={ground.hourlyRate}
+            />
+          </div>
 
           {/* ── 7. Reviews ── cols 1-2 on desktop */}
           <div className="lg:col-span-2">

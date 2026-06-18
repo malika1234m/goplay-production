@@ -64,14 +64,16 @@ function fmtMoney(n: number) {
 }
 
 export default function AdminBookingsPage() {
-  const [data,    setData]    = useState<ApiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [q,       setQ]       = useState("");
-  const [status,  setStatus]  = useState("");
-  const [page,    setPage]    = useState(1);
+  const [data,       setData]       = useState<ApiResponse | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [q,          setQ]          = useState("");
+  const [status,     setStatus]     = useState("");
+  const [page,       setPage]       = useState(1);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (silent) setRefreshing(true);
+    else        setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page) });
       if (q.trim()) params.set("q", q.trim());
@@ -81,6 +83,7 @@ export default function AdminBookingsPage() {
       setData(json);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [q, status, page]);
 
@@ -106,11 +109,12 @@ export default function AdminBookingsPage() {
           </p>
         </div>
         <button
-          onClick={load}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+          onClick={() => load(true)}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-60"
         >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
+          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Refreshing…" : "Refresh"}
         </button>
       </div>
 

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
   LayoutDashboard, Users, MapPin, DollarSign, BarChart2, CalendarDays,
-  LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed, Menu, X, UserCircle, ShieldAlert,
+  LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed, Menu, X, UserCircle, ShieldAlert, Swords,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
@@ -16,6 +16,9 @@ const NAV = [
   { id: "users",        href: "/admin/users",         label: "Users",             icon: Users },
   { id: "grounds",      href: "/admin/grounds",       label: "Ground Management", icon: MapPin },
   { id: "applications", href: "/admin/applications",  label: "Applications",      icon: ClipboardList },
+  // MERGE CONFLICT NOTE (subscription-plans): that branch adds "Owner Plans" and "Subscriptions"
+  // entries here. When merging, keep all three additions in the NAV array.
+  { id: "open-matches", href: "/admin/open-matches",  label: "Open Matches",      icon: Swords },
   { id: "earnings",     href: "/admin/earnings",      label: "Earnings",          icon: DollarSign },
   { id: "commissions",  href: "/admin/commissions",   label: "Commissions",       icon: BadgeDollarSign },
   { id: "payouts",      href: "/admin/payouts",       label: "Payouts",           icon: Wallet },
@@ -38,6 +41,7 @@ export default function AdminSidebar() {
   const [refundNeeded,       setRefundNeeded]       = useState(0);
   const [reportedReviews,    setReportedReviews]    = useState(0);
   const [cancellationAlerts, setCancellationAlerts] = useState(0);
+  const [openMatchAlerts,    setOpenMatchAlerts]    = useState(0);
 
   useEffect(() => {
     const saved = localStorage.getItem("adminSidebarCollapsed");
@@ -85,9 +89,20 @@ export default function AdminSidebar() {
     } catch { /* silent */ }
   }, []);
 
+  const loadOpenMatchAlerts = useCallback(async () => {
+    try {
+      const res  = await fetch("/api/admin/open-matches");
+      const data: { spots: { status: string; paymentStatus: string; amountPaid: number }[] }[] = await res.json();
+      if (!Array.isArray(data)) return;
+      const pending = data.flatMap((m) => m.spots ?? [])
+        .filter((s) => s.status === "REFUNDED" && s.paymentStatus === "REFUNDED" && s.amountPaid > 0).length;
+      setOpenMatchAlerts(pending);
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => {
-    loadPending(); loadCommissions(); loadRefunds(); loadReportedReviews(); loadCancellationAlerts();
-  }, [loadPending, loadCommissions, loadRefunds, loadReportedReviews, loadCancellationAlerts]);
+    loadPending(); loadCommissions(); loadRefunds(); loadReportedReviews(); loadCancellationAlerts(); loadOpenMatchAlerts();
+  }, [loadPending, loadCommissions, loadRefunds, loadReportedReviews, loadCancellationAlerts, loadOpenMatchAlerts]);
 
   const toggle = () => {
     setCollapsed((c) => {
@@ -144,7 +159,8 @@ export default function AdminSidebar() {
               id === "applications" && pendingCount    > 0 ? pendingCount    :
               id === "commissions"  && commissionDebt  > 0 ? commissionDebt  :
               id === "refunds"      && refundNeeded    > 0 ? refundNeeded    :
-              id === "reviews"      && reportedReviews > 0 ? reportedReviews : 0;
+              id === "reviews"      && reportedReviews > 0 ? reportedReviews :
+              id === "open-matches" && openMatchAlerts > 0 ? openMatchAlerts : 0;
             const showLabel = !collapsed || onClose;
             return (
               <li key={id}>

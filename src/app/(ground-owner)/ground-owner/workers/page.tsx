@@ -17,7 +17,8 @@ export default function WorkersPage() {
   const [facilityId,  setFacilityId]  = useState("");
   const [workers,     setWorkers]     = useState<Worker[]>([]);
   const [loading,     setLoading]     = useState(true);
-  const [removing,    setRemoving]    = useState<string|null>(null);
+  const [removing,        setRemoving]        = useState<string|null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string|null>(null);
 
   const [showInvite,  setShowInvite]  = useState(false);
   const [email,       setEmail]       = useState("");
@@ -84,8 +85,8 @@ export default function WorkersPage() {
     } finally { setInviting(false); }
   };
 
-  const remove = async (id: string, name: string) => {
-    if (!confirm(`Remove ${name} as a worker? They will lose access to the worker dashboard.`)) return;
+  const remove = async (id: string) => {
+    setConfirmRemoveId(null);
     setRemoving(id);
     try {
       const res = await fetch(`/api/ground-owner/workers/${id}`,{method:"DELETE"});
@@ -183,10 +184,18 @@ export default function WorkersPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-slate-400 hidden sm:block">Added {timeAgo(w.joinedAt)}</span>
-                  <button onClick={() => remove(w.id, w.name)} disabled={removing===w.id}
-                    className="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50" title="Remove worker">
-                    {removing===w.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                  </button>
+                  {confirmRemoveId === w.id ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-red-600 font-medium">Remove?</span>
+                      <button onClick={() => remove(w.id)} className="text-xs font-semibold text-red-600 hover:text-red-700 transition-colors">Yes</button>
+                      <button onClick={() => setConfirmRemoveId(null)} className="text-xs text-slate-400 hover:text-slate-600 transition-colors">No</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setConfirmRemoveId(w.id)} disabled={removing===w.id}
+                      className="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50" title="Remove worker">
+                      {removing===w.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

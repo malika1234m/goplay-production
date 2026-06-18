@@ -75,18 +75,29 @@ export async function GET(req: NextRequest) {
         avgRating,
         totalReviews,
       },
-      todayBookings: todayBookings.map((b) => ({
-        id:            b.id,
-        userName:      b.user.name,
-        facilityName:  b.facility.name,
-        courtName:     b.court?.name ?? null,
-        startTime:     b.startTime,
-        endTime:       b.endTime,
-        totalAmount:   b.totalAmount,
-        status:        b.status,
-        paymentMethod: b.paymentMethod,
-        paymentStatus: b.paymentStatus,
-      })),
+      todayBookings: todayBookings.map((b) => {
+        const isOpenMatch    = b.isOpenMatch ?? false;
+        const isPhoneBooking = !isOpenMatch && (b.specialRequests?.startsWith("[Walk-in]") ?? false);
+        const userName = isOpenMatch
+          ? "GoPlay Connect"
+          : isPhoneBooking
+          ? (b.specialRequests!.replace("[Walk-in]", "").trim().split(" — ")[0].trim() || "Phone Booking")
+          : (b.user.name ?? "—");
+        return {
+          id:            b.id,
+          userName,
+          facilityName:  b.facility.name,
+          courtName:     b.court?.name ?? null,
+          startTime:     b.startTime,
+          endTime:       b.endTime,
+          totalAmount:   b.totalAmount,
+          status:        b.status,
+          paymentMethod: b.paymentMethod,
+          paymentStatus: b.paymentStatus,
+          isOpenMatch,
+          isPhoneBooking,
+        };
+      }),
     }, { headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=60" } });
   } catch (err) {
     console.error("[GET /api/ground-owner/stats]", err);

@@ -51,6 +51,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
     if (!booking) return Response.json({ error: "Booking not found." }, { status: 404 });
 
+    // Open match bookings cannot be cancelled by the ground owner — contact GoPlay admin
+    if (booking.isOpenMatch && status === "CANCELLED") {
+      return Response.json(
+        { error: "Open match bookings cannot be cancelled directly. Please contact GoPlay support to resolve this." },
+        { status: 400 },
+      );
+    }
+
     // Guard: state transition rules
     if (booking.status === "COMPLETED") {
       return Response.json({ error: "This booking is already completed and cannot be changed." }, { status: 400 });
@@ -181,53 +189,57 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       });
     }
 
-    // Notify user
-    const messages: Record<string, string> = {
-      CONFIRMED: `Your booking at ${booking.facility.name} has been confirmed!`,
-      CANCELLED: booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID"
-        ? `Your booking at ${booking.facility.name} has been cancelled by the owner. Your payment will be refunded — our team will be in touch.`
-        : `Your booking at ${booking.facility.name} has been cancelled by the owner.`,
-      COMPLETED: `Your session at ${booking.facility.name} is marked as completed. Thanks for playing!`,
-    };
+    // Skip player notifications for open match bookings — the system user is not a real player
+    if (!booking.isOpenMatch) {
+      const messages: Record<string, string> = {
+        CONFIRMED: `Your booking at ${booking.facility.name} has been confirmed!`,
+        CANCELLED: booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID"
+          ? `Your booking at ${booking.facility.name} has been cancelled by the owner. Your payment will be refunded — our team will be in touch.`
+          : `Your booking at ${booking.facility.name} has been cancelled by the owner.`,
+        COMPLETED: `Your session at ${booking.facility.name} is marked as completed. Thanks for playing!`,
+      };
 
-    await createNotification({
-      userId:  booking.userId,
-      title:   `Booking ${status.charAt(0) + status.slice(1).toLowerCase()}`,
-      message: messages[status],
-      type:    status === "CONFIRMED" ? "success" : status === "CANCELLED" ? "warning" : "info",
-    });
+      await createNotification({
+        userId:  booking.userId,
+        title:   `Booking ${status.charAt(0) + status.slice(1).toLowerCase()}`,
+        message: messages[status],
+        type:    status === "CONFIRMED" ? "success" : status === "CANCELLED" ? "warning" : "info",
+      });
+    }
 
     const dateStr = new Date(booking.bookingDate).toLocaleDateString("en-US", {
       weekday: "short", month: "short", day: "numeric",
     });
 
-    // Email for CONFIRMED and CANCELLED (fire-and-forget)
-    if (status === "CONFIRMED") {
-      void sendBookingConfirmedEmail({
-        to:            booking.user.email ?? "",
-        name:          booking.user.name  ?? "Player",
-        facilityName:  booking.facility.name,
-        date:          dateStr,
-        startTime:     booking.startTime,
-        endTime:       booking.endTime,
-        totalAmount:   booking.totalAmount,
-        paymentMethod: booking.paymentMethod,
-        bookingId:     booking.id,
-      });
-    } else if (status === "CANCELLED") {
-      void sendBookingCancelledEmail({
-        to:           booking.user.email ?? "",
-        name:         booking.user.name  ?? "Player",
-        facilityName: booking.facility.name,
-        date:         dateStr,
-        startTime:    booking.startTime,
-        endTime:      booking.endTime,
-        cancelledBy:  "owner",
-        refundNeeded: booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID",
-      });
+    // Email for CONFIRMED and CANCELLED (fire-and-forget) — skip for open match
+    if (!booking.isOpenMatch) {
+      if (status === "CONFIRMED") {
+        void sendBookingConfirmedEmail({
+          to:            booking.user.email ?? "",
+          name:          booking.user.name  ?? "Player",
+          facilityName:  booking.facility.name,
+          date:          dateStr,
+          startTime:     booking.startTime,
+          endTime:       booking.endTime,
+          totalAmount:   booking.totalAmount,
+          paymentMethod: booking.paymentMethod,
+          bookingId:     booking.id,
+        });
+      } else if (status === "CANCELLED") {
+        void sendBookingCancelledEmail({
+          to:           booking.user.email ?? "",
+          name:         booking.user.name  ?? "Player",
+          facilityName: booking.facility.name,
+          date:         dateStr,
+          startTime:    booking.startTime,
+          endTime:      booking.endTime,
+          cancelledBy:  "owner",
+          refundNeeded: booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID",
+        });
+      }
     }
 
-    if (booking.contactNumber) {
+    if (!booking.isOpenMatch && booking.contactNumber) {
       const smsMessages: Record<string, string> = {
         CONFIRMED: `GoPlay: Your booking at ${booking.facility.name} on ${dateStr} from ${booking.startTime} to ${booking.endTime} has been confirmed. See you there!`,
         CANCELLED: `GoPlay: Your booking at ${booking.facility.name} on ${dateStr} was cancelled by the owner. Contact support if needed.`,

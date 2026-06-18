@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
-  LifeBuoy, UserPlus, Building2, Users, ChevronRight,
-  Mail, Phone, CheckCircle,
+  LifeBuoy, UserPlus, Building2, Users,
+  Mail, Phone, Zap,
 } from "lucide-react";
 
 export const metadata = { title: "Support Center — GoPlay" };
@@ -41,10 +41,11 @@ export default function SupportPage() {
       <div className="bg-white border-b border-slate-100 sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 flex gap-1 overflow-x-auto py-3 text-sm font-medium">
           {[
-            { href: "#become-owner", label: "Become a Facility Owner" },
-            { href: "#add-workers",  label: "Add Workers" },
-            { href: "#players",      label: "For Players" },
-            { href: "#contact",      label: "Contact" },
+            { href: "#become-owner",    label: "Become a Facility Owner" },
+            { href: "#add-workers",     label: "Add Workers" },
+            { href: "#players",         label: "For Players" },
+            { href: "#goplay-connect",  label: "GoPlay Connect" },
+            { href: "#contact",         label: "Contact" },
           ].map(({ href, label }) => (
             <a key={href} href={href} className="shrink-0 px-4 py-1.5 rounded-full text-slate-500 hover:text-green-600 hover:bg-green-50 transition-colors">
               {label}
@@ -143,6 +144,90 @@ export default function SupportPage() {
             <Step number={2} title="Choose a Time Slot" desc="On the facility page, select the date you want. Available hourly slots are shown in green — blocked or booked slots are greyed out. Click a slot to select it." />
             <Step number={3} title="Pay & Confirm" desc="Enter your contact number and any special requests. Proceed to payment via PayHere (card or online banking). Your booking is confirmed instantly." />
             <Step number={4} title="Show Up & Play" desc="Your confirmed booking appears under My Bookings in your dashboard. Show up at the facility at your booked time. Staff can verify your booking by name or booking reference." />
+          </div>
+        </section>
+
+        {/* ── GoPlay Connect ── */}
+        <section id="goplay-connect">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+              <Zap className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-900">GoPlay Connect — Open Matches</h2>
+                <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">New</span>
+              </div>
+              <p className="text-sm text-slate-500">Play without a full team — we find the players for you.</p>
+            </div>
+          </div>
+
+          {/* What is it */}
+          <div className="bg-green-50 border border-green-100 rounded-2xl px-7 py-6 mb-6">
+            <p className="text-slate-700 text-sm leading-relaxed">
+              <strong className="text-slate-900">GoPlay Connect</strong> lets you create or join an <em>open match lobby</em> for any sport.
+              Once enough players have reserved spots to fill the court, GoPlay automatically confirms the booking for everyone in the lobby.
+              You don't need to know anyone in advance — just pick your sport, ground, and time, and we find your teammates.
+            </p>
+          </div>
+
+          {/* How to join a lobby */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-7 space-y-7 mb-6">
+            <h3 className="text-base font-semibold text-slate-900 -mb-2">How to Join an Open Match</h3>
+            <Step
+              number={1}
+              title="Browse Open Lobbies"
+              desc={`Click "Find a Match" in the navigation bar. You'll see all active lobbies filtered by sport, city, and date. You can also find lobbies directly on a facility's booking page — they show as green banners on the time slot grid.`}
+            />
+            <Step
+              number={2}
+              title="Reserve Your Spot"
+              desc="Open a lobby and tap Join. Select how many spots you need (1 for solo, more for a group arriving together). Your spot is reserved instantly and you'll receive a confirmation notification."
+            />
+            <Step
+              number={3}
+              title="Wait for the Lobby to Fill"
+              desc="Other players will join as the lobby fills. You'll get notified as spots are taken. If the lobby doesn't fill before the expiry deadline, it expires automatically and no payment is collected."
+            />
+            <Step
+              number={4}
+              title="Court Auto-Booked — Just Show Up"
+              desc="The moment the last spot is taken, GoPlay automatically confirms the court booking for everyone in the lobby. You'll receive a notification with the full booking details. Just show up and play."
+            />
+          </div>
+
+          {/* How to create a lobby */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-7 space-y-7 mb-6">
+            <h3 className="text-base font-semibold text-slate-900 -mb-2">How to Create an Open Match Lobby</h3>
+            <Step
+              number={1}
+              title="Go to Find a Match"
+              desc={`From the navigation bar, click "Find a Match". On the Open Matches page, click "Create a Lobby".`}
+            />
+            <Step
+              number={2}
+              title="Pick Your Details"
+              desc="Select the sport, facility, date, and preferred time slot. The system will show you how many players are needed to fill a standard match for that sport. You can also set a custom number of spots."
+            />
+            <Step
+              number={3}
+              title="Reserve Your Own Spot"
+              desc="As the creator, you automatically reserve at least one spot. Your lobby becomes visible to other players instantly and they can join from the Browse Lobbies page or the facility's booking calendar."
+            />
+            <Step
+              number={4}
+              title="Share the Lobby"
+              desc="Copy the lobby link and share it with friends or your sports group to fill it faster. GoPlay also surfaces your lobby to players searching for that sport in the same area."
+            />
+          </div>
+
+          <div className="mt-4">
+            <Link
+              href="/open-matches"
+              className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold text-sm px-5 py-3 rounded-xl transition-colors"
+            >
+              <Zap className="w-4 h-4" /> Browse Open Lobbies
+            </Link>
           </div>
         </section>
 

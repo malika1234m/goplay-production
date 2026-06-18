@@ -14,6 +14,9 @@ async function wipe() {
   await db.facilityReviewReply.deleteMany();
   await db.facilityReview.deleteMany();
   await db.groundEarning.deleteMany();
+  // MERGE CONFLICT NOTE (subscription-plans): ownerSubscription.deleteMany() goes here too
+  await db.openMatchSpot.deleteMany();
+  await db.openMatch.deleteMany();
   await db.facilityBooking.deleteMany();
   await db.blockedDate.deleteMany();
   await db.facilityCourt.deleteMany();
@@ -46,14 +49,22 @@ async function main() {
   await wipe();
 
   // ── Sports categories ──────────────────────────────────────────────
+  // minPlayers drives Open Match lobby size requirements
   const [football, cricket, basketball, badminton, tennis, volleyball] =
     await Promise.all([
-      db.sportsCategory.create({ data: { name: "Football",   icon: "⚽" } }),
-      db.sportsCategory.create({ data: { name: "Cricket",    icon: "🏏" } }),
-      db.sportsCategory.create({ data: { name: "Basketball", icon: "🏀" } }),
-      db.sportsCategory.create({ data: { name: "Badminton",  icon: "🏸" } }),
-      db.sportsCategory.create({ data: { name: "Tennis",     icon: "🎾" } }),
-      db.sportsCategory.create({ data: { name: "Volleyball", icon: "🏐" } }),
+      db.sportsCategory.create({ data: { name: "Football",         icon: "⚽", minPlayers: 15, maxPlayers: null, allowOpenMatch: true  } }),
+      db.sportsCategory.create({ data: { name: "Cricket",          icon: "🏏", minPlayers: 10, maxPlayers: null, allowOpenMatch: true  } }),
+      db.sportsCategory.create({ data: { name: "Basketball",       icon: "🏀", minPlayers: 6,  maxPlayers: null, allowOpenMatch: true  } }),
+      db.sportsCategory.create({ data: { name: "Badminton",        icon: "🏸", minPlayers: 2,  maxPlayers: 4,    allowOpenMatch: true  } }),
+      db.sportsCategory.create({ data: { name: "Tennis",           icon: "🎾", minPlayers: 2,  maxPlayers: 4,    allowOpenMatch: true  } }),
+      db.sportsCategory.create({ data: { name: "Volleyball",       icon: "🏐", minPlayers: 6,  maxPlayers: null, allowOpenMatch: true  } }),
+      db.sportsCategory.create({ data: { name: "Futsal",           icon: "🥅", minPlayers: 10, maxPlayers: null, allowOpenMatch: true  } }),
+      db.sportsCategory.create({ data: { name: "Netball",          icon: "🏐", minPlayers: 6,  maxPlayers: null, allowOpenMatch: true  } }),
+      db.sportsCategory.create({ data: { name: "Rugby",            icon: "🏉", minPlayers: 12, maxPlayers: null, allowOpenMatch: true  } }),
+      db.sportsCategory.create({ data: { name: "Swimming",         icon: "🏊", minPlayers: 1,  maxPlayers: null, allowOpenMatch: false } }),
+      db.sportsCategory.create({ data: { name: "Table Tennis",     icon: "🏓", minPlayers: 2,  maxPlayers: 4,    allowOpenMatch: true  } }),
+      db.sportsCategory.create({ data: { name: "Pickleball",       icon: "🏓", minPlayers: 2,  maxPlayers: 4,    allowOpenMatch: true  } }),
+      db.sportsCategory.create({ data: { name: "Billiards & Pool", icon: "🎱", minPlayers: 4,  maxPlayers: null, allowOpenMatch: true  } }),
     ]);
   console.log("✅ 6 sports categories created");
   void [cricket, basketball, badminton, tennis, volleyball];
@@ -74,6 +85,19 @@ async function main() {
       mustChangePassword: true,
     },
   });
+
+  // ── GoPlay System Account (Open Match bookings are placed under this user) ──
+  await db.user.create({
+    data: {
+      name:            "GoPlay System",
+      email:           "system@goplay.lk",
+      password:        await bcrypt.hash(crypto.randomUUID(), 10),
+      role:            "ADMIN",
+      isSystemAccount: true,
+      isActive:        true,
+    },
+  });
+  console.log("✅ GoPlay system account created");
 
   // ── Ground Owner ───────────────────────────────────────────────────
   const ownerUser = await db.user.create({
@@ -110,9 +134,9 @@ async function main() {
 
   // ── Demo players ───────────────────────────────────────────────────
   const [player1, player2, player3] = await Promise.all([
-    db.user.create({ data: { name: "Ashan Fernando",  email: "ashan@demo.lk",  password: playerPass, role: "USER" } }),
-    db.user.create({ data: { name: "Nimal Perera",    email: "nimal@demo.lk",  password: playerPass, role: "USER" } }),
-    db.user.create({ data: { name: "Priya Kumara",    email: "priya@demo.lk",  password: playerPass, role: "USER" } }),
+    db.user.create({ data: { name: "Ashan Fernando",  email: "ashan@demo.lk",  password: playerPass, role: "USER", phone: "+94771234501" } }),
+    db.user.create({ data: { name: "Nimal Perera",    email: "nimal@demo.lk",  password: playerPass, role: "USER", phone: "+94771234502" } }),
+    db.user.create({ data: { name: "Priya Kumara",    email: "priya@demo.lk",  password: playerPass, role: "USER", phone: "+94771234503" } }),
   ]);
 
   console.log("✅ 6 users created (admin, owner, worker, 3 players)");
@@ -382,6 +406,116 @@ async function main() {
     ],
   });
   console.log("✅ 4 notifications created");
+
+  // ── Open Match sample lobbies (all tied to the demo facility) ──────
+  const omDay2 = addDays(dayStart(new Date()), 2);
+  const omDay4 = addDays(dayStart(new Date()), 4);
+  const omDay6 = addDays(dayStart(new Date()), 6);
+  const omDay8 = addDays(dayStart(new Date()), 8);
+
+  const [catFootball, catBadminton, catCricket, catBasketball] = await Promise.all([
+    db.sportsCategory.findUnique({ where: { name: "Football"   } }),
+    db.sportsCategory.findUnique({ where: { name: "Badminton"  } }),
+    db.sportsCategory.findUnique({ where: { name: "Cricket"    } }),
+    db.sportsCategory.findUnique({ where: { name: "Basketball" } }),
+  ]);
+
+  // 1. Badminton lobby — Ashan needs 1 partner, at the demo facility
+  const badmintonLobby = await db.openMatch.create({
+    data: {
+      facilityId:         facility.id,
+      categoryId:         catBadminton!.id,
+      preferredDate:      omDay2,
+      preferredStartTime: "08:00",
+      preferredEndTime:   "10:00",
+      totalSpotsNeeded:   2,
+      spotsReserved:      1,
+      status:             "COLLECTING",
+      serviceFeePct:      18,
+      expiresAt:          addDays(new Date(), 2),
+    },
+  });
+  await db.openMatchSpot.create({
+    data: { matchId: badmintonLobby.id, userId: player1.id, groupSize: 1, status: "RESERVED", paymentStatus: "PENDING", amountPaid: 0 },
+  });
+
+  // 2. Football lobby — two groups joined, 8 spots left
+  const footballLobby = await db.openMatch.create({
+    data: {
+      facilityId:         facility.id,
+      categoryId:         catFootball!.id,
+      preferredDate:      omDay4,
+      preferredStartTime: "16:00",
+      preferredEndTime:   "18:00",
+      totalSpotsNeeded:   22,
+      spotsReserved:      14,
+      status:             "COLLECTING",
+      serviceFeePct:      18,
+      expiresAt:          addDays(new Date(), 3),
+    },
+  });
+  await db.openMatchSpot.createMany({
+    data: [
+      { matchId: footballLobby.id, userId: player2.id, groupSize: 6, status: "RESERVED", paymentStatus: "PENDING", amountPaid: 0 },
+      { matchId: footballLobby.id, userId: player3.id, groupSize: 8, status: "RESERVED", paymentStatus: "PENDING", amountPaid: 0 },
+    ],
+  });
+
+  // 3. Basketball — fully MATCHED, booking created at demo facility
+  const basketballBooking = await db.facilityBooking.create({
+    data: {
+      userId: workerUser.id, facilityId: facility.id,
+      bookingDate: omDay6, startTime: "10:00", endTime: "12:00",
+      totalHours: 2, totalAmount: 6000, status: "CONFIRMED",
+      paymentMethod: "ONLINE", paymentStatus: "PAID",
+      isOpenMatch: true, contactNumber: "N/A",
+    },
+  });
+  const basketballLobby = await db.openMatch.create({
+    data: {
+      facilityId:         facility.id,
+      categoryId:         catBasketball!.id,
+      preferredDate:      omDay6,
+      preferredStartTime: "10:00",
+      preferredEndTime:   "12:00",
+      totalSpotsNeeded:   10,
+      spotsReserved:      10,
+      status:             "MATCHED",
+      matchBookingId:     basketballBooking.id,
+      serviceFeePct:      18,
+      matchedAt:          new Date(),
+      expiresAt:          addDays(new Date(), 1),
+    },
+  });
+  await db.facilityBooking.update({ where: { id: basketballBooking.id }, data: { openMatchId: basketballLobby.id } });
+  await db.openMatchSpot.createMany({
+    data: [
+      { matchId: basketballLobby.id, userId: player1.id, groupSize: 5, status: "CONFIRMED", paymentStatus: "PAID", amountPaid: 3360 },
+      { matchId: basketballLobby.id, userId: player2.id, groupSize: 5, status: "CONFIRMED", paymentStatus: "PAID", amountPaid: 3360 },
+    ],
+  });
+
+  // 4. Cricket — Priya's group of 6, needs 16 more players
+  const cricketLobby = await db.openMatch.create({
+    data: {
+      facilityId:         facility.id,
+      categoryId:         catCricket!.id,
+      preferredDate:      omDay8,
+      preferredStartTime: "09:00",
+      preferredEndTime:   "14:00",
+      totalSpotsNeeded:   22,
+      spotsReserved:      6,
+      status:             "COLLECTING",
+      serviceFeePct:      18,
+      expiresAt:          addDays(new Date(), 5),
+    },
+  });
+  await db.openMatchSpot.create({
+    data: { matchId: cricketLobby.id, userId: player3.id, groupSize: 6, status: "RESERVED", paymentStatus: "PENDING", amountPaid: 0 },
+  });
+
+  console.log("✅ 4 sample open match lobbies created — all at GoPlay Sports Complex");
+  void [badmintonLobby, footballLobby, cricketLobby];
 
   // ── Platform settings ──────────────────────────────────────────────
   await db.platformSetting.createMany({

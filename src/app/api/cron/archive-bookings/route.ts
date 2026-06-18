@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 // Triggered by Vercel Cron (vercel.json) or any HTTP GET with the secret header.
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || req.headers.get("x-cron-secret") !== cronSecret) {
+  if (!cronSecret || req.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

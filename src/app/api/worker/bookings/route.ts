@@ -65,22 +65,38 @@ export async function GET(req: NextRequest) {
     }
 
     return Response.json({
-      bookings: bookings.map((b) => ({
-        id:              b.id,
-        bookingDate:     b.bookingDate,
-        startTime:       b.startTime,
-        endTime:         b.endTime,
-        status:          b.status,
-        paymentMethod:   b.paymentMethod,
-        paymentStatus:   b.paymentStatus,
-        totalAmount:     b.totalAmount,
-        playerName:      b.user.name,
-        playerEmail:     b.user.email,
-        playerPhone:     b.user.phone,
-        contactNumber:   b.contactNumber,
-        specialRequests: b.specialRequests,
-        courtName:       (b as any).court?.name ?? null,
-      })),
+      bookings: bookings.map((b) => {
+        const isOpenMatch    = b.isOpenMatch ?? false;
+        const isPhoneBooking = !isOpenMatch && (b.specialRequests?.startsWith("[Walk-in]") ?? false);
+        const playerName = isOpenMatch
+          ? "GoPlay Connect"
+          : isPhoneBooking
+          ? (b.specialRequests!.replace("[Walk-in]", "").trim().split(" — ")[0].trim() || "Phone Booking")
+          : (b.user.name ?? "Player");
+        const walkInPhone = isPhoneBooking
+          ? (b.specialRequests!.replace("[Walk-in]", "").trim().split(" — ")[1]?.trim() ?? null)
+          : null;
+        return {
+          id:              b.id,
+          bookingDate:     b.bookingDate,
+          startTime:       b.startTime,
+          endTime:         b.endTime,
+          status:          b.status,
+          paymentMethod:   b.paymentMethod,
+          paymentStatus:   b.paymentStatus,
+          totalAmount:     b.totalAmount,
+          totalHours:      b.totalHours,
+          playerName,
+          playerEmail:     b.user.email,
+          playerPhone:     walkInPhone ?? b.user.phone ?? null,
+          contactNumber:   b.contactNumber ?? null,
+          specialRequests: (isOpenMatch || isPhoneBooking) ? null : (b.specialRequests ?? null),
+          courtName:       (b as any).court?.name ?? null,
+          isOpenMatch,
+          isPhoneBooking,
+          openMatchId:     b.openMatchId ?? null,
+        };
+      }),
     });
   } catch (err) {
     console.error("[GET /api/worker/bookings]", err);

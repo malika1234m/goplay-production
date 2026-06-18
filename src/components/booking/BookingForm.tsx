@@ -3,9 +3,23 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Calendar, Phone, Clock, Loader2, CheckCircle, CreditCard, Banknote } from "lucide-react";
+import Link from "next/link";
+import { Calendar, Phone, Clock, Loader2, CheckCircle, CreditCard, Banknote, Zap, ChevronRight, Users } from "lucide-react";
 
-interface Slot { start: string; end: string; available: boolean; blocked?: boolean; blockReason?: string }
+interface OpenMatchSlotInfo {
+  id:               string;
+  categoryName:     string;
+  spotsLeft:        number;
+  totalSpotsNeeded: number;
+}
+interface Slot {
+  start:        string;
+  end:          string;
+  available:    boolean;
+  blocked?:     boolean;
+  blockReason?: string;
+  openMatch?:   OpenMatchSlotInfo;
+}
 interface DaySchedule { dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string }
 interface Court { id: string; name: string; description?: string | null }
 
@@ -52,6 +66,7 @@ export default function BookingForm({
   const [submitting,      setSubmitting]      = useState(false);
   const [success,         setSuccess]         = useState(false);
   const [error,           setError]           = useState("");
+  const [lobbyId,         setLobbyId]         = useState<string | null>(null);
   const [phoneError,      setPhoneError]      = useState("");
 
   useEffect(() => {
@@ -91,7 +106,10 @@ export default function BookingForm({
     return true;
   };
 
-  const totalAmount = hourlyRate * duration;
+  const PAYHERE_FEE_PCT = 2.5;
+  const totalAmount     = hourlyRate * duration;
+  const payhereFee      = paymentMethod === "ONLINE" ? Math.round(totalAmount * PAYHERE_FEE_PCT / 100) : 0;
+  const chargeAmount    = totalAmount + payhereFee;
 
   const validatePhone = (raw: string): string | null => {
     const cleaned = raw.replace(/[\s\-().]/g, "");
@@ -129,6 +147,7 @@ export default function BookingForm({
 
     setSubmitting(true);
     setError("");
+    setLobbyId(null);
     setPhoneError("");
 
     const res = await fetch("/api/bookings", {
@@ -151,6 +170,7 @@ export default function BookingForm({
 
     if (!res.ok) {
       setError(data.error ?? "Booking failed. Please try again.");
+      if (data.lobbyId) setLobbyId(data.lobbyId);
       return;
     }
 
@@ -340,6 +360,41 @@ export default function BookingForm({
                 slotMins < toMins(selectedSlot) + duration * 60;
               const isBookable = slot.available && canStart(slot.start);
 
+              // Open match lobby occupying this hour — render as joinable banner
+              if (slot.openMatch) {
+                return (
+                  <Link
+                    key={slot.start}
+                    href={`/open-matches/${slot.openMatch.id}`}
+                    style={{ gridColumn: "1 / -1" }}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 border-2 border-green-300 hover:border-green-500 hover:bg-green-100 transition-all group"
+                  >
+                    <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center shrink-0">
+                      <Zap className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-green-800">{slot.start} — {slot.openMatch.categoryName} Open Match</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                          slot.openMatch.spotsLeft === 1 ? "bg-red-100 text-red-700" :
+                          slot.openMatch.spotsLeft <= 3  ? "bg-amber-100 text-amber-700" :
+                                                           "bg-green-200 text-green-800"
+                        }`}>
+                          {slot.openMatch.spotsLeft} spot{slot.openMatch.spotsLeft !== 1 ? "s" : ""} left
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Users className="w-3 h-3 text-green-600" />
+                        <span className="text-[11px] text-green-700">
+                          {slot.openMatch.totalSpotsNeeded - slot.openMatch.spotsLeft}/{slot.openMatch.totalSpotsNeeded} joined · Tap to join the lobby
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-green-400 group-hover:text-green-600 shrink-0" />
+                  </Link>
+                );
+              }
+
               if (slot.blocked) {
                 return (
                   <div
@@ -390,6 +445,9 @@ export default function BookingForm({
           <div className="flex flex-wrap gap-3 mt-2">
             <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
               <span className="w-3 h-3 rounded bg-white border border-slate-200 inline-block" />Available
+            </span>
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+              <span className="w-3 h-3 rounded bg-green-50 border-2 border-green-300 inline-block" />Open Match
             </span>
             <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
               <span className="w-3 h-3 rounded bg-red-50 border border-red-100 inline-block" />Blocked
@@ -489,19 +547,40 @@ export default function BookingForm({
           <span>Rs. {hourlyRate.toLocaleString()} × {duration} {duration === 1 ? "hr" : "hrs"}</span>
           <span>Rs. {totalAmount.toLocaleString()}</span>
         </div>
+        {paymentMethod === "ONLINE" && (
+          <div className="flex justify-between text-sm text-slate-500 mb-1">
+            <span>Payment processing fee</span>
+            <span>+ Rs. {payhereFee.toLocaleString()}</span>
+          </div>
+        )}
         <div className="flex justify-between text-sm font-semibold text-slate-900 pt-2 border-t border-slate-200 mt-2">
           <span>Total</span>
           <span className={paymentMethod === "ONLINE" ? "text-blue-600" : "text-green-600"}>
-            Rs. {totalAmount.toLocaleString()}
+            Rs. {chargeAmount.toLocaleString()}
           </span>
         </div>
         {paymentMethod === "ONLINE" && (
           <p className="text-xs text-blue-500 mt-1.5 text-right">Paid securely via PayHere</p>
         )}
+        {paymentMethod === "ON_ARRIVAL" && (
+          <p className="text-xs text-slate-400 mt-1.5 text-right">No processing fee for cash payments</p>
+        )}
       </div>
 
       {error && (
-        <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-xl">{error}</p>
+        lobbyId ? (
+          <div className="bg-green-50 border border-green-200 px-4 py-3 rounded-xl">
+            <p className="text-xs text-green-800 font-medium mb-2">{error}</p>
+            <Link
+              href={`/open-matches/${lobbyId}`}
+              className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Zap className="w-3 h-3" /> Join the Open Match
+            </Link>
+          </div>
+        ) : (
+          <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-xl">{error}</p>
+        )
       )}
 
       <button
@@ -519,7 +598,7 @@ export default function BookingForm({
           : submitting
           ? "Processing..."
           : paymentMethod === "ONLINE"
-          ? "Pay Online — Rs. " + totalAmount.toLocaleString()
+          ? "Pay Online — Rs. " + chargeAmount.toLocaleString()
           : "Confirm Booking"}
       </button>
 

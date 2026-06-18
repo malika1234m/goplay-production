@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   const toDate   = new Date(to);
   toDate.setHours(23, 59, 59, 999);
 
-  const [availability, bookings, blocked, courts] = await Promise.all([
+  const [availability, bookings, blocked, courts, openMatchLobbies] = await Promise.all([
     db.facilityAvailability.findMany({
       where: { facilityId },
       orderBy: { dayOfWeek: "asc" },
@@ -56,6 +56,16 @@ export async function GET(req: NextRequest) {
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       select:  { id: true, name: true },
     }),
+    db.openMatch.findMany({
+      where: {
+        facilityId,
+        preferredDate: { gte: fromDate, lte: toDate },
+        status: "COLLECTING",
+        expiresAt: { gt: new Date() },
+      },
+      include: { category: { select: { name: true, minPlayers: true } } },
+      orderBy: [{ preferredDate: "asc" }, { preferredStartTime: "asc" }],
+    }),
   ]);
 
   return Response.json({
@@ -67,8 +77,11 @@ export async function GET(req: NextRequest) {
       closeTime: a.closeTime,
     })),
     bookings: bookings.map((b) => {
-      const isPhoneBooking = b.specialRequests?.startsWith("[Walk-in]") ?? false;
-      const playerName = isPhoneBooking
+      const isOpenMatch    = b.isOpenMatch ?? false;
+      const isPhoneBooking = !isOpenMatch && (b.specialRequests?.startsWith("[Walk-in]") ?? false);
+      const playerName = isOpenMatch
+        ? "GoPlay Connect"
+        : isPhoneBooking
         ? (b.specialRequests!.replace("[Walk-in]", "").trim().split(" — ")[0].trim() || "Phone Booking")
         : (b.user.name ?? "Player");
       const walkInPhone = isPhoneBooking
@@ -88,10 +101,12 @@ export async function GET(req: NextRequest) {
         paymentMethod:   b.paymentMethod,
         paymentStatus:   b.paymentStatus,
         contactNumber:   b.contactNumber ?? null,
-        specialRequests: isPhoneBooking ? null : (b.specialRequests ?? null),
+        specialRequests: (isOpenMatch || isPhoneBooking) ? null : (b.specialRequests ?? null),
         playerEmail:     b.user.email,
         playerPhone:     walkInPhone ?? b.user.phone ?? null,
         isPhoneBooking,
+        isOpenMatch,
+        openMatchId:     b.openMatchId ?? null,
       };
     }),
     blocked: blocked.map((b) => ({
@@ -100,6 +115,17 @@ export async function GET(req: NextRequest) {
       startTime: b.startTime,
       endTime:   b.endTime,
       reason:    b.reason,
+    })),
+    openMatches: openMatchLobbies.map((m) => ({
+      id:                 m.id,
+      preferredDate:      m.preferredDate,
+      preferredStartTime: m.preferredStartTime,
+      preferredEndTime:   m.preferredEndTime,
+      lobbyCode:          m.lobbyCode,
+      categoryName:       m.category.name,
+      minPlayers:         m.category.minPlayers,
+      spotsReserved:      m.spotsReserved,
+      totalSpotsNeeded:   m.totalSpotsNeeded,
     })),
   });
   } catch (err) {

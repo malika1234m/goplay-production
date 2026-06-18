@@ -30,6 +30,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
     if (!booking) return Response.json({ error: "Booking not found." }, { status: 404 });
 
+    if (booking.isOpenMatch) {
+      return Response.json(
+        { error: "No-show cannot be recorded for open match bookings. The slot was booked by GoPlay Connect." },
+        { status: 400 },
+      );
+    }
+
     if (booking.status !== "CONFIRMED") {
       return Response.json({ error: "Only confirmed bookings can be marked as no-show." }, { status: 400 });
     }

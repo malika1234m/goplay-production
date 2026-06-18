@@ -31,24 +31,28 @@ export async function GET(req: NextRequest) {
         status:     "COMPLETED",
         earning:    { is: null },
       },
-      select: { id: true, facilityId: true, totalAmount: true, paymentMethod: true, paymentStatus: true, specialRequests: true },
+      select: { id: true, facilityId: true, totalAmount: true, paymentMethod: true, paymentStatus: true, specialRequests: true, isOpenMatch: true },
     });
 
     if (unrecorded.length > 0) {
       const FEE = await getCommissionRate();
       await db.groundEarning.createMany({
         data: unrecorded.map((b) => {
-          const isWalkIn = b.specialRequests?.startsWith("[Walk-in]") ?? false;
+          const isWalkIn   = b.specialRequests?.startsWith("[Walk-in]") ?? false;
+          const isOpenMatch = b.isOpenMatch ?? false;
+          const gross      = b.totalAmount;
+          const platformFee = isWalkIn ? 0 : Math.round(gross * FEE * 100) / 100;
           return {
             bookingId:      b.id,
             facilityId:     b.facilityId,
             ownerId:        profile.id,
-            grossAmount:    b.totalAmount,
-            platformFee:    isWalkIn ? 0 : Math.round(b.totalAmount * FEE * 100) / 100,
-            netAmount:      isWalkIn ? b.totalAmount : Math.round(b.totalAmount * (1 - FEE) * 100) / 100,
+            grossAmount:    gross,
+            platformFee,
+            netAmount:      isWalkIn ? gross : Math.round((gross - platformFee) * 100) / 100,
             paymentMethod:  b.paymentMethod,
             cashConfirmed:  b.paymentMethod === "ONLINE" ? b.paymentStatus === "PAID" : false,
-            ...(isWalkIn && { commissionNote: "Walk-in — no platform commission" }),
+            ...(isWalkIn   && { commissionNote: "Walk-in — no platform commission" }),
+            ...(isOpenMatch && { commissionNote: "GoPlay Connect — open match" }),
           };
         }),
         skipDuplicates: true,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Users, DollarSign, MapPin, TrendingUp, Loader2, UserPlus, CheckCircle } from "lucide-react";
+import { Users, DollarSign, MapPin, TrendingUp, Loader2, UserPlus, CheckCircle, RefreshCw, CalendarDays, BadgeDollarSign } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -31,9 +31,10 @@ interface RecentUser {
 interface ChartPoint { label: string; revenue: number }
 
 const ROLE_STYLE: Record<string, string> = {
-  USER:         "bg-blue-50 text-blue-700",
-  GROUND_OWNER: "bg-amber-50 text-amber-700",
-  ADMIN:        "bg-red-50 text-red-700",
+  USER:          "bg-blue-50 text-blue-700",
+  GROUND_OWNER:  "bg-amber-50 text-amber-700",
+  ADMIN:         "bg-red-50 text-red-700",
+  GROUND_WORKER: "bg-purple-50 text-purple-700",
 };
 
 export default function AdminDashboardPage() {
@@ -59,17 +60,33 @@ export default function AdminDashboardPage() {
     Promise.all([
       fetch("/api/admin/stats").then((r) => r.json()).catch(() => ({})),
       fetch("/api/admin/users?role=").then((r) => r.json()).catch(() => ({})),
-      fetch("/api/admin/earnings/trends?days=30").then((r) => r.json()).catch(() => ({})),
-    ]).then(([s, u, t]) => {
+    ]).then(([s, u]) => {
+      setStats(s.stats ?? null);
+      setRecentUsers((u.users ?? []).slice(0, 8));
+    }).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { loadChart(chartDays); }, [chartDays, loadChart]);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const [s, u, t] = await Promise.all([
+        fetch("/api/admin/stats").then((r) => r.json()).catch(() => ({})),
+        fetch("/api/admin/users?role=").then((r) => r.json()).catch(() => ({})),
+        fetch(`/api/admin/earnings/trends?days=${chartDays}`).then((r) => r.json()).catch(() => ({})),
+      ]);
       setStats(s.stats ?? null);
       setRecentUsers((u.users ?? []).slice(0, 8));
       const labels:  string[] = t.trends?.labels  ?? [];
       const revenue: number[] = t.trends?.revenue ?? [];
       setChartData(labels.map((l: string, i: number) => ({ label: l, revenue: revenue[i] ?? 0 })));
-    }).finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { loadChart(chartDays); }, [chartDays, loadChart]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [chartDays]);
 
   if (loading) {
     return (
@@ -83,9 +100,19 @@ export default function AdminDashboardPage() {
   return (
     <div className="flex flex-col gap-7">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard Overview</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Platform-wide stats and recent activity</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Dashboard Overview</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Platform-wide stats and recent activity</p>
+        </div>
+        <button
+          onClick={refresh}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-60"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
       </div>
 
       {/* Stat cards */}
@@ -97,13 +124,15 @@ export default function AdminDashboardPage() {
             sub:   `+${stats?.newUsersThisMonth ?? 0} this month`,
             icon:  Users,
             color: "bg-blue-50 text-blue-600",
+            href:  "/admin/users",
           },
           {
             label: "Total Revenue",
             value: `Rs. ${(stats?.totalRevenue ?? 0).toLocaleString()}`,
             sub:   `Rs. ${(stats?.monthlyRevenue ?? 0).toLocaleString()} this month`,
-            icon:  DollarSign,
+            icon:  BadgeDollarSign,
             color: "bg-green-50 text-green-600",
+            href:  "/admin/earnings",
           },
           {
             label: "Active Grounds",
@@ -111,23 +140,29 @@ export default function AdminDashboardPage() {
             sub:   `${stats?.pendingGrounds ?? 0} pending approval`,
             icon:  MapPin,
             color: "bg-purple-50 text-purple-600",
+            href:  "/admin/grounds",
           },
           {
             label: "Revenue Change",
-            value: `${stats?.revenueChange ?? 0 >= 0 ? "+" : ""}${stats?.revenueChange ?? 0}%`,
+            value: `${(stats?.revenueChange ?? 0) >= 0 ? "+" : ""}${stats?.revenueChange ?? 0}%`,
             sub:   "vs last month",
             icon:  TrendingUp,
             color: "bg-amber-50 text-amber-600",
+            href:  "/admin/analytics",
           },
-        ].map(({ label, value, sub, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5">
+        ].map(({ label, value, sub, icon: Icon, color, href }) => (
+          <Link
+            key={label}
+            href={href}
+            className="bg-white rounded-2xl border border-slate-100 p-5 hover:border-slate-200 hover:shadow-sm transition-all"
+          >
             <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${color}`}>
               <Icon className="w-5 h-5" />
             </div>
             <p className="text-2xl font-bold text-slate-900">{value}</p>
             <p className="text-xs font-medium text-slate-500 mt-1">{label}</p>
             <p className="text-xs text-slate-400 mt-0.5">{sub}</p>
-          </div>
+          </Link>
         ))}
       </div>
 
@@ -178,10 +213,10 @@ export default function AdminDashboardPage() {
           <h2 className="text-base font-semibold text-slate-900 mb-5">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: "Manage Users",    href: "/admin/users",   icon: Users,       color: "bg-blue-50 text-blue-600"   },
-              { label: "Approve Grounds", href: "/admin/grounds", icon: CheckCircle, color: "bg-green-50 text-green-600" },
-              { label: "New Users",       href: "/admin/users",   icon: UserPlus,    color: "bg-purple-50 text-purple-600"},
-              { label: "Analytics",       href: "/admin/analytics",icon: TrendingUp, color: "bg-amber-50 text-amber-600" },
+              { label: "Users",       href: "/admin/users",     icon: Users,        color: "bg-blue-50 text-blue-600"    },
+              { label: "Grounds",     href: "/admin/grounds",   icon: MapPin,       color: "bg-green-50 text-green-600"  },
+              { label: "Bookings",    href: "/admin/bookings",  icon: CalendarDays, color: "bg-purple-50 text-purple-600"},
+              { label: "Analytics",   href: "/admin/analytics", icon: TrendingUp,   color: "bg-amber-50 text-amber-600"  },
             ].map(({ label, href, icon: Icon, color }) => (
               <Link
                 key={label}
@@ -226,38 +261,38 @@ export default function AdminDashboardPage() {
           <div className="px-6 py-10 text-center text-sm text-slate-400">No users yet</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[400px]">
               <thead>
                 <tr className="border-b border-slate-50">
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">User</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Role</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Joined</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Bookings</th>
+                  <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">User</th>
+                  <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Role</th>
+                  <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide hidden sm:table-cell">Joined</th>
+                  <th className="text-left px-4 sm:px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Bookings</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {recentUsers.map((u) => (
                   <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-3.5">
+                    <td className="px-4 sm:px-6 py-3.5">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-xs font-bold shrink-0">
                           {u.name?.[0]?.toUpperCase() ?? "?"}
                         </div>
-                        <div>
-                          <p className="font-medium text-slate-900">{u.name}</p>
-                          <p className="text-xs text-slate-400">{u.email}</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900 truncate">{u.name}</p>
+                          <p className="text-xs text-slate-400 truncate hidden sm:block">{u.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-3.5">
+                    <td className="px-4 sm:px-6 py-3.5">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${ROLE_STYLE[u.role] ?? "bg-slate-100 text-slate-600"}`}>
-                        {u.role === "GROUND_OWNER" ? "Ground Owner" : u.role.charAt(0) + u.role.slice(1).toLowerCase()}
+                        {u.role === "GROUND_OWNER" ? "Owner" : u.role === "GROUND_WORKER" ? "Worker" : u.role.charAt(0) + u.role.slice(1).toLowerCase()}
                       </span>
                     </td>
-                    <td className="px-6 py-3.5 text-slate-500 text-xs">
+                    <td className="px-4 sm:px-6 py-3.5 text-slate-500 text-xs hidden sm:table-cell">
                       {new Date(u.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </td>
-                    <td className="px-6 py-3.5 text-slate-600 text-xs font-medium">
+                    <td className="px-4 sm:px-6 py-3.5 text-slate-600 text-xs font-medium">
                       {u.totalBookings}
                     </td>
                   </tr>

@@ -8,7 +8,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const ground = await db.sportsFacility.findUnique({
       where: { id, status: "ACTIVE" },
       include: {
-        categories:   { select: { name: true, icon: true } },
+        categories:   { select: { id: true, name: true, icon: true, minPlayers: true, maxPlayers: true, allowOpenMatch: true } },
         availability: { orderBy: { dayOfWeek: "asc" } },
         courts: {
           where:   { isActive: true },

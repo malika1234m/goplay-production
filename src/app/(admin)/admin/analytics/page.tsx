@@ -67,7 +67,7 @@ export default function AdminAnalyticsPage() {
         {[
           { label: "Total Users",       value: stats?.totalUsers        ?? 0, sub: `+${stats?.newUsersThisMonth ?? 0} this month`, icon: Users,        color: "bg-blue-50 text-blue-600" },
           { label: "Active Grounds",    value: stats?.activeGrounds     ?? 0, sub: "Currently live",                               icon: MapPin,        color: "bg-green-50 text-green-600" },
-          { label: "Monthly Revenue",   value: `Rs. ${(stats?.monthlyRevenue ?? 0).toLocaleString()}`, sub: `${stats?.revenueChange ?? 0 >= 0 ? "+" : ""}${stats?.revenueChange ?? 0}% vs last month`, icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
+          { label: "Monthly Revenue",   value: `Rs. ${(stats?.monthlyRevenue ?? 0).toLocaleString()}`, sub: `${(stats?.revenueChange ?? 0) >= 0 ? "+" : ""}${stats?.revenueChange ?? 0}% vs last month`, icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
           { label: "Total Revenue",     value: `Rs. ${(stats?.totalRevenue ?? 0).toLocaleString()}`,   sub: "All time",                                  icon: CalendarCheck, color: "bg-amber-50 text-amber-600" },
         ].map(({ label, value, sub, icon: Icon, color }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5">
