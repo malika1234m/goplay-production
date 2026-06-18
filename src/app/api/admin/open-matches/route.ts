@@ -5,13 +5,25 @@ import { expireLobby } from "@/lib/open-match-engine";
 import { createNotification } from "@/lib/notify";
 
 // GET — all lobbies with full detail
-export async function GET(_req: NextRequest) {
+// ?facilityId=  filter to one facility
+// ?status=      filter by lobby status (e.g. COLLECTING, EXPIRED)
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN") {
     return Response.json({ error: "Forbidden." }, { status: 403 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const facilityId = searchParams.get("facilityId")?.trim();
+  const status     = searchParams.get("status")?.trim();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const whereClause: any = {};
+  if (facilityId) whereClause.facilityId = facilityId;
+  if (status)     whereClause.status     = status;
+
   const matches = await db.openMatch.findMany({
+    where: whereClause,
     include: {
       category: { select: { id: true, name: true, icon: true, minPlayers: true } },
       facility: { select: { id: true, name: true, city: true, hourlyRate: true } },

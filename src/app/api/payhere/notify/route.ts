@@ -89,6 +89,14 @@ export async function POST(req: NextRequest) {
             where: { id: spot.matchId, status: "COLLECTING" },
             data:  { spotsReserved: { decrement: spot.groupSize } },
           });
+          // If the lobby now has no paid/reserved spots, cancel it entirely
+          const updatedMatch = await db.openMatch.findUnique({
+            where:  { id: spot.matchId },
+            select: { spotsReserved: true, status: true },
+          });
+          if (updatedMatch && updatedMatch.status === "COLLECTING" && updatedMatch.spotsReserved <= 0) {
+            await db.openMatch.update({ where: { id: spot.matchId }, data: { status: "CANCELLED" } });
+          }
           await createNotification({
             userId:  spot.userId,
             title:   "Payment Failed",

@@ -1,8 +1,12 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { tryMatchLobby, calcHours } from "@/lib/open-match-engine";
+import { calcHours } from "@/lib/open-match-engine";
 import { isAllowed, getClientIp } from "@/lib/rateLimiter";
+import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
+
+const PAYHERE_FEE_PCT = 2.5;
+const SERVICE_FEE_PCT = 18;
 
 const TIME_RE = /^\d{2}:\d{2}$/;
 function toMins(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
@@ -229,7 +233,43 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  tryMatchLobby(match.id).catch((err) => console.error("[open-match] tryMatchLobby failed on create:", err));
+  // Build PayHere payment params for the creator's spot
+  const creatorSpot = match.spots[0];
+  const orderId     = `SPOT_${creatorSpot.id}`;
 
-  return Response.json(match, { status: 201 });
+  await db.openMatchSpot.update({ where: { id: creatorSpot.id }, data: { payHereOrderId: orderId } });
+
+  const sessionHours   = calcHours(preferredStartTime, preferredEndTime);
+  const totalCost      = facility.hourlyRate * sessionHours;
+  const perPersonBase  = totalCost / totalSpotsNeeded;
+  const perPersonFee   = Math.round(perPersonBase * (SERVICE_FEE_PCT / 100));
+  const perPersonPH    = Math.round(perPersonBase * (PAYHERE_FEE_PCT / 100));
+  const perPersonTotal = Math.round(perPersonBase + perPersonFee + perPersonPH);
+  const chargeAmount   = Math.round(perPersonTotal * groupSize);
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const hash   = buildPayHereHash(orderId, chargeAmount);
+  const user   = session.user;
+
+  const payHereParams = {
+    merchant_id:  PAYHERE_MERCHANT_ID,
+    return_url:   `${appUrl}/open-matches/${match.id}?created=1&payment=success&spotId=${creatorSpot.id}`,
+    cancel_url:   `${appUrl}/open-matches/${match.id}?created=1&payment=cancelled&spotId=${creatorSpot.id}`,
+    notify_url:   `${appUrl}/api/payhere/notify`,
+    order_id:     orderId,
+    items:        `Open Match — ${category.name} at ${facility.name}`,
+    currency:     "LKR",
+    amount:       chargeAmount.toFixed(2),
+    first_name:   (user.name ?? "").split(" ")[0] || "Player",
+    last_name:    (user.name ?? "").split(" ").slice(1).join(" ") || "-",
+    email:        user.email ?? "",
+    phone:        (user as any).phone ?? "0771234567",
+    address:      facility.address,
+    city:         facility.city,
+    country:      "Sri Lanka",
+    hash,
+    checkout_url: PAYHERE_CHECKOUT_URL,
+  };
+
+  return Response.json({ id: match.id, payHereParams, chargeAmount }, { status: 201 });
 }

@@ -6,7 +6,7 @@ import Image from "next/image";
 import {
   ArrowLeft, MapPin, Clock, Users, Star, Calendar, CheckCircle,
   XCircle, PauseCircle, Loader2, Phone, Mail, Building2, Tag,
-  ImageIcon, ExternalLink, AlertCircle,
+  ImageIcon, ExternalLink, AlertCircle, AlertTriangle, Zap, Trash2,
 } from "lucide-react";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -49,6 +49,17 @@ interface Ground {
   };
   availability: Availability[];
   _count: { bookings: number; reviews: number };
+}
+
+interface ActiveLobby {
+  id: string;
+  lobbyCode: string;
+  preferredDate: string;
+  preferredStartTime: string;
+  preferredEndTime: string;
+  spotsReserved: number;
+  totalSpotsNeeded: number;
+  category: { name: string; icon: string | null };
 }
 
 /* ── Map component — geocodes via Nominatim, embeds OSM iframe ── */
@@ -215,6 +226,9 @@ export default function AdminGroundDetailPage({ params }: { params: Promise<{ id
   const [toast,    setToast]    = useState<{ type: "success" | "error"; msg: string } | null>(null);
   const [rejectModal, setRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [activeLobbies,     setActiveLobbies]     = useState<ActiveLobby[]>([]);
+  const [cancellingLobby,   setCancellingLobby]   = useState<string | null>(null);
+  const [deactivateConfirm, setDeactivateConfirm] = useState(false);
 
   const showToast = (type: "success" | "error", msg: string) => {
     setToast({ type, msg });
@@ -235,7 +249,34 @@ export default function AdminGroundDetailPage({ params }: { params: Promise<{ id
     }
   }, [id]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadLobbies = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/open-matches?facilityId=${id}&status=COLLECTING`);
+      if (res.ok) setActiveLobbies(await res.json());
+    } catch { /* silent */ }
+  }, [id]);
+
+  useEffect(() => { load(); loadLobbies(); }, [load, loadLobbies]);
+
+  const cancelLobby = async (matchId: string) => {
+    setCancellingLobby(matchId);
+    try {
+      const res  = await fetch("/api/admin/open-matches", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ matchId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setActiveLobbies((prev) => prev.filter((l) => l.id !== matchId));
+        showToast("success", data.message ?? "Lobby cancelled.");
+      } else {
+        showToast("error", data.error ?? "Failed to cancel lobby.");
+      }
+    } finally {
+      setCancellingLobby(null);
+    }
+  };
 
   const updateStatus = async (status: string, reason?: string) => {
     if (!ground) return;
@@ -249,7 +290,11 @@ export default function AdminGroundDetailPage({ params }: { params: Promise<{ id
       const data = await res.json();
       if (!res.ok) { showToast("error", data.error ?? "Update failed."); return; }
       setGround((g) => g ? { ...g, status } : g);
-      showToast("success", `Ground ${status === "ACTIVE" ? "approved and is now live" : status === "REJECTED" ? "rejected" : "deactivated"}.`);
+      if (status === "INACTIVE" || status === "REJECTED") setActiveLobbies([]);
+      const expiredNote = data.expiredLobbies > 0
+        ? ` · ${data.expiredLobbies} ${data.expiredLobbies === 1 ? "lobby" : "lobbies"} cancelled & refunded`
+        : "";
+      showToast("success", `Ground ${status === "ACTIVE" ? "approved and is now live" : status === "REJECTED" ? "rejected" : "deactivated"}${expiredNote}.`);
       setRejectModal(false);
       setRejectReason("");
     } finally {
@@ -330,12 +375,17 @@ export default function AdminGroundDetailPage({ params }: { params: Promise<{ id
 
           {ground.status === "ACTIVE" && (
             <button
-              onClick={() => updateStatus("INACTIVE")}
+              onClick={() => activeLobbies.length > 0 ? setDeactivateConfirm(true) : updateStatus("INACTIVE")}
               disabled={updating}
               className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl transition-colors disabled:opacity-50"
             >
               {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PauseCircle className="w-4 h-4" />}
               Deactivate
+              {activeLobbies.length > 0 && (
+                <span className="ml-0.5 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                  {activeLobbies.length}
+                </span>
+              )}
             </button>
           )}
 
@@ -479,6 +529,61 @@ export default function AdminGroundDetailPage({ params }: { params: Promise<{ id
             </div>
           )}
 
+          {/* Active Lobbies */}
+          {activeLobbies.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-600" />
+                <h2 className="text-sm font-semibold text-amber-900">Active Lobbies</h2>
+                <span className="text-[10px] bg-amber-200 text-amber-800 font-bold px-2 py-0.5 rounded-full">
+                  {activeLobbies.length}
+                </span>
+              </div>
+              <p className="text-xs text-amber-700">
+                These lobbies will be auto-cancelled if you deactivate this ground. All paid players will be refunded.
+              </p>
+              <div className="space-y-2.5">
+                {activeLobbies.map((lobby) => (
+                  <div key={lobby.id} className="bg-white rounded-xl border border-amber-100 p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">
+                          {lobby.category.icon} {lobby.category.name}
+                          <span className="ml-1.5 text-[10px] text-slate-400 font-mono">#{lobby.lobbyCode}</span>
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {new Date(lobby.preferredDate).toLocaleDateString("en-LK", { weekday: "short", month: "short", day: "numeric" })}
+                          {" "}{lobby.preferredStartTime}–{lobby.preferredEndTime}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => cancelLobby(lobby.id)}
+                        disabled={cancellingLobby === lobby.id}
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50 shrink-0"
+                      >
+                        {cancellingLobby === lobby.id
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <Trash2 className="w-3 h-3" />}
+                        Cancel
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-amber-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-amber-400 rounded-full"
+                          style={{ width: `${Math.min(100, (lobby.spotsReserved / lobby.totalSpotsNeeded) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-amber-700 font-medium whitespace-nowrap">
+                        {lobby.spotsReserved}/{lobby.totalSpotsNeeded} spots
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Timeline */}
           <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-3">
             <h2 className="text-sm font-semibold text-slate-700">Timeline</h2>
@@ -500,6 +605,45 @@ export default function AdminGroundDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
+      {/* Deactivation warning modal */}
+      {deactivateConfirm && (
+        <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6 text-amber-600" />
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="text-base font-bold text-slate-900">Deactivate {ground.name}?</h3>
+              <p className="text-sm text-slate-500">This action cannot be undone without re-approval.</p>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1">
+              <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5" />
+                {activeLobbies.length} active {activeLobbies.length === 1 ? "lobby" : "lobbies"} will be cancelled
+              </p>
+              <p className="text-xs text-amber-700 pl-5">
+                All players with paid spots will be refunded and notified automatically.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeactivateConfirm(false)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+              >
+                Keep Active
+              </button>
+              <button
+                onClick={() => { setDeactivateConfirm(false); updateStatus("INACTIVE"); }}
+                disabled={updating}
+                className="flex-1 px-4 py-2.5 text-sm font-medium bg-slate-800 hover:bg-slate-900 text-white rounded-xl transition-colors disabled:opacity-50"
+              >
+                {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Deactivate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reject modal */}
       {rejectModal && (
         <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4">
@@ -509,6 +653,14 @@ export default function AdminGroundDetailPage({ params }: { params: Promise<{ id
               Please provide a reason for rejecting <span className="font-medium text-slate-700">{ground.name}</span>.
               The owner will be notified.
             </p>
+            {activeLobbies.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-800">
+                  <span className="font-semibold">{activeLobbies.length} active {activeLobbies.length === 1 ? "lobby" : "lobbies"}</span> will also be cancelled and all players refunded.
+                </p>
+              </div>
+            )}
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}

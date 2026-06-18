@@ -7,6 +7,7 @@ import Link from "next/link";
 import {
   ArrowLeft, ChevronRight, ChevronLeft, Loader2, MapPin,
   Calendar, Clock, Users, Zap, CheckCircle2, AlertCircle, Search, X, Building2,
+  CreditCard, ShieldCheck,
 } from "lucide-react";
 
 interface Category { id: string; name: string; icon: string; minPlayers: number; maxPlayers: number | null; allowOpenMatch: boolean; }
@@ -207,10 +208,37 @@ function CreatePageInner() {
         } else {
           setError(data.error ?? "Failed to create lobby.");
         }
+        setSubmitting(false);
         return;
       }
-      router.push(`/open-matches/${data.id}?created=1`);
-    } finally { setSubmitting(false); }
+
+      // Submit hidden form to PayHere — page navigates away, spinner stays
+      const p = data.payHereParams;
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = p.checkout_url;
+
+      const fields = [
+        "merchant_id", "return_url", "cancel_url", "notify_url",
+        "order_id", "items", "currency", "amount",
+        "first_name", "last_name", "email", "phone",
+        "address", "city", "country", "hash",
+      ] as const;
+
+      for (const key of fields) {
+        const input = document.createElement("input");
+        input.type  = "hidden";
+        input.name  = key;
+        input.value = String(p[key] ?? "");
+        form.appendChild(input);
+      }
+
+      document.body.appendChild(form);
+      form.submit();
+    } catch {
+      setError("Network error. Please try again.");
+      setSubmitting(false);
+    }
   }
 
   const stepLabels = ["Pick Ground", "Sport & Time", "Review & Start"];
@@ -704,7 +732,7 @@ function CreatePageInner() {
                         <span>Rs. {perPerson.toLocaleString()}</span>
                       </div>
                     </div>
-                    <p className="text-[11px] text-green-700 mt-3">Charged only when the lobby fills</p>
+                    <p className="text-[11px] text-green-700 mt-3">Paid upfront · refunded if lobby expires</p>
                   </div>
                 )}
 
@@ -768,10 +796,10 @@ function CreatePageInner() {
 
               {/* Info box */}
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-sm text-amber-800 leading-relaxed">
-                <strong className="block mb-1">What happens next?</strong>
-                Your lobby goes live and others can join with their groups. Once all {totalSpotsNeeded} spots
-                are filled, GoPlay auto-books the court and shares everyone&apos;s contact details.
-                Full refund if the lobby expires without filling.
+                <strong className="block mb-1">How it works</strong>
+                Pay now to launch the lobby — your spot is secured immediately. Others join and pay their own
+                spots. Once all {totalSpotsNeeded} spots are filled, GoPlay auto-books the court.
+                <span className="block mt-1 font-medium">Full refund if the lobby expires without enough players.</span>
               </div>
 
               <div className="flex justify-between">
@@ -783,8 +811,8 @@ function CreatePageInner() {
                 <button onClick={handleSubmit} disabled={submitting}
                   className="lg:hidden flex items-center gap-2 bg-green-600 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors">
                   {submitting
-                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</>
-                    : <><Zap className="w-4 h-4" /> Start Lobby</>}
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</>
+                    : <><CreditCard className="w-4 h-4" /> Pay &amp; Start</>}
                 </button>
               </div>
             </div>
@@ -833,16 +861,26 @@ function CreatePageInner() {
                     </div>
                   </div>
                   <p className="text-xs text-slate-400 mt-3">
-                    You&apos;re only charged once the lobby fills and GoPlay confirms the booking.
+                    Payment collected upfront to secure your spot. Full refund if the lobby expires.
                   </p>
+                </div>
+
+                {/* Trust badges */}
+                <div className="flex items-center justify-center gap-4 text-xs text-slate-400">
+                  <div className="flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-green-500" /> Secure payment
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> Refund guaranteed
+                  </div>
                 </div>
 
                 {/* Start Lobby CTA */}
                 <button onClick={handleSubmit} disabled={submitting}
                   className="hidden lg:flex w-full items-center justify-center gap-2 bg-green-600 text-white font-bold py-4 rounded-2xl hover:bg-green-700 disabled:opacity-50 transition-colors text-base">
                   {submitting
-                    ? <><Loader2 className="w-5 h-5 animate-spin" /> Creating Lobby…</>
-                    : <><Zap className="w-5 h-5" /> Start Lobby</>}
+                    ? <><Loader2 className="w-5 h-5 animate-spin" /> Redirecting to payment…</>
+                    : <><CreditCard className="w-5 h-5" /> Pay Rs. {myGroupCost.toLocaleString()} &amp; Start Lobby</>}
                 </button>
               </div>
             </div>
