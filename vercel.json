@@ -6,15 +6,15 @@
     },
     {
       "path": "/api/cron/release-pending-slots",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 1 * * *"
     },
     {
       "path": "/api/cron/expire-open-matches",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/complete-open-matches",
-      "schedule": "0 * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }
