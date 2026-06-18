@@ -1,11 +1,25 @@
 import Link from "next/link";
-import { CalendarCheck, Clock, CheckCircle, XCircle, ChevronRight, MapPin, Building2, Zap, Users } from "lucide-react";
+import {
+  CalendarCheck, Clock, CheckCircle, XCircle, ChevronRight, MapPin,
+  Building2, Zap, TrendingUp, Star, Calendar, Wallet,
+} from "lucide-react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 
 async function getUserStats(userId: string) {
-  const [bookings, recent, activeSpots] = await Promise.all([
+  const now        = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [
+    bookings,
+    recent,
+    activeSpots,
+    upcomingBookings,
+    spentAggregate,
+    thisMonthAggregate,
+    sportHistory,
+  ] = await Promise.all([
     db.facilityBooking.findMany({
       where: { userId },
       select: { status: true },
@@ -19,7 +33,11 @@ async function getUserStats(userId: string) {
       take: 3,
     }),
     db.openMatchSpot.findMany({
-      where: { userId, status: { in: ["RESERVED", "CONFIRMED"] }, match: { status: { in: ["COLLECTING", "MATCHED"] }, expiresAt: { gt: new Date() } } },
+      where: {
+        userId,
+        status: { in: ["RESERVED", "CONFIRMED"] },
+        match: { status: { in: ["COLLECTING", "MATCHED"] }, expiresAt: { gt: new Date() } },
+      },
       include: {
         match: {
           select: {
@@ -34,7 +52,38 @@ async function getUserStats(userId: string) {
       orderBy: { createdAt: "desc" },
       take: 3,
     }),
+    db.facilityBooking.findMany({
+      where: { userId, status: "CONFIRMED", bookingDate: { gte: now } },
+      include: {
+        facility: { select: { name: true, city: true, categories: { select: { name: true, icon: true } } } },
+      },
+      orderBy: { bookingDate: "asc" },
+      take: 3,
+    }),
+    db.facilityBooking.aggregate({
+      where: { userId, status: { in: ["CONFIRMED", "COMPLETED"] }, paymentStatus: "PAID" },
+      _sum: { totalAmount: true },
+    }),
+    db.facilityBooking.aggregate({
+      where: { userId, createdAt: { gte: monthStart } },
+      _sum: { totalAmount: true },
+      _count: { _all: true },
+    }),
+    db.facilityBooking.findMany({
+      where: { userId, status: { in: ["CONFIRMED", "COMPLETED"] } },
+      select: { facility: { select: { categories: { select: { name: true } } } } },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    }),
   ]);
+
+  const sportCounts: Record<string, number> = {};
+  for (const b of sportHistory) {
+    for (const cat of b.facility.categories) {
+      sportCounts[cat.name] = (sportCounts[cat.name] ?? 0) + 1;
+    }
+  }
+  const favSport = Object.entries(sportCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
   const stats = {
     total:     bookings.length,
@@ -43,7 +92,12 @@ async function getUserStats(userId: string) {
     cancelled: bookings.filter((b) => b.status === "CANCELLED").length,
   };
 
-  return { stats, recent, activeSpots };
+  return {
+    stats, recent, activeSpots, upcomingBookings, favSport,
+    totalSpent:    Number(spentAggregate._sum.totalAmount ?? 0),
+    thisMonthSpent: Number(thisMonthAggregate._sum.totalAmount ?? 0),
+    thisMonthCount: thisMonthAggregate._count._all,
+  };
 }
 
 const statusStyles: Record<string, string> = {
@@ -60,11 +114,23 @@ const categoryEmoji: Record<string, string> = {
   Pickleball: "🏓", "Billiards & Pool": "🎱",
 };
 
+function daysUntilLabel(dateVal: Date | string): string {
+  const diff = Math.ceil((new Date(dateVal).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  return `In ${diff} days`;
+}
+
 export default async function UserDashboard() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const { stats, recent, activeSpots } = await getUserStats(session.user.id);
+  const {
+    stats, recent, activeSpots, upcomingBookings, favSport,
+    totalSpent, thisMonthSpent, thisMonthCount,
+  } = await getUserStats(session.user.id);
+
+  const firstName = session.user.name?.split(" ")[0] ?? "there";
 
   const statCards = [
     { label: "Total Bookings", value: stats.total,     icon: CalendarCheck, color: "bg-blue-50 text-blue-600",   href: "/my-bookings" },
@@ -75,13 +141,12 @@ export default async function UserDashboard() {
 
   return (
     <div className="flex flex-col gap-7">
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">My Dashboard</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            Welcome back, {session.user.name?.split(" ")[0]}!
-          </p>
+          <p className="text-slate-500 text-sm mt-1">Welcome back, {firstName}!</p>
         </div>
         <Link
           href="/grounds"
@@ -109,6 +174,120 @@ export default async function UserDashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Activity insights strip */}
+      {stats.total > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center shrink-0">
+              <Wallet className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wide">Total Paid</p>
+              <p className="text-lg font-bold text-slate-900">
+                Rs. {Math.round(totalSpent).toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wide">This Month</p>
+              <p className="text-lg font-bold text-slate-900">
+                {thisMonthCount} booking{thisMonthCount !== 1 ? "s" : ""}
+              </p>
+              {thisMonthSpent > 0 && (
+                <p className="text-xs text-slate-400">Rs. {Math.round(thisMonthSpent).toLocaleString()}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center gap-3">
+            <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
+              <Star className="w-5 h-5 text-amber-500" />
+            </div>
+            <div>
+              <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wide">Favourite Sport</p>
+              {favSport ? (
+                <p className="text-base font-bold text-slate-900 flex items-center gap-1.5">
+                  <span>{categoryEmoji[favSport] ?? "🏟️"}</span>
+                  <span>{favSport}</span>
+                </p>
+              ) : (
+                <p className="text-sm text-slate-400">None yet</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming bookings */}
+      {upcomingBookings.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-green-100 rounded-lg flex items-center justify-center">
+                <Calendar className="w-3.5 h-3.5 text-green-700" />
+              </div>
+              <h2 className="text-base font-semibold text-slate-900">Upcoming Sessions</h2>
+            </div>
+            <Link
+              href="/my-bookings?status=CONFIRMED"
+              className="flex items-center gap-1 text-sm text-green-600 hover:text-green-700 font-medium"
+            >
+              View all <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="divide-y divide-slate-50">
+            {upcomingBookings.map((b) => {
+              const primaryCat = b.facility.categories?.[0];
+              const icon       = primaryCat?.icon ?? categoryEmoji[primaryCat?.name ?? ""] ?? "🏟️";
+              const label      = daysUntilLabel(b.bookingDate);
+              const isToday    = label === "Today";
+              const isTomorrow = label === "Tomorrow";
+
+              return (
+                <Link
+                  key={b.id}
+                  href="/my-bookings"
+                  className="flex items-center gap-4 px-4 sm:px-6 py-4 hover:bg-slate-50/70 transition-colors group"
+                >
+                  <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center text-xl shrink-0">
+                    {icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{b.facility.name}</p>
+                    <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-slate-400 mt-0.5">
+                      <MapPin className="w-3 h-3" />
+                      {b.facility.city}
+                      <span>·</span>
+                      {new Date(b.bookingDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      <span>·</span>
+                      {b.startTime} – {b.endTime}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
+                      isToday    ? "bg-green-600 text-white" :
+                      isTomorrow ? "bg-amber-100 text-amber-700" :
+                                   "bg-slate-100 text-slate-600"
+                    }`}>
+                      {label}
+                    </span>
+                    <span className="text-sm font-semibold text-slate-900 hidden sm:block">
+                      Rs. {b.totalAmount.toLocaleString()}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Recent bookings */}
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
@@ -152,10 +331,7 @@ export default async function UserDashboard() {
                       <MapPin className="w-3 h-3" />
                       {b.facility.city}
                       <span className="mx-1">·</span>
-                      {new Date(b.bookingDate).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {new Date(b.bookingDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       <span className="mx-1">·</span>
                       {b.startTime} – {b.endTime}
                     </div>
@@ -175,7 +351,7 @@ export default async function UserDashboard() {
         )}
       </div>
 
-      {/* GoPlay Connect — active lobbies widget */}
+      {/* GoPlay Connect — active lobbies or promo */}
       {activeSpots.length > 0 ? (
         <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50">
