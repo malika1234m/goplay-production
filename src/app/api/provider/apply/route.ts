@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 import { createNotification } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user) return Response.json({ error: "You must be logged in." }, { status: 401 });
     if (session.user.role !== "USER") return Response.json({ error: "Only regular users can apply to become a provider." }, { status: 403 });
 

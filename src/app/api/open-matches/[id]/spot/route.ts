@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 import { createNotification } from "@/lib/notify";
 import {
   getCancellationPolicyFromTiers,
@@ -9,8 +9,8 @@ import {
 } from "@/lib/cancellation-policy";
 
 // DELETE /api/open-matches/[id]/spot — player cancels their own reserved spot
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getSession(req);
   if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
   if (session.user.role !== "USER") {
     return Response.json({ error: "Only players can cancel open match spots." }, { status: 403 });

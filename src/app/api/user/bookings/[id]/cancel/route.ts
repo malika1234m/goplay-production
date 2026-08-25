@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 import { sendBookingCancelledEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notify";
 import {
@@ -13,7 +13,7 @@ import {
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;

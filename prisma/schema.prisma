@@ -82,14 +82,14 @@ model Payout {
 }
 
 model SportsCategory {
-  id              String           @id @default(cuid())
-  name            String           @unique
-  icon            String?
-  minPlayers      Int              @default(2)
-  maxPlayers      Int?
-  allowOpenMatch  Boolean          @default(true)
-  openMatches     OpenMatch[]
-  facilities      SportsFacility[] @relation("SportsCategoryToSportsFacility")
+  id             String           @id @default(cuid())
+  name           String           @unique
+  icon           String?
+  minPlayers     Int              @default(2)
+  maxPlayers     Int?
+  allowOpenMatch Boolean          @default(true)
+  openMatches    OpenMatch[]
+  facilities     SportsFacility[] @relation("SportsCategoryToSportsFacility")
 }
 
 model SportsFacility {
@@ -138,6 +138,7 @@ model FacilityCourt {
   createdAt    DateTime          @default(now())
   blockedDates BlockedDate[]
   bookings     FacilityBooking[]
+  openMatches  OpenMatch[]
   facility     SportsFacility    @relation(fields: [facilityId], references: [id], onDelete: Cascade)
 }
 
@@ -319,6 +320,7 @@ model OpenMatch {
   id                 String            @id @default(cuid())
   lobbyCode          String?           @unique
   facilityId         String
+  courtId            String?
   categoryId         String
   preferredDate      DateTime
   preferredStartTime String
@@ -334,6 +336,7 @@ model OpenMatch {
   updatedAt          DateTime          @updatedAt
   booking            FacilityBooking[]
   category           SportsCategory    @relation(fields: [categoryId], references: [id])
+  court              FacilityCourt?    @relation(fields: [courtId], references: [id])
   facility           SportsFacility    @relation(fields: [facilityId], references: [id])
   spots              OpenMatchSpot[]
 

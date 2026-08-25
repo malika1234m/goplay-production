@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
+import { slotInstant } from "@/lib/local-time";
+import { getSession } from "@/lib/mobile-auth";
 import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
 import { sendSMS } from "@/lib/sms";
 import { sendBookingReceivedEmail, sendNewBookingAlertEmail } from "@/lib/email";
@@ -14,7 +16,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Too many requests. Please slow down." }, { status: 429 });
     }
 
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user) {
       return Response.json({ error: "You must be logged in to book a ground." }, { status: 401 });
     }
@@ -105,6 +107,13 @@ export async function POST(req: NextRequest) {
     const endOfDay = new Date(bookingDate);
     endOfDay.setUTCHours(23, 59, 59, 999);
 
+    // A slot that has already started cannot be booked. Compared as a real instant
+    // so this holds on a UTC server as well as a Sri Lanka one.
+    if (slotInstant(startOfDay, startTime).getTime() <= Date.now()) {
+      return Response.json({ error: "That time has already passed. Please pick a later slot." }, { status: 400 });
+    }
+
+
     const blockedEntries = await db.blockedDate.findMany({
       where: { facilityId, date: { gte: startOfDay, lte: endOfDay } },
     });
@@ -131,9 +140,19 @@ export async function POST(req: NextRequest) {
           : "This time slot has been blocked for maintenance.",
       }, { status: 409 });
     }
+    // Pure arithmetic — hoisted so it is available after the transaction too
+    const [sh, sm] = startTime.split(":").map(Number);
+    const [eh, em] = endTime.split(":").map(Number);
+    const totalHours  = (eh * 60 + em - (sh * 60 + sm)) / 60;
+    const totalAmount = totalHours * facility.hourlyRate;
+
     // Release expired unpaid online bookings for this slot before checking conflicts
     const expiryCutoff = new Date(Date.now() - 30 * 60 * 1000);
-    await db.facilityBooking.updateMany({
+
+    // Everything from here to the insert runs under one facility-day lock, so a
+    // concurrent request cannot slip a booking in between the check and the write.
+    const outcome = await withFacilityDayLock(facilityId, startOfDay, async (tx) => {
+    await tx.facilityBooking.updateMany({
       where: {
         facilityId,
         ...(courtId ? { courtId } : {}),
@@ -147,7 +166,7 @@ export async function POST(req: NextRequest) {
       data: { status: "CANCELLED" },
     });
 
-    const conflict = await db.facilityBooking.findFirst({
+    const conflict = await tx.facilityBooking.findFirst({
       where: {
         facilityId,
         ...(courtId ? { courtId } : {}),
@@ -156,38 +175,22 @@ export async function POST(req: NextRequest) {
         AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
       },
     });
-    if (conflict) {
-      return Response.json({ error: "This time slot is already booked. Please choose another." }, { status: 409 });
+    if (conflict) return { ok: false as const, status: 409, body: { error: "This time slot is already booked. Please choose another." } };
+
+    // A lobby holds a court without naming one, so it only blocks this booking
+    // once the facility has no court left — not merely because it overlaps.
+    const usage = await slotUsage({ facilityId, date: startOfDay, startTime, endTime, client: tx });
+    if (usage.free <= 0 && usage.lobby) {
+      return { ok: false as const, status: 409, body: {
+        error:   `This slot has an active ${usage.lobby.categoryName} open match lobby and no free court left. Join the lobby instead!`,
+        lobbyId: usage.lobby.id,
+      } };
+    }
+    if (usage.free <= 0) {
+      return { ok: false as const, status: 409, body: { error: "This time slot is already booked. Please choose another." } };
     }
 
-    // Block the slot if an active open match lobby has reserved it
-    const lobbyConflict = await db.openMatch.findFirst({
-      where: {
-        facilityId,
-        preferredDate: { gte: startOfDay, lte: endOfDay },
-        status:        "COLLECTING",
-        expiresAt:     { gt: new Date() },
-        AND: [
-          { preferredStartTime: { lt: endTime } },
-          { preferredEndTime:   { gt: startTime } },
-        ],
-      },
-      select: { id: true, category: { select: { name: true } } },
-    });
-    if (lobbyConflict) {
-      return Response.json({
-        error:   `This slot has an active ${lobbyConflict.category.name} open match lobby. Join the lobby instead!`,
-        lobbyId: lobbyConflict.id,
-      }, { status: 409 });
-    }
-
-    // Calculate total
-    const [sh, sm] = startTime.split(":").map(Number);
-    const [eh, em] = endTime.split(":").map(Number);
-    const totalHours  = (eh * 60 + em - (sh * 60 + sm)) / 60;
-    const totalAmount = totalHours * facility.hourlyRate;
-
-    const booking = await db.facilityBooking.create({
+    const created = await tx.facilityBooking.create({
       data: {
         userId:          session.user.id,
         facilityId,
@@ -208,6 +211,12 @@ export async function POST(req: NextRequest) {
         court:    { select: { name: true } },
       },
     });
+
+      return { ok: true as const, booking: created };
+    });
+
+    if (!outcome.ok) return Response.json(outcome.body, { status: outcome.status });
+    const booking = outcome.booking;
 
     const courtLabel = booking.court ? ` — ${booking.court.name}` : "";
 

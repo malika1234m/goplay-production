@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
 import { createNotification } from "@/lib/notify";
 import { sendMatchFoundEmail, sendMatchExpiredEmail, sendNewBookingAlertEmail } from "@/lib/email";
 
@@ -62,32 +63,30 @@ export async function tryMatchLobby(matchId: string): Promise<void> {
 
   // Lobby is full — check facility slot is still free
   const hours    = calcHours(match.preferredStartTime, match.preferredEndTime);
-  const conflict = await db.facilityBooking.findFirst({
-    where: {
-      facilityId:  match.facilityId,
-      bookingDate: match.preferredDate,
-      status:      { in: ["PENDING", "CONFIRMED"] },
-      startTime:   { lt: match.preferredEndTime },
-      endTime:     { gt: match.preferredStartTime },
-    },
-  });
-
-  if (conflict) {
-    // Revert status before expiring so expireLobby's own COLLECTING check passes
-    await db.openMatch.update({ where: { id: matchId }, data: { status: "COLLECTING" } });
-    await expireLobby(matchId, "The selected time slot at this facility was just booked by someone else. You have been refunded.");
-    return;
-  }
-
   const systemUserId = await getSystemUserId();
   const totalAmount  = match.facility.hourlyRate * hours;
 
-  // Create booking + confirm spots in a single transaction — partial failure leaves no orphan
-  const booking = await db.$transaction(async (tx) => {
+  // The last free court has to be re-checked and consumed atomically: this lobby
+  // filling at the same moment as a direct booking is exactly the race that would
+  // otherwise double-book the facility. Same facility-day lock as the write paths.
+  const booking = await withFacilityDayLock(match.facilityId, match.preferredDate, async (tx) => {
+    // Ignore this lobby's own hold, then ask whether a court is still free for it.
+    const usage = await slotUsage({
+      facilityId:    match.facilityId,
+      date:          match.preferredDate,
+      startTime:     match.preferredStartTime,
+      endTime:       match.preferredEndTime,
+      ignoreLobbyId: matchId,
+      courtId:       match.courtId,
+      client:        tx,
+    });
+    if (usage.courtTaken || usage.free <= 0) return null;
+
     const b = await tx.facilityBooking.create({
       data: {
         userId:          systemUserId,
         facilityId:      match.facilityId,
+        courtId:         match.courtId,
         bookingDate:     match.preferredDate,
         startTime:       match.preferredStartTime,
         endTime:         match.preferredEndTime,
@@ -117,6 +116,13 @@ export async function tryMatchLobby(matchId: string): Promise<void> {
     });
     return b;
   });
+
+  if (!booking) {
+    // Revert status before expiring so expireLobby's own COLLECTING check passes
+    await db.openMatch.update({ where: { id: matchId }, data: { status: "COLLECTING" } });
+    await expireLobby(matchId, "The selected time slot at this facility was just booked by someone else. You have been refunded.");
+    return;
+  }
 
   const playerIds = [...new Set(match.spots.map((s) => s.userId))];
   const players   = await db.user.findMany({

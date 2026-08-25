@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!["GROUND_OWNER", "GROUND_WORKER"].includes(user.role)) {
+    if (!["USER", "GROUND_OWNER", "GROUND_WORKER"].includes(user.role)) {
       return Response.json(
-        { error: "Mobile app access is for facility owners and workers only." },
+        { error: "This account cannot sign in from the mobile app." },
         { status: 403 }
       );
     }

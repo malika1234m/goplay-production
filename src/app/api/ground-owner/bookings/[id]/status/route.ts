@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { slotInstant } from "@/lib/local-time";
 import { getSession } from "@/lib/mobile-auth";
 import { sendSMS } from "@/lib/sms";
 import { sendBookingConfirmedEmail, sendBookingCancelledEmail } from "@/lib/email";
@@ -69,9 +70,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Guard: cannot mark complete before the session has ended
     if (status === "COMPLETED") {
-      const [h, m]     = booking.endTime.split(":").map(Number);
-      const sessionEnd = new Date(booking.bookingDate);
-      sessionEnd.setHours(h, m, 0, 0);
+      const sessionEnd = slotInstant(booking.bookingDate, booking.endTime);
       if (sessionEnd > new Date()) {
         return Response.json({ error: "Cannot mark a booking complete before the session has ended." }, { status: 400 });
       }

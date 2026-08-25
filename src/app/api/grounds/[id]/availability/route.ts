@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { slotInstant } from "@/lib/local-time";
 
 function timeToMinutes(t: string) {
   const [h, m] = t.split(":").map(Number);
@@ -97,7 +98,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     type OpenMatchSlotInfo = { id: string; categoryName: string; spotsLeft: number; totalSpotsNeeded: number };
     const slots: {
-      start: string; end: string; available: boolean; blocked: boolean;
+      start: string; end: string; available: boolean; blocked: boolean; past: boolean;
       blockReason?: string; openMatch?: OpenMatchSlotInfo;
     }[] = [];
 
@@ -106,13 +107,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       const end   = minutesToTime(m + 60);
 
       const booked = bookedRanges.some((b) => b.start < m + 60 && b.end > m);
+      // An hour that has already begun is not bookable, whatever else is true of it
+      const past   = slotInstant(startOfDay, start).getTime() <= Date.now();
       const blockEntry = partialBlocks.find(
         (b) => timeToMinutes(b.startTime!) < m + 60 && timeToMinutes(b.endTime!) > m
       );
       const blocked = !!blockEntry;
 
       // A COLLECTING lobby overlapping this hour shows as "open match" (only when not already booked)
-      const lobby = !booked && !blocked
+      const lobby = !booked && !blocked && !past
         ? openMatches.find(
             (om) => timeToMinutes(om.preferredStartTime) < m + 60 &&
                     timeToMinutes(om.preferredEndTime)   > m
@@ -122,8 +125,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       slots.push({
         start,
         end,
-        available: !booked && !blocked && !lobby,
+        available: !booked && !blocked && !lobby && !past,
         blocked,
+        past,
         ...(blocked && blockEntry?.reason ? { blockReason: blockEntry.reason } : {}),
         ...(lobby ? {
           openMatch: {

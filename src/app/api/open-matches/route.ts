@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
+import { getSession } from "@/lib/mobile-auth";
 import { calcHours } from "@/lib/open-match-engine";
 import { isAllowed, getClientIp } from "@/lib/rateLimiter";
 import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
@@ -69,13 +70,13 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Too many requests." }, { status: 429 });
   }
 
-  const session = await auth();
+  const session = await getSession(req);
   if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
   if (session.user.role !== "USER") {
     return Response.json({ error: "Only players can create open match lobbies." }, { status: 403 });
   }
 
-  const { facilityId, categoryId, preferredDate, preferredStartTime, preferredEndTime, groupSize = 1, totalSpotsNeeded: requestedSpots } = await req.json();
+  const { facilityId, courtId, categoryId, preferredDate, preferredStartTime, preferredEndTime, groupSize = 1, totalSpotsNeeded: requestedSpots } = await req.json();
 
   if (!facilityId || !categoryId || !preferredDate || !preferredStartTime || !preferredEndTime) {
     return Response.json({ error: "facilityId, categoryId, preferredDate, preferredStartTime and preferredEndTime are required." }, { status: 400 });
@@ -93,13 +94,23 @@ export async function POST(req: NextRequest) {
   const [facility, category] = await Promise.all([
     db.sportsFacility.findUnique({
       where: { id: facilityId, status: "ACTIVE" },
-      include: { availability: true, categories: { select: { id: true } } },
+      include: { availability: true, categories: { select: { id: true } }, courts: { where: { isActive: true }, select: { id: true } } },
     }),
     db.sportsCategory.findUnique({ where: { id: categoryId } }),
   ]);
 
   if (!facility) return Response.json({ error: "Facility not found or not active." }, { status: 404 });
   if (!category) return Response.json({ error: "Sport category not found." }, { status: 404 });
+
+  // A lobby books a specific court, exactly like a direct booking does
+  if (facility.courts.length > 0) {
+    if (!courtId) {
+      return Response.json({ error: "Please select a court for the match." }, { status: 400 });
+    }
+    if (!facility.courts.some((c) => c.id === courtId)) {
+      return Response.json({ error: "That court does not belong to this facility." }, { status: 400 });
+    }
+  }
 
   if (!category.allowOpenMatch) {
     return Response.json({ error: "Open match lobbies are not available for this sport." }, { status: 400 });
@@ -146,22 +157,18 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: `This facility is only open ${avail.openTime}–${avail.closeTime} on that day.` }, { status: 400 });
   }
 
-  // Check no existing booking conflict
-  const conflict = await db.facilityBooking.findFirst({
-    where: {
-      facilityId,
-      bookingDate: date,
-      status:      { in: ["PENDING", "CONFIRMED"] },
-      startTime:   { lt: preferredEndTime },
-      endTime:     { gt: preferredStartTime },
-    },
-  });
-  if (conflict) return Response.json({ error: "This time slot is already booked at this facility." }, { status: 409 });
+  const lobbyCode = await uniqueLobbyCode();
 
-  // Check no duplicate lobby at same facility/date/time
-  const dupeLobby = await db.openMatch.findFirst({
+  // Checks and the insert share one facility-day lock so two players cannot both
+  // claim the last court at the same moment.
+  const outcome = await withFacilityDayLock(facilityId, date, async (tx) => {
+
+  // An exact-time duplicate for the same sport should send people to that lobby
+  // rather than start a rival one beside it.
+  const dupeLobby = await tx.openMatch.findFirst({
     where: {
       facilityId,
+      courtId:            courtId ?? null,
       categoryId,
       preferredDate:      date,
       preferredStartTime,
@@ -170,14 +177,27 @@ export async function POST(req: NextRequest) {
     },
   });
   if (dupeLobby) {
-    return Response.json(
-      { error: "A lobby already exists for this sport, facility and time slot. Join that one instead!", lobbyId: dupeLobby.id },
-      { status: 409 },
-    );
+    return { ok: false as const, status: 409, body:
+      { error: "A lobby already exists for this sport, facility and time slot. Join that one instead!", lobbyId: dupeLobby.id } };
+  }
+
+  // Capacity: bookings AND other lobbies hold courts, and any overlap counts —
+  // not just an exact time match. Only block once every court is spoken for.
+  const usage = await slotUsage({ facilityId, date, startTime: preferredStartTime, endTime: preferredEndTime, courtId, client: tx });
+  if (usage.courtTaken) {
+    return { ok: false as const, status: 409, body: { error: "That court is already taken for this time. Pick another court or time." } };
+  }
+  if (usage.free <= 0) {
+    return usage.lobby
+      ? { ok: false as const, status: 409, body: {
+          error:   `Every court is taken then — there is already an active ${usage.lobby.categoryName} lobby for that time. Join it instead!`,
+          lobbyId: usage.lobby.id,
+        } }
+      : { ok: false as const, status: 409, body: { error: "This time slot is already booked at this facility." } };
   }
 
   // Check user not already in an active lobby for this facility/date/time
-  const alreadyIn = await db.openMatchSpot.findFirst({
+  const alreadyIn = await tx.openMatchSpot.findFirst({
     where: {
       userId: session.user.id,
       status: { in: ["RESERVED", "CONFIRMED"] },
@@ -185,7 +205,7 @@ export async function POST(req: NextRequest) {
     },
   });
   if (alreadyIn) {
-    return Response.json({ error: "You already have a spot at this facility on this date." }, { status: 409 });
+    return { ok: false as const, status: 409, body: { error: "You already have a spot at this facility on this date." } };
   }
 
   // Expiry: 48h before game day for small sports, 72h for large
@@ -193,18 +213,17 @@ export async function POST(req: NextRequest) {
   const hoursBeforeExpiry = totalSpotsNeeded > 4 ? 72 : 48;
   expiresAt.setHours(expiresAt.getHours() - hoursBeforeExpiry);
   if (expiresAt <= new Date()) {
-    return Response.json({ error: "It is too late to create a lobby for this date." }, { status: 400 });
+    return { ok: false as const, status: 400, body: { error: "It is too late to create a lobby for this date." } };
   }
 
   const hours = calcHours(preferredStartTime, preferredEndTime);
-  if (hours < 0.5) return Response.json({ error: "Minimum session length is 30 minutes." }, { status: 400 });
+  if (hours < 0.5) return { ok: false as const, status: 400, body: { error: "Minimum session length is 30 minutes." } };
 
-  const lobbyCode = await uniqueLobbyCode();
-
-  const match = await db.openMatch.create({
+  const match = await tx.openMatch.create({
     data: {
       lobbyCode,
       facilityId,
+      courtId:            courtId ?? null,
       categoryId,
       preferredDate:      date,
       preferredStartTime,
@@ -225,6 +244,7 @@ export async function POST(req: NextRequest) {
     },
     include: {
       facility: { select: { id: true, name: true, address: true, city: true, hourlyRate: true } },
+      court:    { select: { id: true, name: true } },
       category: { select: { id: true, name: true, icon: true, minPlayers: true } },
       spots: {
         select: { id: true, groupSize: true, status: true,
@@ -232,6 +252,12 @@ export async function POST(req: NextRequest) {
       },
     },
   });
+
+    return { ok: true as const, match };
+  });
+
+  if (!outcome.ok) return Response.json(outcome.body, { status: outcome.status });
+  const match = outcome.match;
 
   // Build PayHere payment params for the creator's spot
   const creatorSpot = match.spots[0];

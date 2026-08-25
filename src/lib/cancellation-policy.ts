@@ -1,3 +1,5 @@
+import { slotInstant } from "@/lib/local-time";
+
 export interface PolicyTier {
   minHours:      number;
   refundPercent: number;
@@ -29,9 +31,8 @@ export function getCancellationPolicyFromTiers(
   startTime:   string,
   tiers:       PolicyTier[] = DEFAULT_POLICY_TIERS,
 ): CancellationPolicy {
-  const [h, m] = startTime.split(":").map(Number);
-  const start  = new Date(bookingDate);
-  start.setHours(h, m, 0, 0);
+  // Built explicitly in Sri Lanka time — server-local setHours() is UTC on Vercel
+  const start      = slotInstant(bookingDate, startTime);
   const hoursUntil = (start.getTime() - Date.now()) / 3_600_000;
 
   const sorted = [...tiers].sort((a, b) => b.minHours - a.minHours);

@@ -1,9 +1,10 @@
+import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const application = await db.providerApplication.findFirst({

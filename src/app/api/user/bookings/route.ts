@@ -1,13 +1,13 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 import { BookingStatus } from "@prisma/client";
 
 const VALID_BOOKING_STATUSES = new Set<string>(Object.values(BookingStatus));
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession(req);
     if (!session?.user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
         include: {
           facility: {
             select: {
-              name: true, city: true, address: true,
+              id: true, name: true, city: true, address: true,
               categories: { select: { name: true, icon: true } },
             },
           },

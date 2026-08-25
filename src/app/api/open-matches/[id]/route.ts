@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 
 // GET /api/open-matches/[id] — lobby detail
 // Players see co-player contact info only after they have a RESERVED/CONFIRMED spot
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await getSession(req);
 
   const match = await db.openMatch.findUnique({
     where: { id },

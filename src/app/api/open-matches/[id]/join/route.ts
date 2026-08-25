@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 import { isAllowed, getClientIp } from "@/lib/rateLimiter";
 import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
 import { calcHours } from "@/lib/open-match-engine";
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return Response.json({ error: "Too many requests." }, { status: 429 });
   }
 
-  const session = await auth();
+  const session = await getSession(req);
   if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
   if (session.user.role !== "USER") {
     return Response.json({ error: "Only players can join open match lobbies." }, { status: 403 });

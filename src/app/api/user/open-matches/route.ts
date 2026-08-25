@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/mobile-auth";
 
 // GET /api/user/open-matches — authenticated player's lobby history
-export async function GET(_req: NextRequest) {
-  const session = await auth();
+export async function GET(req: NextRequest) {
+  const session = await getSession(req);
   if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
 
   const spots = await db.openMatchSpot.findMany({
