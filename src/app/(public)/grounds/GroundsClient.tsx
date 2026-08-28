@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import { MapPin, Star, Map, LayoutGrid, Navigation, Loader2, ArrowUpDown } from "lucide-react";
 import { haversineKm } from "@/lib/geocode";
+import AdSlot from "@/components/ads/AdSlot";
 import type { MapGround } from "@/components/maps/GroundsMap";
 
 const GroundsMap = dynamic(() => import("@/components/maps/GroundsMap"), { ssr: false });
@@ -25,6 +26,9 @@ export interface GroundItem {
 }
 
 const RADII = [5, 10, 25, 50] as const;
+
+/** Card index the in-feed ad follows — after two rows on desktop (3 per row). */
+const INFEED_AFTER = 6;
 
 interface Props {
   grounds: GroundItem[];
@@ -231,6 +235,7 @@ export default function GroundsClient({ grounds, q, category }: Props) {
       {view === "grid" && (
         <>
           {filtered.length === 0 ? (
+            <>
             <div className="bg-white rounded-2xl border border-slate-100 py-20 text-center">
               <div className="text-6xl mb-4">🏟️</div>
               <h3 className="text-base font-semibold text-slate-900 mb-1">No grounds found</h3>
@@ -266,14 +271,26 @@ export default function GroundsClient({ grounds, q, category }: Props) {
                 </Link>
               )}
             </div>
+            {/* A search with no results is a dead end — the ad costs no
+                engagement here because there is nothing else to click. */}
+            <AdSlot name="grounds_empty" format="auto" className="mt-6" />
+            </>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filtered.map((ground) => {
+              {filtered.map((ground, i) => {
                 const primaryCat = ground.categories[0];
                 const fallbackIcon = primaryCat?.icon ?? "🏟️";
                 return (
+                  <Fragment key={ground.id}>
+                  {/* In-feed after the second desktop row — the strongest
+                      position on the site, and far enough down that the first
+                      results (sponsored ones included) are seen first. */}
+                  {i === INFEED_AFTER && filtered.length > INFEED_AFTER + 1 && (
+                    <div className="col-span-full my-2">
+                      <AdSlot name="grounds_infeed" format="auto" />
+                    </div>
+                  )}
                   <Link
-                    key={ground.id}
                     href={`/grounds/${ground.id}`}
                     className="bg-white rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all group"
                   >
@@ -347,6 +364,7 @@ export default function GroundsClient({ grounds, q, category }: Props) {
                       </div>
                     </div>
                   </Link>
+                  </Fragment>
                 );
               })}
             </div>

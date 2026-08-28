@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { db } from "@/lib/db";
 import GroundsSearch from "@/components/grounds/GroundsSearch";
 import GroundsClient from "./GroundsClient";
+import AdSlot from "@/components/ads/AdSlot";
 
 export const metadata: Metadata = {
   title:       "Browse Grounds",
@@ -140,6 +141,10 @@ export default async function GroundsPage({
         </div>
 
         <GroundsClient grounds={grounds} q={q} category={category} />
+
+        {grounds.length > 0 && (
+          <AdSlot name="grounds_footer" format="auto" className="mt-10" />
+        )}
 
         {/* Pagination */}
         {totalPages > 1 && (

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RefreshCcw, Lock, FileText, ChevronRight } from "lucide-react";
+import AdSlot from "@/components/ads/AdSlot";
 
 export const metadata = { title: "Policies — GoPlay" };
 
@@ -57,6 +58,8 @@ export default function PoliciesPage() {
           </Link>
         ))}
       </div>
+
+      <AdSlot name="info_page" format="auto" className="mt-10" />
     </div>
   );
 }

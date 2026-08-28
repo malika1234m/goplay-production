@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Target, Users, Zap, ShieldCheck, MapPin, Mail, Phone } from "lucide-react";
+import AdSlot from "@/components/ads/AdSlot";
 
 export const metadata = { title: "About Us — GoPlay" };
 
@@ -149,6 +150,10 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        <AdSlot name="info_page" format="auto" />
+      </div>
     </div>
   );
 }

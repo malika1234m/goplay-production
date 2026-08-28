@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AdSlot from "@/components/ads/AdSlot";
 import {
   LifeBuoy, UserPlus, Building2, Users,
   Mail, Phone, Zap,
@@ -254,6 +255,7 @@ export default function SupportPage() {
           <p className="mt-6 text-xs text-green-200">Monday – Friday · 9 AM – 6 PM Sri Lanka Time</p>
         </section>
 
+        <AdSlot name="info_page" format="auto" className="mt-10" />
       </div>
     </div>
   );

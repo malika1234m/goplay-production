@@ -8,6 +8,7 @@ import {
   Zap, MapPin, Clock, Users, ChevronRight, Loader2,
   Calendar, ArrowRight, Trophy, Plus, Building2, Search, X, ChevronLeft,
 } from "lucide-react";
+import AdSlot from "@/components/ads/AdSlot";
 
 const SPORT_EMOJI: Record<string, string> = {
   "Badminton":        "🏸",
@@ -504,6 +505,8 @@ export default function OpenMatchesPage() {
             )}
           </>
         )}
+
+        <AdSlot name="open_matches" format="auto" className="mt-10" />
       </div>
     </div>
   );

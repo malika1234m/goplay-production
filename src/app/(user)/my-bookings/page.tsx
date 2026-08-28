@@ -6,6 +6,7 @@ import {
   MapPin, Clock, Loader2, Search, Calendar, XCircle, CreditCard,
   Banknote, AlertTriangle, RefreshCw, CheckCircle, Star, X, ShieldAlert,
 } from "lucide-react";
+import AdSlot from "@/components/ads/AdSlot";
 
 interface Booking {
   id: string;
@@ -617,6 +618,8 @@ export default function MyBookingsPage() {
           })}
         </div>
       )}
+
+      <AdSlot name="my_bookings" format="auto" className="mt-10" />
 
       {/* Cancel modal */}
       {cancelTarget && (

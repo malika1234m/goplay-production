@@ -13,6 +13,8 @@ import Footer from "@/components/layout/Footer";
 import HomeSearch from "@/components/home/HomeSearch";
 import HeroImageSlider from "@/components/home/HeroImageSlider";
 import ListGroundButton from "@/components/home/ListGroundButton";
+import AdSenseScript from "@/components/ads/AdSenseScript";
+import AdSlot from "@/components/ads/AdSlot";
 import {
   Search, Clock, Shield, ChevronRight,
   Zap, Users, CheckCircle, LifeBuoy, Building2, Trophy, ArrowRight,
@@ -153,6 +155,13 @@ export default function HomePage() {
             </Link>
           ))}
         </div>
+      </section>
+
+      {/* Ad — between the sport picker and the feature blocks. Deep enough that
+          the hero and search have already done their job, high enough to be
+          seen without scrolling to the bottom. */}
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 sm:pb-10">
+        <AdSlot name="home_mid" format="auto" />
       </section>
 
       {/* Features */}
@@ -347,6 +356,12 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Ad — placed after "How it works" so it sits below the hero and the
+          main booking CTAs. Readers this far down are browsing, not converting. */}
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
+        <AdSlot name="home_lower" format="auto" />
+      </section>
+
       {/* Support strip */}
       <section className="bg-white border-y border-slate-100 py-8 sm:py-10 px-4">
         <div className="max-w-5xl mx-auto">
@@ -425,6 +440,7 @@ export default function HomePage() {
       </section>
 
       <Footer />
+      <AdSenseScript />
     </div>
   );
 }

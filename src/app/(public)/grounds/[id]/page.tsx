@@ -8,6 +8,7 @@ import BookingForm from "@/components/booking/BookingForm";
 import GroundImageGallery from "@/components/grounds/GroundImageGallery";
 import FacilityMapWrapper from "@/components/maps/FacilityMapWrapper";
 import OpenMatchesSection from "@/components/grounds/OpenMatchesSection";
+import AdSlot from "@/components/ads/AdSlot";
 
 const categoryEmoji: Record<string, string> = {
   Cricket: "🏏", Football: "⚽", Futsal: "🥅", Tennis: "🎾",
@@ -212,6 +213,14 @@ export default async function GroundDetailsPage({
             </div>
           )}
 
+          {/* Ad — in the main content column, between two content blocks.
+              It cannot live in the right column: the booking panel is sticky
+              and taller than most viewports, so it paints over anything
+              beneath it. */}
+          <div className="lg:col-span-2">
+            <AdSlot name="ground_sidebar" format="auto" />
+          </div>
+
           {/* ── 5. Courts / Fields ── cols 1-2 on desktop */}
           {ground.courts.length > 0 && (
             <div className="lg:col-span-2">
@@ -375,6 +384,8 @@ export default async function GroundDetailsPage({
           </div>
 
         </div>
+
+        <AdSlot name="ground_footer" format="auto" className="mt-10" />
       </div>
     </div>
   );

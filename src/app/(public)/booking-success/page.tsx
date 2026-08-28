@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle, Calendar, Clock, MapPin, CreditCard, CalendarPlus, Loader2 } from "lucide-react";
+import AdSlot from "@/components/ads/AdSlot";
 
 interface BookingDetail {
   id: string;
@@ -131,6 +132,10 @@ function SuccessContent() {
             View My Bookings
           </Link>
         </div>
+
+        {/* Safe inventory: the booking is already paid and confirmed, so there
+            is no conversion left to lose. Kept below the details and the CTA. */}
+        <AdSlot name="booking_success" format="auto" className="mt-8" />
       </div>
     </div>
   );
