@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 
 // Google AdSense pulls scripts, pixels and ad iframes from a wide set of
-// hosts. Missing any of these makes ads silently fail to render with only a
-// CSP violation in the console, so they are grouped here per directive.
+// hosts, plus fundingchoicesmessages.google.com for the GDPR consent banner
+// (Google's CMP) shown to EEA/UK/Swiss visitors. Missing any of these makes
+// ads or the consent banner silently fail with only a CSP violation in the
+// console, so they are grouped here per directive.
 const ADS = {
   script: [
     "https://pagead2.googlesyndication.com",
@@ -11,6 +13,7 @@ const ADS = {
     "https://www.googletagservices.com",
     "https://adservice.google.com",
     "https://ep2.adtrafficquality.google",
+    "https://fundingchoicesmessages.google.com",
   ],
   img: [
     "https://pagead2.googlesyndication.com",
@@ -19,6 +22,7 @@ const ADS = {
     "https://www.google.com",
     "https://www.google.lk",
     "https://ep1.adtrafficquality.google",
+    "https://fundingchoicesmessages.google.com",
   ],
   connect: [
     "https://pagead2.googlesyndication.com",
@@ -26,12 +30,14 @@ const ADS = {
     "https://tpc.googlesyndication.com",
     "https://ep1.adtrafficquality.google",
     "https://csi.gstatic.com",
+    "https://fundingchoicesmessages.google.com",
   ],
   frame: [
     "https://googleads.g.doubleclick.net",
     "https://tpc.googlesyndication.com",
     "https://www.google.com",
     "https://ep2.adtrafficquality.google",
+    "https://fundingchoicesmessages.google.com",
   ],
   font: ["https://fonts.gstatic.com"],
 };

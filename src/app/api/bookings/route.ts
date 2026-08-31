@@ -26,10 +26,18 @@ export async function POST(req: NextRequest) {
 
     const currentUser = await db.user.findUnique({
       where:  { id: session.user.id },
-      select: { isActive: true },
+      select: { isActive: true, isBookingSuspended: true },
     });
     if (!currentUser?.isActive) {
       return Response.json({ error: "Your account has been deactivated. Please contact support." }, { status: 403 });
+    }
+    // Repeated no-shows and cash cancellations suspend booking. Enforced here as well as on
+    // joining an open match and cancelling — the app warns players this is what will happen.
+    if (currentUser.isBookingSuspended) {
+      return Response.json(
+        { error: "Your account is suspended from booking. Please contact support." },
+        { status: 403 }
+      );
     }
 
     const {
