@@ -27,7 +27,9 @@ export async function GET(req: NextRequest) {
       cancelled: bookingStats.find((b) => b.status === "CANCELLED")?._count ?? 0,
     };
 
-    return Response.json({ user, stats }, { headers: { "Cache-Control": "private, max-age=300, stale-while-revalidate=600" } });
+    // No caching: the profile changes from other screens (edit profile, a phone saved
+    // while joining a lobby), and mobile HTTP caches would keep serving the old copy.
+    return Response.json({ user, stats }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (err) {
     console.error("[GET /api/user/profile]", err);
     return Response.json({ error: "Failed to fetch profile." }, { status: 500 });
