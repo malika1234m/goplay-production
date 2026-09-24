@@ -10,6 +10,7 @@ import {
   ChevronRight, AlertCircle, ExternalLink, PartyPopper,
   ShieldCheck, CreditCard, XCircle, RefreshCw,
 } from "lucide-react";
+import ContactNumberField, { useContactNumber } from "@/components/shared/ContactNumberField";
 
 interface UserInfo { id: string; name: string; avatar: string | null; phone: string | null; email: string | null; }
 interface Spot { id: string; groupSize: number; status: string; paymentStatus: string; amountPaid: number; createdAt: string; user: UserInfo; }
@@ -46,6 +47,7 @@ function Countdown({ target }: { target: string }) {
 
 function LobbyDetailInner({ id }: { id: string }) {
   const { data: ses } = useSession();
+  const contact       = useContactNumber();
   const searchParams  = useSearchParams();
   const justCreated   = searchParams.get("created") === "1";
   const paymentState  = searchParams.get("payment") as "success" | "cancelled" | null;
@@ -109,12 +111,17 @@ function LobbyDetailInner({ id }: { id: string }) {
     : Math.round(perPersonTotal * (mySpot?.groupSize ?? groupSize));
 
   async function handlePay() {
+    if (!contact.validate()) {
+      // The mobile sticky bar can be tapped while the field is off-screen
+      document.getElementById("contact-number")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     setError(""); setJoining(true);
     try {
       const res = await fetch(`/api/open-matches/${id}/join`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ groupSize }),
+        body:    JSON.stringify({ groupSize, contactNumber: contact.value }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to initiate payment."); setJoining(false); return; }
@@ -579,6 +586,10 @@ function LobbyDetailInner({ id }: { id: string }) {
                       </button>
                     </div>
                     <p className="text-xs text-slate-400 text-center mt-1">Min 1 · Max {joinCapLeft}</p>
+                  </div>
+
+                  <div id="contact-number" className="mb-4">
+                    <ContactNumberField contact={contact} />
                   </div>
 
                   <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4">

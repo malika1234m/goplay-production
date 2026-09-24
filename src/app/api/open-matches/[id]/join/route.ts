@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
+import { resolveContactPhone } from "@/lib/contact-phone";
 import { isAllowed, getClientIp } from "@/lib/rateLimiter";
 import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
 import { calcHours } from "@/lib/open-match-engine";
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const { groupSize = 1 } = await req.json();
+  const { groupSize = 1, contactNumber } = await req.json();
 
   if (typeof groupSize !== "number" || groupSize < 1 || groupSize > 22) {
     return Response.json({ error: "groupSize must be between 1 and 22." }, { status: 400 });
@@ -58,6 +59,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       { status: 400 },
     );
   }
+
+  const contact = await resolveContactPhone(session.user.id, contactNumber);
+  if ("error" in contact) return Response.json({ error: contact.error }, { status: 400 });
 
   // Atomically hold spot capacity while payment is in progress
   const reserved = await db.openMatch.updateMany({
@@ -111,7 +115,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     first_name:   (user.name ?? "").split(" ")[0] || "Player",
     last_name:    (user.name ?? "").split(" ").slice(1).join(" ") || "-",
     email:        user.email ?? "",
-    phone:        (user as any).phone ?? "0771234567",
+    phone:        contact.phone,
     address:      match.facility.address,
     city:         match.facility.city,
     country:      "Sri Lanka",

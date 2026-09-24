@@ -9,6 +9,7 @@ import {
   Calendar, Clock, Users, Zap, CheckCircle2, AlertCircle, Search, X, Building2,
   CreditCard, ShieldCheck,
 } from "lucide-react";
+import ContactNumberField, { useContactNumber } from "@/components/shared/ContactNumberField";
 
 interface Category { id: string; name: string; icon: string; minPlayers: number; maxPlayers: number | null; allowOpenMatch: boolean; }
 interface GroundResult {
@@ -34,6 +35,7 @@ function CreatePageInner() {
   const router        = useRouter();
   const params        = useSearchParams();
   const { data: ses } = useSession();
+  const contact       = useContactNumber();
 
   const preselectedId = params.get("facilityId") ?? "";
 
@@ -194,12 +196,15 @@ function CreatePageInner() {
     if (!facilityId || !categoryId || !date || !startTime) {
       setError("Please fill in all fields."); return;
     }
+    if (!contact.validate()) {
+      setError("Please add a valid contact number."); return;
+    }
     setError(""); setSubmitting(true);
     try {
       const res = await fetch("/api/open-matches", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ facilityId, categoryId, preferredDate: date, preferredStartTime: startTime, preferredEndTime: endTime, groupSize, totalSpotsNeeded }),
+        body:    JSON.stringify({ facilityId, categoryId, preferredDate: date, preferredStartTime: startTime, preferredEndTime: endTime, groupSize, totalSpotsNeeded, contactNumber: contact.value }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -800,6 +805,10 @@ function CreatePageInner() {
                 Pay now to launch the lobby — your spot is secured immediately. Others join and pay their own
                 spots. Once all {totalSpotsNeeded} spots are filled, GoPlay auto-books the court.
                 <span className="block mt-1 font-medium">Full refund if the lobby expires without enough players.</span>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-100 p-5">
+                <ContactNumberField contact={contact} />
               </div>
 
               <div className="flex justify-between">

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
 import { getSession } from "@/lib/mobile-auth";
+import { resolveContactPhone } from "@/lib/contact-phone";
 import { calcHours } from "@/lib/open-match-engine";
 import { isAllowed, getClientIp } from "@/lib/rateLimiter";
 import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Only players can create open match lobbies." }, { status: 403 });
   }
 
-  const { facilityId, courtId, categoryId, preferredDate, preferredStartTime, preferredEndTime, groupSize = 1, totalSpotsNeeded: requestedSpots } = await req.json();
+  const { facilityId, courtId, categoryId, preferredDate, preferredStartTime, preferredEndTime, groupSize = 1, totalSpotsNeeded: requestedSpots, contactNumber } = await req.json();
 
   if (!facilityId || !categoryId || !preferredDate || !preferredStartTime || !preferredEndTime) {
     return Response.json({ error: "facilityId, categoryId, preferredDate, preferredStartTime and preferredEndTime are required." }, { status: 400 });
@@ -156,6 +157,9 @@ export async function POST(req: NextRequest) {
   if (preferredStartTime < avail.openTime || preferredEndTime > avail.closeTime) {
     return Response.json({ error: `This facility is only open ${avail.openTime}–${avail.closeTime} on that day.` }, { status: 400 });
   }
+
+  const contact = await resolveContactPhone(session.user.id, contactNumber);
+  if ("error" in contact) return Response.json({ error: contact.error }, { status: 400 });
 
   const lobbyCode = await uniqueLobbyCode();
 
@@ -289,7 +293,7 @@ export async function POST(req: NextRequest) {
     first_name:   (user.name ?? "").split(" ")[0] || "Player",
     last_name:    (user.name ?? "").split(" ").slice(1).join(" ") || "-",
     email:        user.email ?? "",
-    phone:        (user as any).phone ?? "0771234567",
+    phone:        contact.phone,
     address:      facility.address,
     city:         facility.city,
     country:      "Sri Lanka",
