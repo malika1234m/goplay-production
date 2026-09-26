@@ -4,7 +4,7 @@ import { slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
 import { getSession } from "@/lib/mobile-auth";
 import { resolveContactPhone } from "@/lib/contact-phone";
 import { calcHours } from "@/lib/open-match-engine";
-import { isAllowed, getClientIp } from "@/lib/rateLimiter";
+import { isAllowed } from "@/lib/rateLimiter";
 import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
 
 const PAYHERE_FEE_PCT = 2.5;
@@ -67,12 +67,14 @@ export async function GET(req: NextRequest) {
 
 // POST /api/open-matches — create lobby at a specific facility
 export async function POST(req: NextRequest) {
-  if (!isAllowed(`open-match:${getClientIp(req)}`, 5, 60_000)) {
+  const session = await getSession(req);
+  if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
+
+  // 5 lobbies per minute per player — mobile carriers put many players behind one shared IP, so a per-IP limit would block strangers
+  if (!isAllowed(`open-match:${session.user.id}`, 5, 60_000)) {
     return Response.json({ error: "Too many requests." }, { status: 429 });
   }
 
-  const session = await getSession(req);
-  if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
   if (session.user.role !== "USER") {
     return Response.json({ error: "Only players can create open match lobbies." }, { status: 403 });
   }

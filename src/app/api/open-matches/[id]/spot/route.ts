@@ -24,7 +24,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }),
     db.user.findUnique({
       where:  { id: session.user.id },
-      select: { cashCancelCount: true, isBookingSuspended: true },
+      select: { isBookingSuspended: true },
     }),
   ]);
 
@@ -63,28 +63,38 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     tiers,
   );
 
-  // Apply the same cancellation strike as cash bookings — every open match spot
-  // is treated as a cash commitment since payment is taken at match time.
-  const newCount    = (user?.cashCancelCount ?? 0) + 1;
-  const willSuspend = newCount >= CASH_CANCEL_BAN_THRESHOLD;
-
-  await db.$transaction([
-    db.openMatchSpot.update({
-      where: { id: spot.id },
+  // Every write hangs off the spot still being RESERVED, so repeated taps of "Leave"
+  // can't release its capacity, record the strike or notify players more than once.
+  const outcome = await db.$transaction(async (tx) => {
+    const released = await tx.openMatchSpot.updateMany({
+      where: { id: spot.id, status: "RESERVED" },
       data:  { status: "CANCELLED", cancelledAt: new Date() },
-    }),
-    db.openMatch.update({
+    });
+    if (released.count === 0) return null;
+
+    await tx.openMatch.update({
       where: { id },
       data:  { spotsReserved: { decrement: spot.groupSize } },
-    }),
-    db.user.update({
-      where: { id: session.user.id },
-      data:  {
-        cashCancelCount: newCount,
-        ...(willSuspend ? { isBookingSuspended: true } : {}),
-      },
-    }),
-  ]);
+    });
+
+    // Apply the same cancellation strike as cash bookings — every open match spot
+    // is treated as a cash commitment since payment is taken at match time.
+    // Incremented in the database: a count read earlier is stale when leaves overlap.
+    const { cashCancelCount } = await tx.user.update({
+      where:  { id: session.user.id },
+      data:   { cashCancelCount: { increment: 1 } },
+      select: { cashCancelCount: true },
+    });
+    const willSuspend = cashCancelCount >= CASH_CANCEL_BAN_THRESHOLD;
+    if (willSuspend) {
+      await tx.user.update({ where: { id: session.user.id }, data: { isBookingSuspended: true } });
+    }
+    return { newCount: cashCancelCount, willSuspend };
+  });
+  if (!outcome) {
+    return Response.json({ error: "No active spot found for you in this lobby." }, { status: 404 });
+  }
+  const { newCount, willSuspend } = outcome;
 
   const dateStr    = new Date(match.preferredDate).toLocaleDateString("en-LK", { weekday: "short", month: "short", day: "numeric" });
   const spotsAfter = match.totalSpotsNeeded - match.spotsReserved + spot.groupSize;

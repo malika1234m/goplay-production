@@ -6,20 +6,21 @@ import { getSession } from "@/lib/mobile-auth";
 import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
 import { sendSMS } from "@/lib/sms";
 import { sendBookingReceivedEmail, sendNewBookingAlertEmail } from "@/lib/email";
-import { isAllowed, getClientIp } from "@/lib/rateLimiter";
+import { isAllowed } from "@/lib/rateLimiter";
 import { createNotification } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   try {
-    // 10 booking attempts per minute per IP
-    if (!isAllowed(`book:${getClientIp(req)}`, 10, 60_000)) {
-      return Response.json({ error: "Too many requests. Please slow down." }, { status: 429 });
-    }
-
     const session = await getSession(req);
     if (!session?.user) {
       return Response.json({ error: "You must be logged in to book a ground." }, { status: 401 });
     }
+
+    // 10 booking attempts per minute per player — mobile carriers put many players behind one shared IP, so a per-IP limit would block strangers
+    if (!isAllowed(`book:${session.user.id}`, 10, 60_000)) {
+      return Response.json({ error: "Too many requests. Please slow down." }, { status: 429 });
+    }
+
     if (session.user.role === "GROUND_OWNER") {
       return Response.json({ error: "Ground owners cannot book sports grounds." }, { status: 403 });
     }

@@ -29,7 +29,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         },
         user: {
           select: {
-            cashCancelCount:    true,
             noShowCount:        true,
             isBookingSuspended: true,
           },
@@ -54,28 +53,37 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const now = new Date();
 
-    await db.facilityBooking.update({
-      where: { id },
-      data: {
-        status:        "CANCELLED",
-        cancelledAt:   now,
-        cancelledBy:   "user",
-        refundPercent: policy.refundPercent,
-        refundAmount,
-        ...(needsRefund ? { refundStatus: "NEEDED" } : {}),
-      },
-    });
-
-    // Track cash cancellations on user
-    if (booking.paymentMethod === "ON_ARRIVAL") {
-      const newCashCount = booking.user.cashCancelCount + 1;
-      await db.user.update({
-        where: { id: booking.userId },
-        data:  { cashCancelCount: newCashCount,
-          ...(newCashCount >= CASH_CANCEL_BAN_THRESHOLD ? { isBookingSuspended: true } : {}),
+    // Only the request that actually moves the booking out of an active status goes on —
+    // repeated taps of "Cancel" must not record extra strikes, alerts or refund requests.
+    const cancelled = await db.$transaction(async (tx) => {
+      const changed = await tx.facilityBooking.updateMany({
+        where: { id, status: { in: ["PENDING", "CONFIRMED"] } },
+        data: {
+          status:        "CANCELLED",
+          cancelledAt:   now,
+          cancelledBy:   "user",
+          refundPercent: policy.refundPercent,
+          refundAmount,
+          ...(needsRefund ? { refundStatus: "NEEDED" } : {}),
         },
       });
-    }
+      if (changed.count === 0) return false;
+
+      // Track cash cancellations on user — incremented in the database, since a
+      // count read before the update is stale when cancellations overlap
+      if (booking.paymentMethod === "ON_ARRIVAL") {
+        const { cashCancelCount } = await tx.user.update({
+          where:  { id: booking.userId },
+          data:   { cashCancelCount: { increment: 1 } },
+          select: { cashCancelCount: true },
+        });
+        if (cashCancelCount >= CASH_CANCEL_BAN_THRESHOLD) {
+          await tx.user.update({ where: { id: booking.userId }, data: { isBookingSuspended: true } });
+        }
+      }
+      return true;
+    });
+    if (!cancelled) return Response.json({ error: "Booking is already cancelled." }, { status: 400 });
 
     const dateStr = new Date(booking.bookingDate).toLocaleDateString("en-US", {
       weekday: "short", month: "short", day: "numeric",

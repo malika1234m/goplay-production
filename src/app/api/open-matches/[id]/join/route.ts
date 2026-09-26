@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
 import { resolveContactPhone } from "@/lib/contact-phone";
-import { isAllowed, getClientIp } from "@/lib/rateLimiter";
+import { isAllowed } from "@/lib/rateLimiter";
 import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
 import { calcHours } from "@/lib/open-match-engine";
 
@@ -10,12 +10,14 @@ const PAYHERE_FEE_PCT = 2.5;
 
 // POST /api/open-matches/[id]/join — initiate upfront PayHere payment to reserve a spot
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!isAllowed(`open-match-join:${getClientIp(req)}`, 5, 60_000)) {
+  const session = await getSession(req);
+  if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
+
+  // 5 joins per minute per player — mobile carriers put many players behind one shared IP, so a per-IP limit would block strangers
+  if (!isAllowed(`open-match-join:${session.user.id}`, 5, 60_000)) {
     return Response.json({ error: "Too many requests." }, { status: 429 });
   }
 
-  const session = await getSession(req);
-  if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
   if (session.user.role !== "USER") {
     return Response.json({ error: "Only players can join open match lobbies." }, { status: 403 });
   }
@@ -63,32 +65,48 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const contact = await resolveContactPhone(session.user.id, contactNumber);
   if ("error" in contact) return Response.json({ error: contact.error }, { status: 400 });
 
-  // Atomically hold spot capacity while payment is in progress
-  const reserved = await db.openMatch.updateMany({
-    where: { id, status: "COLLECTING", spotsReserved: { lte: facilityCapacity - groupSize } },
-    data:  { spotsReserved: { increment: groupSize } },
-  });
-  if (reserved.count === 0) {
-    return Response.json(
-      { error: "Sorry, the last spot(s) were just taken. Please refresh and try again." },
-      { status: 409 },
-    );
-  }
+  // The checks above read outside any lock, so two taps of "Join" can both pass them.
+  // Serialise joins per lobby and re-check inside the lock, holding capacity and creating
+  // the spot in the same transaction so neither can happen without the other.
+  const held = await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('open-match-join'), hashtext(${id}))`;
 
-  // Create spot with PENDING payment — confirmed only after PayHere webhook fires
-  const spot = await db.openMatchSpot.create({
-    data: {
-      matchId:       id,
-      userId:        session.user.id,
-      groupSize,
-      status:        "RESERVED",
-      paymentStatus: "PENDING",
-      amountPaid:    0,
-    },
-  });
+    const existing = await tx.openMatchSpot.findFirst({
+      where:  { matchId: id, userId: session.user.id, status: { in: ["RESERVED", "CONFIRMED"] } },
+      select: { id: true },
+    });
+    if (existing) return { ok: false as const, error: "You already have a spot in this lobby." };
 
-  const orderId = `SPOT_${spot.id}`;
-  await db.openMatchSpot.update({ where: { id: spot.id }, data: { payHereOrderId: orderId } });
+    // Hold spot capacity while payment is in progress
+    const reserved = await tx.openMatch.updateMany({
+      where: { id, status: "COLLECTING", spotsReserved: { lte: facilityCapacity - groupSize } },
+      data:  { spotsReserved: { increment: groupSize } },
+    });
+    if (reserved.count === 0) {
+      return { ok: false as const, error: "Sorry, the last spot(s) were just taken. Please refresh and try again." };
+    }
+
+    // Create spot with PENDING payment — confirmed only after PayHere webhook fires
+    const created = await tx.openMatchSpot.create({
+      data: {
+        matchId:       id,
+        userId:        session.user.id,
+        groupSize,
+        status:        "RESERVED",
+        paymentStatus: "PENDING",
+        amountPaid:    0,
+      },
+    });
+    const spot = await tx.openMatchSpot.update({
+      where: { id: created.id },
+      data:  { payHereOrderId: `SPOT_${created.id}` },
+    });
+    return { ok: true as const, spot };
+  });
+  if (!held.ok) return Response.json({ error: held.error }, { status: 409 });
+
+  const { spot } = held;
+  const orderId  = spot.payHereOrderId!;
 
   // Calculate exact charge amount (mirrors the lobby page formula using minPlayers as divisor)
   const hours          = calcHours(match.preferredStartTime, match.preferredEndTime);
