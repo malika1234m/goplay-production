@@ -23,14 +23,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ own
     });
     if (!profile) return Response.json({ error: "Owner not found." }, { status: 404 });
 
-    // Calculate outstanding cash commission
+    // Outstanding commission on every booking — players pay owners directly
     const unpaidCash = await db.groundEarning.findMany({
-      where: { ownerId, paymentMethod: "ON_ARRIVAL", commissionPaid: false },
+      where: { ownerId, commissionPaid: false, platformFee: { gt: 0 } },
       select: { platformFee: true },
     });
 
     if (unpaidCash.length === 0) {
-      return Response.json({ error: "No outstanding cash commissions for this owner." }, { status: 400 });
+      return Response.json({ error: "No outstanding commissions for this owner." }, { status: 400 });
     }
 
     const totalAmount = unpaidCash.reduce((s, e) => s + e.platformFee, 0);
@@ -51,9 +51,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ own
     await createNotification({
       userId:  profile.user.id,
       title:   "Commission Payment Request",
-      message: `GoPlay admin has requested ${amountStr} in platform commission from your cash bookings. Please arrange payment.`,
+      message: `GoPlay admin has requested ${amountStr} in platform commission. Please arrange payment.`,
       type:    "warning",
-      link:    "/(owner)/earnings/payouts",
+      link:    "/ground-owner/earnings",
     });
 
     // Email (fire-and-forget)

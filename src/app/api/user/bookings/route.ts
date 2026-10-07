@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
           },
           court:  { select: { name: true } },
           review: { select: { id: true } },
+          complaints: { where: { status: "OPEN" }, select: { id: true } },
         },
         orderBy: { createdAt: "desc" },
       }),

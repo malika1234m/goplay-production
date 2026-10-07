@@ -38,7 +38,7 @@ const STATUS: Record<string, { label: string; pill: string; dot: string }> = {
 function toMins(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
 function calcHrs(s: string, e: string) { return (toMins(e) - toMins(s)) / 60; }
 function lobbyCourt(m: Match) { return m.facility.hourlyRate * calcHrs(m.preferredStartTime, m.preferredEndTime); }
-function lobbyRevenue(m: Match) { return Math.round(lobbyCourt(m) * (1 + m.serviceFeePct / 100 + 0.025)); }
+function lobbyRevenue(m: Match) { return Math.round(lobbyCourt(m) * (1 + m.serviceFeePct / 100)); }
 function fmt(n: number) { return `Rs. ${Math.round(n).toLocaleString()}`; }
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("en-LK", { weekday: "short", month: "short", day: "numeric" });
@@ -750,7 +750,7 @@ export default function AdminOpenMatchesPage() {
                 <Info className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
                 <div>
                   <p className="font-semibold mb-0.5">Action required</p>
-                  <p className="text-amber-700">These players paid for a lobby that expired or was cancelled. Transfer the refund via bank or PayHere, then click <strong>Mark Processed</strong> to notify them and clear the entry.</p>
+                  <p className="text-amber-700">These players transferred money to the ground for a lobby that expired or was cancelled. The ground owner has been asked to refund them — once you have confirmed it was sent, click <strong>Mark Processed</strong> to notify them and clear the entry.</p>
                 </div>
               </div>
 
@@ -861,11 +861,9 @@ export default function AdminOpenMatchesPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { label: "Total collected",      value: fmt(totalRevenue),   sub: `${matched.length} matched lobbies`,  icon: DollarSign,  bg: "bg-green-50",  ic: "text-green-600",  vl: "text-green-700"  },
-              { label: "Court bookings",        value: fmt(matchedCourt),   sub: "paid to owners",                     icon: MapPin,      bg: "bg-slate-50",  ic: "text-slate-500",  vl: "text-slate-800"  },
+              { label: "Court bookings",        value: fmt(matchedCourt),   sub: "paid directly to owners",                     icon: MapPin,      bg: "bg-slate-50",  ic: "text-slate-500",  vl: "text-slate-800"  },
               { label: "Service fee",           value: fmt(matched.reduce((s, m) => s + lobbyCourt(m) * m.serviceFeePct / 100, 0)),
                                                                             sub: `avg ${matched.length > 0 ? (matched.reduce((s, m) => s + m.serviceFeePct, 0) / matched.length).toFixed(1) : 0}% rate`, icon: TrendingUp,  bg: "bg-blue-50",   ic: "text-blue-600",   vl: "text-blue-700"   },
-              { label: "Processing fees",       value: fmt(matched.reduce((s, m) => s + lobbyCourt(m) * 0.025, 0)),
-                                                                            sub: "2.5% PayHere pass-through",          icon: Banknote,    bg: "bg-purple-50", ic: "text-purple-600", vl: "text-purple-700" },
             ].map(({ label, value, sub, icon: Icon, bg, ic, vl }) => (
               <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${bg}`}>
@@ -898,7 +896,7 @@ export default function AdminOpenMatchesPage() {
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">
-                      {["Sport", "Facility", "Session", "Players", "Court", "Service", "Processing", "Total"].map((h) => (
+                      {["Sport", "Facility", "Session", "Players", "Court", "Service", "Total"].map((h) => (
                         <th key={h} className="text-left px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -907,7 +905,6 @@ export default function AdminOpenMatchesPage() {
                     {matched.map((m) => {
                       const court  = lobbyCourt(m);
                       const svcFee = Math.round(court * m.serviceFeePct / 100);
-                      const phFee  = Math.round(court * 0.025);
                       return (
                         <tr key={m.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3.5">
@@ -926,9 +923,8 @@ export default function AdminOpenMatchesPage() {
                           </td>
                           <td className="px-4 py-3.5 text-slate-700 font-medium whitespace-nowrap">{fmt(court)}</td>
                           <td className="px-4 py-3.5 text-blue-700 whitespace-nowrap">+{fmt(svcFee)}</td>
-                          <td className="px-4 py-3.5 text-purple-700 whitespace-nowrap">+{fmt(phFee)}</td>
                           <td className="px-4 py-3.5">
-                            <span className="font-bold text-green-700 whitespace-nowrap">{fmt(court + svcFee + phFee)}</span>
+                            <span className="font-bold text-green-700 whitespace-nowrap">{fmt(court + svcFee)}</span>
                           </td>
                         </tr>
                       );
@@ -939,7 +935,6 @@ export default function AdminOpenMatchesPage() {
                       <td colSpan={4} className="px-4 py-3.5 text-xs font-bold text-slate-600 uppercase tracking-wide">Total ({matched.length})</td>
                       <td className="px-4 py-3.5 font-bold text-slate-800 whitespace-nowrap">{fmt(matchedCourt)}</td>
                       <td className="px-4 py-3.5 font-bold text-blue-700 whitespace-nowrap">+{fmt(matched.reduce((s, m) => s + Math.round(lobbyCourt(m) * m.serviceFeePct / 100), 0))}</td>
-                      <td className="px-4 py-3.5 font-bold text-purple-700 whitespace-nowrap">+{fmt(matched.reduce((s, m) => s + Math.round(lobbyCourt(m) * 0.025), 0))}</td>
                       <td className="px-4 py-3.5 font-bold text-green-700 text-base whitespace-nowrap">{fmt(totalRevenue)}</td>
                     </tr>
                   </tfoot>

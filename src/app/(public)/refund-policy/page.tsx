@@ -60,7 +60,8 @@ export default function RefundPolicyPage() {
 
           <Section title="3. Online Payment Bookings">
             <p>
-              If you paid online through GoPlay via PayHere, the following refund terms apply based
+              If you chose "Pay online", you paid the ground owner directly by bank transfer. If your
+              transfer was confirmed (or your receipt was still under review), the ground refunds you based
               on when you cancel:
             </p>
 
@@ -100,7 +101,7 @@ export default function RefundPolicyPage() {
               <li>Log in to your GoPlay account at <strong>goplay.lk</strong></li>
               <li>Go to <strong>My Bookings</strong></li>
               <li>Find the booking and click <strong>Cancel Booking</strong></li>
-              <li>The refund (if applicable) will be processed automatically</li>
+              <li>The ground owner is notified of the refund (if applicable) automatically</li>
             </ul>
             <p>
               You will receive an email confirmation of your cancellation. If you are unable to cancel
@@ -110,9 +111,9 @@ export default function RefundPolicyPage() {
 
           <Section title="5. Refund Processing">
             <ul className="list-disc pl-5 space-y-1.5">
-              <li>Approved refunds are processed within <strong>5–7 business days</strong></li>
-              <li>Refunds are returned to the original payment method used at checkout</li>
-              <li>GoPlay will send a confirmation email once the refund has been initiated</li>
+              <li>Ground owners send refunds by bank transfer, normally within <strong>3–5 business days</strong></li>
+              <li>Refunds go back to the account you paid from — contact the ground if they need your details</li>
+              <li>You will get a GoPlay notification when the ground marks the refund as sent</li>
               <li>Depending on your bank, it may take an additional 3–5 days to appear in your account</li>
             </ul>
           </Section>
@@ -121,7 +122,7 @@ export default function RefundPolicyPage() {
             <p>
               If a facility owner cancels a confirmed booking, you are entitled to a <strong>full
               refund</strong> regardless of how close to the booking date the cancellation occurs.
-              GoPlay will initiate the refund immediately and notify you by email.
+              The ground must refund you and GoPlay follows up to make sure it happens.
             </p>
           </Section>
 

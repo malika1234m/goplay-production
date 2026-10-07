@@ -3,12 +3,11 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
 import { resolveContactPhone } from "@/lib/contact-phone";
 import { isAllowed } from "@/lib/rateLimiter";
-import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
-import { calcHours } from "@/lib/open-match-engine";
+import { calcHours, calcSpotAmount } from "@/lib/open-match-engine";
+import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
+import { getReceiptWindowMinutes } from "@/lib/settings";
 
-const PAYHERE_FEE_PCT = 2.5;
-
-// POST /api/open-matches/[id]/join — initiate upfront PayHere payment to reserve a spot
+// POST /api/open-matches/[id]/join — hold a spot; the player then transfers to the ground and uploads the receipt
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession(req);
   if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
@@ -32,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const match = await db.openMatch.findUnique({
     where:   { id },
     include: {
-      facility: { select: { name: true, address: true, city: true, capacity: true, hourlyRate: true } },
+      facility: { select: { name: true, address: true, city: true, capacity: true, hourlyRate: true, ...paymentDetailsSelect } },
       category: { select: { name: true, minPlayers: true } },
       spots:    { where: { status: { in: ["RESERVED", "CONFIRMED"] } } },
     },
@@ -62,6 +61,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
 
+  const paymentDetails = resolvePaymentDetails(match.facility);
+  if (!paymentDetails) {
+    return Response.json({ error: "This ground has not set up online payments yet." }, { status: 400 });
+  }
+  const chargeAmount = calcSpotAmount(
+    match.facility.hourlyRate * calcHours(match.preferredStartTime, match.preferredEndTime),
+    match.category.minPlayers, groupSize, match.serviceFeePct,
+  );
+
   const contact = await resolveContactPhone(session.user.id, contactNumber);
   if ("error" in contact) return Response.json({ error: contact.error }, { status: 400 });
 
@@ -86,8 +94,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return { ok: false as const, error: "Sorry, the last spot(s) were just taken. Please refresh and try again." };
     }
 
-    // Create spot with PENDING payment — confirmed only after PayHere webhook fires
-    const created = await tx.openMatchSpot.create({
+    // Spot counts toward the lobby only once the owner confirms the transfer receipt
+    const spot = await tx.openMatchSpot.create({
       data: {
         matchId:       id,
         userId:        session.user.id,
@@ -95,51 +103,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         status:        "RESERVED",
         paymentStatus: "PENDING",
         amountPaid:    0,
+        amountDue:     chargeAmount,
       },
-    });
-    const spot = await tx.openMatchSpot.update({
-      where: { id: created.id },
-      data:  { payHereOrderId: `SPOT_${created.id}` },
     });
     return { ok: true as const, spot };
   });
   if (!held.ok) return Response.json({ error: held.error }, { status: 409 });
 
-  const { spot } = held;
-  const orderId  = spot.payHereOrderId!;
-
-  // Calculate exact charge amount (mirrors the lobby page formula using minPlayers as divisor)
-  const hours          = calcHours(match.preferredStartTime, match.preferredEndTime);
-  const totalCost      = match.facility.hourlyRate * hours;
-  const perPersonBase  = totalCost / match.category.minPlayers;
-  const perPersonFee   = Math.round(perPersonBase * (match.serviceFeePct / 100));
-  const perPersonPH    = Math.round(perPersonBase * (PAYHERE_FEE_PCT / 100));
-  const perPersonTotal = Math.round(perPersonBase + perPersonFee + perPersonPH);
-  const chargeAmount   = Math.round(perPersonTotal * groupSize);
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const hash   = buildPayHereHash(orderId, chargeAmount);
-  const user   = session.user;
-
-  const payHereParams = {
-    merchant_id:  PAYHERE_MERCHANT_ID,
-    return_url:   `${appUrl}/open-matches/${id}?payment=success&spotId=${spot.id}`,
-    cancel_url:   `${appUrl}/open-matches/${id}?payment=cancelled&spotId=${spot.id}`,
-    notify_url:   `${appUrl}/api/payhere/notify`,
-    order_id:     orderId,
-    items:        `Open Match — ${match.category.name} at ${match.facility.name}`,
-    currency:     "LKR",
-    amount:       chargeAmount.toFixed(2),
-    first_name:   (user.name ?? "").split(" ")[0] || "Player",
-    last_name:    (user.name ?? "").split(" ").slice(1).join(" ") || "-",
-    email:        user.email ?? "",
-    phone:        contact.phone,
-    address:      match.facility.address,
-    city:         match.facility.city,
-    country:      "Sri Lanka",
-    hash,
-    checkout_url: PAYHERE_CHECKOUT_URL,
-  };
-
-  return Response.json({ spot, payHereParams, chargeAmount }, { status: 201 });
+  return Response.json({
+    spot:                 held.spot,
+    chargeAmount,
+    paymentDetails,
+    receiptWindowMinutes: await getReceiptWindowMinutes(),
+  }, { status: 201 });
 }

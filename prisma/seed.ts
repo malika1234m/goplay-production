@@ -23,7 +23,7 @@ async function wipe() {
   await db.facilityAvailability.deleteMany();
   await db.facilityWorker.deleteMany();
   await db.sportsFacility.deleteMany();
-  await db.payout.deleteMany();
+  await db.paymentComplaint.deleteMany();
   await db.groundOwnerProfile.deleteMany();
   await db.providerApplication.deleteMany();
   await db.passwordResetToken.deleteMany();

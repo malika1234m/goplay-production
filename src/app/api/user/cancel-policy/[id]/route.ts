@@ -39,7 +39,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const tiers           = await loadPolicyTiers();
     const policy          = getCancellationPolicyFromTiers(booking.bookingDate, booking.startTime, tiers);
-    const isOnlinePaid    = booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID";
+    const isOnlinePaid    = booking.paymentMethod === "ONLINE" && ["PAID", "RECEIPT_SUBMITTED"].includes(booking.paymentStatus);
     const refundAmount    = isOnlinePaid
       ? Math.round(booking.totalAmount * policy.refundPercent) / 100
       : 0;

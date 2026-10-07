@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
+import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
+import { getReceiptWindowMinutes } from "@/lib/settings";
 
 // GET /api/open-matches/[id] — lobby detail
 // Players see co-player contact info only after they have a RESERVED/CONFIRMED spot
@@ -39,5 +41,32 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       : { id: s.user.id, name: s.user.name, avatar: s.user.avatar, phone: null, email: null },
   }));
 
-  return Response.json({ ...match, spots: spotsForResponse });
+  // The caller's own spot, with what they owe and where to send it while it is unpaid
+  const mine = currentUserId
+    ? await db.openMatchSpot.findFirst({
+        where:   { matchId: id, userId: currentUserId },
+        orderBy: { createdAt: "desc" },
+        select:  {
+          id: true, groupSize: true, status: true, paymentStatus: true, amountDue: true, amountPaid: true, createdAt: true,
+          receiptUrl: true, receiptUploadedAt: true, receiptReviewedAt: true, receiptRejectReason: true,
+          complaints: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true, adminNote: true, createdAt: true } },
+        },
+      })
+    : null;
+  let mySpot = null;
+  if (mine) {
+    const { complaints, ...spot } = mine;
+    const unpaid = spot.status === "RESERVED" && spot.paymentStatus !== "PAID";
+    const facilityPayment = unpaid
+      ? await db.sportsFacility.findUnique({ where: { id: match.facilityId }, select: paymentDetailsSelect })
+      : null;
+    mySpot = {
+      ...spot,
+      latestComplaint:      complaints[0] ?? null,
+      paymentDetails:       facilityPayment ? resolvePaymentDetails(facilityPayment) : null,
+      receiptWindowMinutes: unpaid ? await getReceiptWindowMinutes() : null,
+    };
+  }
+
+  return Response.json({ ...match, spots: spotsForResponse, mySpot });
 }

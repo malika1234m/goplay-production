@@ -39,7 +39,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     where: { id },
     include: {
       category: { select: { name: true } },
-      facility: { select: { name: true } },
+      facility: { select: { name: true, owner: { select: { userId: true } } } },
       // other active spots so we can notify them
       spots: {
         where:  { status: "RESERVED", NOT: { userId: session.user.id } },
@@ -63,12 +63,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     tiers,
   );
 
+  // Money sent to the ground (confirmed or under review) comes back per the cancellation tiers
+  const transferred  = ["PAID", "RECEIPT_SUBMITTED"].includes(spot.paymentStatus);
+  const refundAmount = transferred ? Math.round(spot.amountDue * policy.refundPercent) / 100 : 0;
+
   // Every write hangs off the spot still being RESERVED, so repeated taps of "Leave"
   // can't release its capacity, record the strike or notify players more than once.
   const outcome = await db.$transaction(async (tx) => {
     const released = await tx.openMatchSpot.updateMany({
       where: { id: spot.id, status: "RESERVED" },
-      data:  { status: "CANCELLED", cancelledAt: new Date() },
+      data:  { status: refundAmount > 0 ? "REFUNDED" : "CANCELLED", cancelledAt: new Date() },
     });
     if (released.count === 0) return null;
 
@@ -117,10 +121,20 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   await createNotification({
     userId:  session.user.id,
     title:   willSuspend ? "Account Suspended" : "Spot Cancelled",
-    message: `You left the ${match.category.name} lobby at ${match.facility.name} on ${dateStr}. ${fineLabel}`,
+    message: `You left the ${match.category.name} lobby at ${match.facility.name} on ${dateStr}. ${fineLabel}${refundAmount > 0 ? ` The ground will refund Rs. ${refundAmount.toLocaleString()} to you.` : ""}`,
     type:    willSuspend ? "error" : "warning",
     link:    `/open-matches/${id}`,
   });
+
+  if (refundAmount > 0) {
+    await createNotification({
+      userId:  match.facility.owner.userId,
+      title:   "Open match refund due",
+      message: `${session.user.name ?? "A player"} left the ${match.category.name} lobby at ${match.facility.name} on ${dateStr}. Please refund Rs. ${refundAmount.toLocaleString()} (${policy.refundPercent}% of their transfer).`,
+      type:    "warning",
+      link:    "/ground-owner/payments?filter=all",
+    });
+  }
 
   // Notify remaining players that a spot reopened
   const otherIds = [...new Set(match.spots.map((s) => s.userId))];

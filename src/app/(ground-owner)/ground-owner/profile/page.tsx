@@ -214,14 +214,14 @@ export default function GroundOwnerProfilePage() {
 
         {/* Quick links */}
         <div className="grid grid-cols-2 gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50/40">
-          <Link href="/ground-owner/payouts"
+          <Link href="/ground-owner/payment-details"
             className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 hover:border-green-300 hover:bg-green-50 transition-all group">
             <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors shrink-0">
               <Wallet className="w-4 h-4 text-green-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-900 group-hover:text-green-700">Bank & Payouts</p>
-              <p className="text-xs text-slate-400 truncate">Manage bank details</p>
+              <p className="text-xs font-semibold text-slate-900 group-hover:text-green-700">Payment Details</p>
+              <p className="text-xs text-slate-400 truncate">Where players pay online</p>
             </div>
           </Link>
           <Link href="/ground-owner/grounds"
@@ -270,7 +270,7 @@ export default function GroundOwnerProfilePage() {
                 </div>
               </Field>
 
-              <Field label="Phone Number" hint="Used for approval and payout SMS notifications.">
+              <Field label="Phone Number" hint="Used for approval and booking SMS notifications.">
                 <TextInput icon={Phone} type="tel" value={pForm.phone}
                   onChange={(e) => setPForm({ ...pForm, phone: e.target.value })}
                   placeholder="+94 77 123 4567" />

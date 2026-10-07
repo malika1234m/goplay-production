@@ -143,7 +143,7 @@ export default function SupportPage() {
           <div className="bg-white rounded-2xl border border-slate-100 p-7 space-y-7">
             <Step number={1} title="Find a Ground" desc={`Go to Browse Grounds, filter by sport, city, or use "Near Me" to find facilities close to your location. Click on any ground to see photos, pricing, reviews, and opening hours.`} />
             <Step number={2} title="Choose a Time Slot" desc="On the facility page, select the date you want. Available hourly slots are shown in green — blocked or booked slots are greyed out. Click a slot to select it." />
-            <Step number={3} title="Pay & Confirm" desc="Enter your contact number and any special requests. Proceed to payment via PayHere (card or online banking). Your booking is confirmed instantly." />
+            <Step number={3} title="Pay & Confirm" desc="Enter your contact number and choose Pay at Ground or Pay online. For Pay online, transfer to the ground's bank account shown on screen and upload your receipt — the owner confirms your booking once the money arrives." />
             <Step number={4} title="Show Up & Play" desc="Your confirmed booking appears under My Bookings in your dashboard. Show up at the facility at your booked time. Staff can verify your booking by name or booking reference." />
           </div>
         </section>

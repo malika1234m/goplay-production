@@ -27,8 +27,6 @@ interface OwnerCommission {
   unpaidCommission: number;
   cashUnpaid:       number;
   onlineUnpaid:     number;
-  onlineHeld:       number;
-  canNet:           boolean;
   commissionRequestedAt:     string | null;
   commissionRequestedAmount: number | null;
   earnings:         EarningRow[];
@@ -56,7 +54,8 @@ function OwnerCard({
 }) {
   const [open, setOpen] = useState(false);
   const hasDebt        = owner.unpaidCommission > 0;
-  const hasCashDebt    = owner.cashUnpaid > 0;
+  // Owners hold every player payment (cash and bank transfer), so all commission is collected from them
+  const hasCashDebt    = owner.unpaidCommission > 0;
   const hasPendingReq  = !!(owner.commissionRequestedAt && owner.cashUnpaid > 0);
   const reqDate        = owner.commissionRequestedAt
     ? new Date(owner.commissionRequestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
@@ -117,11 +116,6 @@ function OwnerCard({
               </button>
             </div>
           )}
-          {hasDebt && !hasCashDebt && (
-            <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-1 rounded-lg font-medium">
-              Auto on payout
-            </span>
-          )}
           {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
         </div>
       </div>
@@ -131,10 +125,10 @@ function OwnerCard({
           {/* Mini stats row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 bg-slate-50 text-center">
             {[
-              { label: "Cash Commission Due",   value: fmt(owner.cashUnpaid),   color: owner.cashUnpaid > 0 ? "text-orange-600" : "text-slate-400" },
-              { label: "Online Commission Due", value: fmt(owner.onlineUnpaid), color: owner.onlineUnpaid > 0 ? "text-blue-600" : "text-slate-400" },
-              { label: "Admin Holds (Online)",  value: fmt(owner.onlineHeld),   color: "text-green-600" },
-              { label: "Can Net?",              value: owner.canNet ? "Yes" : "No", color: owner.canNet ? "text-green-600 font-bold" : "text-slate-400" },
+              { label: "Cash Booking Commission",   value: fmt(owner.cashUnpaid),       color: owner.cashUnpaid > 0 ? "text-orange-600" : "text-slate-400" },
+              { label: "Online Booking Commission", value: fmt(owner.onlineUnpaid),     color: owner.onlineUnpaid > 0 ? "text-blue-600" : "text-slate-400" },
+              { label: "Total Due",                 value: fmt(owner.unpaidCommission), color: owner.unpaidCommission > 0 ? "text-orange-700 font-bold" : "text-slate-400" },
+              { label: "Collected",                 value: fmt(owner.paidCommission),   color: "text-green-600" },
             ].map(({ label, value, color }) => (
               <div key={label} className="px-4 py-3">
                 <p className="text-[10px] text-slate-400 uppercase tracking-wide">{label}</p>
@@ -294,7 +288,6 @@ function SettleModal({
   onClose: () => void;
   onDone:  () => void;
 }) {
-  const [type,     setType]     = useState<"net" | "direct">(owner.canNet ? "net" : "direct");
   const [note,     setNote]     = useState("");
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
@@ -306,7 +299,7 @@ function SettleModal({
       const res  = await fetch(`/api/admin/commissions/${owner.ownerId}/settle`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ type, note }),
+        body:    JSON.stringify({ note }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Settlement failed."); return; }
@@ -332,56 +325,22 @@ function SettleModal({
         {/* Summary */}
         <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-slate-500">Outstanding cash commission</span>
-            <span className="font-bold text-orange-700">{fmt(owner.cashUnpaid)}</span>
+            <span className="text-slate-500">Cash bookings</span>
+            <span className="font-semibold text-slate-700">{fmt(owner.cashUnpaid)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Admin holds (online)</span>
-            <span className="font-semibold text-green-700">{fmt(owner.onlineHeld)}</span>
+            <span className="text-slate-500">Online (bank transfer) bookings</span>
+            <span className="font-semibold text-slate-700">{fmt(owner.onlineUnpaid)}</span>
+          </div>
+          <div className="flex justify-between border-t border-orange-200 pt-2">
+            <span className="text-slate-700 font-medium">Total to collect</span>
+            <span className="font-bold text-orange-700">{fmt(owner.unpaidCommission)}</span>
           </div>
         </div>
 
-        {/* Settlement type */}
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Settlement Method</p>
-
-          <button
-            onClick={() => setType("net")}
-            disabled={!owner.canNet}
-            className={`w-full text-left p-3.5 rounded-xl border-2 transition-all ${
-              type === "net"
-                ? "border-blue-400 bg-blue-50"
-                : owner.canNet
-                ? "border-slate-200 hover:border-slate-300"
-                : "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <CreditCard className="w-4 h-4 text-blue-600" />
-              <span className="text-sm font-semibold text-slate-800">Net from Online Balance</span>
-            </div>
-            <p className="text-xs text-slate-500 pl-6">
-              Deduct {fmt(owner.cashUnpaid)} from the {fmt(owner.onlineHeld)} admin holds.
-              Owner receives {fmt(Math.max(0, owner.onlineHeld - owner.cashUnpaid))} on next payout.
-            </p>
-            {!owner.canNet && <p className="text-xs text-red-500 pl-6 mt-1">Not enough online balance to net.</p>}
-          </button>
-
-          <button
-            onClick={() => setType("direct")}
-            className={`w-full text-left p-3.5 rounded-xl border-2 transition-all ${
-              type === "direct" ? "border-green-400 bg-green-50" : "border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <Banknote className="w-4 h-4 text-green-600" />
-              <span className="text-sm font-semibold text-slate-800">Mark as Collected Directly</span>
-            </div>
-            <p className="text-xs text-slate-500 pl-6">
-              Owner paid {fmt(owner.cashUnpaid)} separately (cash, bank transfer, etc.). Mark as settled.
-            </p>
-          </button>
-        </div>
+        <p className="text-xs text-slate-500">
+          Confirm the owner has paid this commission to GoPlay (cash, bank transfer, etc.). All outstanding commission will be marked as settled.
+        </p>
 
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1.5">Note (optional)</label>
@@ -594,7 +553,7 @@ export default function AdminCommissionsPage() {
           </div>
           <p className="text-2xl font-bold text-slate-900">{fmt(s.totalCashUnpaid)}</p>
           <p className="text-xs text-slate-500 mt-1">Cash Booking Commission</p>
-          <p className="text-xs text-slate-400 mt-0.5">must chase or net</p>
+          <p className="text-xs text-slate-400 mt-0.5">owed by owners</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
@@ -603,7 +562,7 @@ export default function AdminCommissionsPage() {
           </div>
           <p className="text-2xl font-bold text-slate-900">{fmt(s.totalOnlineUnpaid)}</p>
           <p className="text-xs text-slate-500 mt-1">Online Commission</p>
-          <p className="text-xs text-slate-400 mt-0.5">auto-settled on payout</p>
+          <p className="text-xs text-slate-400 mt-0.5">owed by owners</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
@@ -618,8 +577,8 @@ export default function AdminCommissionsPage() {
 
       {/* Info box */}
       <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-sm text-blue-800 space-y-1">
-        <p><strong>Online commissions</strong> are automatically collected when admin completes a payout — no manual action needed.</p>
-        <p><strong>Cash commissions</strong> require manual settlement: either collect directly from the owner or net it from their online balance (if admin holds enough).</p>
+        <p>Players pay ground owners directly — in cash or by bank transfer — so GoPlay&apos;s commission on every booking is collected from the owner.</p>
+        <p>Use <strong>Request</strong> to remind an owner, and <strong>Settle</strong> once they have paid.</p>
       </div>
 
       {s.ownersWithDebt > 0 && (

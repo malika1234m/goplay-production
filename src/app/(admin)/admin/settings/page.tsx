@@ -5,15 +5,14 @@ import { Loader2, CheckCircle, AlertCircle, Save, BadgeDollarSign, Wallet, Clock
 
 interface PlatformSettings {
   commissionRate:     string;
-  minPayout:          string;
-  payoutCooldownDays: string;
+  receiptWindowMinutes: string;
   maintenance:        string;
   maintenanceMessage: string;
   minAppVersion:      string;
 }
 
 export default function AdminSettingsPage() {
-  const [form,    setForm]    = useState<PlatformSettings>({ commissionRate: "10", minPayout: "1000", payoutCooldownDays: "7", maintenance: "false", maintenanceMessage: "We're performing scheduled maintenance. We'll be back shortly.", minAppVersion: "1.0.0" });
+  const [form,    setForm]    = useState<PlatformSettings>({ commissionRate: "10", receiptWindowMinutes: "120", maintenance: "false", maintenanceMessage: "We're performing scheduled maintenance. We'll be back shortly.", minAppVersion: "1.0.0" });
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
@@ -35,8 +34,7 @@ export default function AdminSettingsPage() {
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({
         commissionRate:     form.commissionRate,
-        minPayout:          form.minPayout,
-        payoutCooldownDays: form.payoutCooldownDays,
+        receiptWindowMinutes: form.receiptWindowMinutes,
         maintenance:        form.maintenance,
         maintenanceMessage: form.maintenanceMessage,
         minAppVersion:      form.minAppVersion,
@@ -146,53 +144,35 @@ export default function AdminSettingsPage() {
         )}
       </div>
 
-      {/* Payout limits card */}
+      {/* Bank transfer receipts card */}
       <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col gap-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
             <Wallet className="w-5 h-5 text-green-600" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">Payout Rules</h2>
-            <p className="text-xs text-slate-400">Controls when ground owners can request payouts</p>
+            <h2 className="text-sm font-semibold text-slate-900">Pay Online (Bank Transfer)</h2>
+            <p className="text-xs text-slate-400">Players transfer to the ground owner and upload a receipt</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Minimum Payout Amount (Rs.)</label>
-            <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-2.5">
-              <span className="text-sm text-slate-400 shrink-0">Rs.</span>
-              <input
-                type="number"
-                min="0"
-                step="100"
-                value={form.minPayout}
-                onChange={set("minPayout")}
-                className="w-full text-sm font-semibold text-slate-900 outline-none bg-transparent"
-              />
-            </div>
-            <p className="text-[11px] text-slate-400 mt-1">Owners can only request a payout if their balance is at least this amount</p>
+        <div className="max-w-xs">
+          <label className="block text-xs font-medium text-slate-600 mb-1.5 flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5" />Receipt upload window
+          </label>
+          <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-2.5">
+            <input
+              type="number"
+              min="15"
+              max="1440"
+              step="15"
+              value={form.receiptWindowMinutes}
+              onChange={set("receiptWindowMinutes")}
+              className="w-full text-sm font-semibold text-slate-900 outline-none bg-transparent"
+            />
+            <span className="text-sm text-slate-400 shrink-0">minutes</span>
           </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" />Cooldown Period (days)
-            </label>
-            <div className="flex items-center gap-1.5 border border-slate-200 rounded-xl px-3 py-2.5">
-              <input
-                type="number"
-                min="0"
-                max="90"
-                step="1"
-                value={form.payoutCooldownDays}
-                onChange={set("payoutCooldownDays")}
-                className="w-full text-sm font-semibold text-slate-900 outline-none bg-transparent"
-              />
-              <span className="text-sm text-slate-400 shrink-0">days</span>
-            </div>
-            <p className="text-[11px] text-slate-400 mt-1">How long an owner must wait before requesting another payout</p>
-          </div>
+          <p className="text-[11px] text-slate-400 mt-1">An unpaid booking or lobby spot is released if no receipt is uploaded (or re-uploaded after a rejection) within this time</p>
         </div>
       </div>
 

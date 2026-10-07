@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { getSetting, setSetting } from "@/lib/settings";
 
-const KEYS = ["commissionRate", "minPayout", "payoutCooldownDays", "maintenance", "maintenanceMessage", "minAppVersion"] as const;
+const KEYS = ["commissionRate", "receiptWindowMinutes", "maintenance", "maintenanceMessage", "minAppVersion"] as const;
 
 export async function GET() {
   try {
@@ -11,10 +11,9 @@ export async function GET() {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const [commissionRate, minPayout, payoutCooldownDays, maintenance, maintenanceMessage, minAppVersion] = await Promise.all([
+    const [commissionRate, receiptWindowMinutes, maintenance, maintenanceMessage, minAppVersion] = await Promise.all([
       getSetting("commissionRate"),
-      getSetting("minPayout"),
-      getSetting("payoutCooldownDays"),
+      getSetting("receiptWindowMinutes"),
       getSetting("maintenance"),
       getSetting("maintenanceMessage"),
       getSetting("minAppVersion"),
@@ -22,8 +21,7 @@ export async function GET() {
 
     return Response.json({
       commissionRate:     commissionRate     ?? "10",
-      minPayout:          minPayout          ?? "1000",
-      payoutCooldownDays: payoutCooldownDays ?? "7",
+      receiptWindowMinutes: receiptWindowMinutes ?? "120",
       maintenance:        maintenance        ?? "false",
       maintenanceMessage: maintenanceMessage ?? "We're performing scheduled maintenance. We'll be back shortly.",
       minAppVersion:      minAppVersion      ?? "1.0.0",
@@ -49,16 +47,10 @@ export async function PUT(req: NextRequest) {
         return Response.json({ error: "Commission rate must be between 0% and 50%." }, { status: 400 });
       }
     }
-    if ("minPayout" in body) {
-      const v = Number(body.minPayout);
-      if (isNaN(v) || v < 0) {
-        return Response.json({ error: "Minimum payout must be a positive number." }, { status: 400 });
-      }
-    }
-    if ("payoutCooldownDays" in body) {
-      const v = Number(body.payoutCooldownDays);
-      if (isNaN(v) || v < 0 || v > 90) {
-        return Response.json({ error: "Cooldown must be between 0 and 90 days." }, { status: 400 });
+    if ("receiptWindowMinutes" in body) {
+      const v = Number(body.receiptWindowMinutes);
+      if (!Number.isInteger(v) || v < 15 || v > 1440) {
+        return Response.json({ error: "Receipt window must be between 15 and 1440 minutes." }, { status: 400 });
       }
     }
 

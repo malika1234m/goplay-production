@@ -143,7 +143,7 @@ export default function WorkersPage() {
           </div>
           <div>
             <p className="font-medium text-red-600 mb-1.5">Cannot do</p>
-            {["Edit facility profile or pricing","Manage availability schedule","View earnings or payouts","Add/remove other workers"].map((s) => (
+            {["Edit facility profile or pricing","Manage availability schedule","View earnings","Add/remove other workers"].map((s) => (
               <p key={s} className="text-slate-600 flex gap-1.5 items-start mb-1"><AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />{s}</p>
             ))}
           </div>

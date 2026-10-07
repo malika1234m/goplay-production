@@ -60,6 +60,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
+    // "Pay online" bookings are confirmed by accepting the transfer receipt, not directly
+    if (status === "CONFIRMED" && booking.paymentMethod === "ONLINE" && booking.paymentStatus !== "PAID") {
+      return Response.json(
+        { error: "This booking is paid by bank transfer. Review the player's receipt under Payments to confirm it." },
+        { status: 400 },
+      );
+    }
+
     // Guard: state transition rules
     if (booking.status === "COMPLETED") {
       return Response.json({ error: "This booking is already completed and cannot be changed." }, { status: 400 });
@@ -142,7 +150,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       });
 
       // Store cancellation info + always 100% refund to player
-      const isOnlinePaid = booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID";
+      const isOnlinePaid = booking.paymentMethod === "ONLINE" && ["PAID", "RECEIPT_SUBMITTED"].includes(booking.paymentStatus);
       await db.facilityBooking.update({
         where: { id },
         data: {
@@ -192,8 +200,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!booking.isOpenMatch) {
       const messages: Record<string, string> = {
         CONFIRMED: `Your booking at ${booking.facility.name} has been confirmed!`,
-        CANCELLED: booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID"
-          ? `Your booking at ${booking.facility.name} has been cancelled by the owner. Your payment will be refunded — our team will be in touch.`
+        CANCELLED: booking.paymentMethod === "ONLINE" && ["PAID", "RECEIPT_SUBMITTED"].includes(booking.paymentStatus)
+          ? `Your booking at ${booking.facility.name} has been cancelled by the owner. The ground will refund your bank transfer in full.`
           : `Your booking at ${booking.facility.name} has been cancelled by the owner.`,
         COMPLETED: `Your session at ${booking.facility.name} is marked as completed. Thanks for playing!`,
       };
@@ -233,7 +241,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           startTime:    booking.startTime,
           endTime:      booking.endTime,
           cancelledBy:  "owner",
-          refundNeeded: booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID",
+          refundNeeded: booking.paymentMethod === "ONLINE" && ["PAID", "RECEIPT_SUBMITTED"].includes(booking.paymentStatus),
         });
       }
     }

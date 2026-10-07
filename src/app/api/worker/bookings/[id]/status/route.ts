@@ -71,6 +71,14 @@ export async function PUT(
       return Response.json({ error: "This booking is already marked as no-show." }, { status: 400 });
     }
 
+    // "Pay online" bookings are confirmed by accepting the transfer receipt, not directly
+    if (status === "CONFIRMED" && booking.paymentMethod === "ONLINE" && booking.paymentStatus !== "PAID") {
+      return Response.json(
+        { error: "This booking is paid by bank transfer. Review the player's receipt under Payments to confirm it." },
+        { status: 400 },
+      );
+    }
+
     if (status === "COMPLETED") {
       const [h, m]     = booking.endTime.split(":").map(Number);
       const sessionEnd = new Date(booking.bookingDate);
@@ -179,7 +187,7 @@ export async function PUT(
     // ── CANCELLED — strike goes on the facility ────────────────────────────
     if (status === "CANCELLED") {
       const fac = booking.facility;
-      const isOnlinePaid = booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID";
+      const isOnlinePaid = booking.paymentMethod === "ONLINE" && ["PAID", "RECEIPT_SUBMITTED"].includes(booking.paymentStatus);
 
       // 90-day strike reset
       let currentStrikes = fac.cancelStrikeCount;
@@ -240,7 +248,7 @@ export async function PUT(
 
       // Notify user
       const cancelMsg = isOnlinePaid
-        ? `Your booking at ${booking.facility.name} on ${dateStr} was cancelled. Your full payment will be refunded — our team will be in touch.`
+        ? `Your booking at ${booking.facility.name} on ${dateStr} was cancelled. The ground will refund your full payment by bank transfer.`
         : `Your booking at ${booking.facility.name} on ${dateStr} was cancelled.`;
       await createNotification({ userId: booking.user.id, title: "Booking Cancelled", message: cancelMsg, type: "warning" });
 

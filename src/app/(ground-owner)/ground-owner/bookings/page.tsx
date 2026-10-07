@@ -34,7 +34,7 @@ interface Booking {
   totalAmount:     number;
   status:          string;
   paymentMethod:   "ONLINE" | "ON_ARRIVAL";
-  paymentStatus:   "PENDING" | "PAID" | "FAILED" | "REFUNDED";
+  paymentStatus:   "PENDING" | "RECEIPT_SUBMITTED" | "REJECTED" | "PAID" | "FAILED" | "REFUNDED";
   contactNumber:   string | null;
   specialRequests: string | null;
   createdAt:       string;
@@ -80,10 +80,12 @@ function formatDate(dateStr: string) {
 
 function PaymentBadge({ method, pStatus }: { method: string; pStatus: string }) {
   if (method === "ONLINE") {
-    if (pStatus === "PAID")     return <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Paid Online</span>;
+    if (pStatus === "PAID")     return <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Transfer Confirmed</span>;
+    if (pStatus === "RECEIPT_SUBMITTED") return <Link href="/ground-owner/payments" className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-semibold hover:bg-amber-200"><CreditCard className="w-3 h-3" />Receipt to review →</Link>;
+    if (pStatus === "REJECTED") return <span className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Receipt Rejected</span>;
     if (pStatus === "FAILED")   return <span className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Payment Failed</span>;
     if (pStatus === "REFUNDED") return <span className="inline-flex items-center gap-1 text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Refunded</span>;
-    return <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Awaiting Online Payment</span>;
+    return <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Awaiting Transfer Receipt</span>;
   }
   return <span className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium"><Banknote className="w-3 h-3" />Cash on Arrival</span>;
 }
@@ -503,6 +505,15 @@ function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBook
 
           {b.status === "PENDING" && (
             <div className="flex gap-2">
+              {b.paymentMethod === "ONLINE" && b.paymentStatus !== "PAID" ? (
+                <Link
+                  href="/ground-owner/payments"
+                  className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <CreditCard className="w-3 h-3" />
+                  {b.paymentStatus === "RECEIPT_SUBMITTED" ? "Review receipt" : "Awaiting receipt"}
+                </Link>
+              ) : (
               <button
                 onClick={onConfirmBooking}
                 disabled={updating}
@@ -511,6 +522,7 @@ function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBook
                 {updating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
                 Confirm
               </button>
+              )}
               {!b.isOpenMatch && (
                 <button
                   onClick={onCancelBooking}

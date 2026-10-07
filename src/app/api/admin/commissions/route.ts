@@ -8,7 +8,8 @@ export async function GET() {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // All earnings across every owner — grouped by owner
+    // All earnings across every owner — grouped by owner. Players pay owners directly (cash or
+    // bank transfer), so every unpaid platform fee is owed by the owner to GoPlay.
     const allEarnings = await db.groundEarning.findMany({
       include: {
         facility: { select: { name: true, city: true } },
@@ -23,7 +24,6 @@ export async function GET() {
         owner: {
           include: {
             user:    { select: { id: true, name: true, email: true } },
-            payouts: { select: { status: true, netAmount: true, isCommissionSettlement: true } },
           },
         },
       },
@@ -51,7 +51,6 @@ export async function GET() {
       unpaidCommission: number;
       cashUnpaid:     number;
       onlineUnpaid:   number;
-      onlineHeld:     number;
       commissionRequestedAt:     string | null;
       commissionRequestedAmount: number | null;
       earnings: typeof allEarnings;
@@ -60,15 +59,6 @@ export async function GET() {
     for (const e of allEarnings) {
       const oid = e.ownerId;
       if (!ownerMap.has(oid)) {
-        // Calculate online held = netOnline - completed payouts - in-flight payouts (excl commission settlements)
-        const completedPayout  = e.owner.payouts
-          .filter((p) => p.status === "COMPLETED")
-          .reduce((s, p) => s + p.netAmount, 0);
-        const inFlightPayout   = e.owner.payouts
-          .filter((p) => p.status === "PENDING" || p.status === "PROCESSING")
-          .reduce((s, p) => s + p.netAmount, 0);
-
-        // netOnline = sum of netAmount for ONLINE earnings with cashConfirmed — computed below
         const req = requestMap.get(oid);
         ownerMap.set(oid, {
           ownerId:          oid,
@@ -79,7 +69,6 @@ export async function GET() {
           unpaidCommission: 0,
           cashUnpaid:       0,
           onlineUnpaid:     0,
-          onlineHeld:       -(completedPayout + inFlightPayout), // will add netAmount below
           commissionRequestedAt:     req?.commissionRequestedAt?.toISOString() ?? null,
           commissionRequestedAmount: req?.commissionRequestedAmount ?? null,
           earnings:         [],
@@ -96,18 +85,9 @@ export async function GET() {
         if (e.paymentMethod === "ON_ARRIVAL") grp.cashUnpaid   += e.platformFee;
         else                                  grp.onlineUnpaid += e.platformFee;
       }
-      // Accumulate online held (only confirmed online earnings)
-      if (e.paymentMethod === "ONLINE" && e.cashConfirmed) {
-        grp.onlineHeld += e.netAmount;
-      }
     }
 
     const owners = Array.from(ownerMap.values())
-      .map((o) => ({
-        ...o,
-        onlineHeld: Math.max(0, o.onlineHeld),
-        canNet:     Math.max(0, o.onlineHeld) > 0 && o.cashUnpaid > 0,
-      }))
       .sort((a, b) => b.unpaidCommission - a.unpaidCommission);
 
     const summary = {

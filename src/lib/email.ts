@@ -71,7 +71,7 @@ export async function sendBookingReceivedEmail(opts: {
   date: string; startTime: string; endTime: string;
   totalAmount: number; paymentMethod: string; bookingId: string;
 }) {
-  const payLabel = opts.paymentMethod === "ONLINE" ? "Online (PayHere)" : "Cash on Arrival";
+  const payLabel = opts.paymentMethod === "ONLINE" ? "Bank transfer to the ground" : "Cash on Arrival";
   const html = layout(`
     <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">Booking Request Received</h2>
     <p style="color:#475569;font-size:14px;margin:0 0 24px">
@@ -99,7 +99,7 @@ export async function sendNewBookingAlertEmail(opts: {
   date: string; startTime: string; endTime: string;
   totalAmount: number; paymentMethod: string; bookingId: string;
 }) {
-  const payLabel = opts.paymentMethod === "ONLINE" ? "Paid Online via PayHere" : "Cash on Arrival";
+  const payLabel = opts.paymentMethod === "ONLINE" ? "Bank transfer — receipt to follow" : "Cash on Arrival";
   const html = layout(`
     <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">New Booking Request 🏟️</h2>
     <p style="color:#475569;font-size:14px;margin:0 0 24px">
@@ -129,7 +129,7 @@ export async function sendBookingConfirmedEmail(opts: {
 }) {
   const payNote = opts.paymentMethod === "ON_ARRIVAL"
     ? "Please bring <strong>Rs. " + opts.totalAmount.toLocaleString() + "</strong> in cash on the day."
-    : "Payment has been received online. No further action needed.";
+    : "Your bank transfer has been confirmed by the ground. No further action needed.";
   const html = layout(`
     <div style="text-align:center;margin-bottom:24px">
       <div style="display:inline-block;background:#dcfce7;border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px">✓</div>
@@ -379,4 +379,56 @@ export async function sendMatchExpiredEmail(opts: {
     ${button("https://goplay.lk/open-matches", "Browse Open Matches")}
   `);
   await send(opts.to, "GoPlay Open Match — Lobby Expired (Refund Issued)", html);
+}
+
+// ── Bank transfer receipts ────────────────────────────────────────────────
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://goplay.lk";
+
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+export async function sendReceiptSubmittedEmail(opts: {
+  to: string; ownerName: string; playerName: string; facilityName: string;
+  date: string; startTime: string; endTime: string; amount: number;
+  receiptUrl: string; kind: "booking" | "lobby"; reference: string;
+}) {
+  const html = layout(`
+    <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">Payment receipt to review 🧾</h2>
+    <p style="color:#475569;font-size:14px;margin:0 0 24px">
+      Hi ${escapeHtml(opts.ownerName)}, <strong>${escapeHtml(opts.playerName)}</strong> has uploaded a bank transfer receipt for
+      ${opts.kind === "lobby" ? "an open match spot" : "a booking"} at <strong>${escapeHtml(opts.facilityName)}</strong>.
+      Check that the money has reached your account, then confirm or reject it from your dashboard.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;padding:16px;border:1px solid #e2e8f0">
+      ${infoRow("Player", escapeHtml(opts.playerName))}
+      ${infoRow("Date", opts.date)}
+      ${infoRow("Time", `${opts.startTime} – ${opts.endTime}`)}
+      ${infoRow("Amount", `Rs. ${opts.amount.toLocaleString()}`)}
+      ${infoRow("Reference", opts.reference)}
+    </table>
+    <p style="margin:16px 0 0"><a href="${opts.receiptUrl}" style="color:#16a34a;font-size:13px">Open the receipt</a></p>
+    ${button(`${APP_URL}/ground-owner/payments`, "Review payment")}
+  `);
+  await send(opts.to, `Receipt to review — ${opts.facilityName} on ${opts.date}`, html);
+}
+
+export async function sendReceiptRejectedEmail(opts: {
+  to: string; name: string; facilityName: string; date: string; startTime: string; endTime: string;
+  reason: string | null; link: string;
+}) {
+  const reasonBlock = opts.reason
+    ? `<p style="color:#0f172a;font-size:14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 16px;margin:0 0 16px"><strong>Reason:</strong> ${escapeHtml(opts.reason)}</p>`
+    : `<p style="color:#475569;font-size:14px;margin:0 0 16px">The ground did not give a reason. If you believe you paid correctly, you can raise a complaint and the GoPlay team will look into it.</p>`;
+  const html = layout(`
+    <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">Your payment receipt was not accepted</h2>
+    <p style="color:#475569;font-size:14px;margin:0 0 16px">
+      Hi ${escapeHtml(opts.name)}, <strong>${escapeHtml(opts.facilityName)}</strong> could not match your receipt for
+      ${opts.date}, ${opts.startTime} – ${opts.endTime} to a payment.
+    </p>
+    ${reasonBlock}
+    <p style="color:#64748b;font-size:13px;margin:0">You can upload a clearer receipt or raise a complaint from your booking.</p>
+    ${button(`${APP_URL}${opts.link}`, "Open booking")}
+  `);
+  await send(opts.to, `Receipt not accepted — ${opts.facilityName}`, html);
 }

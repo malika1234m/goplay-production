@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Calendar, Phone, Clock, Loader2, CheckCircle, CreditCard, Banknote, Zap, ChevronRight, Users } from "lucide-react";
+import BankDetailsCard from "@/components/payments/BankDetailsCard";
+import ReceiptUploader from "@/components/payments/ReceiptUploader";
+import type { PaymentDetails } from "@/components/payments/types";
 
 interface OpenMatchSlotInfo {
   id:               string;
@@ -68,6 +71,25 @@ export default function BookingForm({
   const [error,           setError]           = useState("");
   const [lobbyId,         setLobbyId]         = useState<string | null>(null);
   const [phoneError,      setPhoneError]      = useState("");
+  // "Pay online" = bank transfer to the ground; details load when the player picks it
+  const [bankDetails,     setBankDetails]     = useState<PaymentDetails | null>(null);
+  const [bankState,       setBankState]       = useState<"idle" | "loading" | "ready" | "unavailable">("idle");
+  const [createdBooking,  setCreatedBooking]  = useState<{ id: string; windowMinutes: number } | null>(null);
+  const [receiptSent,     setReceiptSent]     = useState(false);
+
+  const choosePayOnline = async () => {
+    setPaymentMethod("ONLINE");
+    if (!session || bankState === "ready" || bankState === "loading") return;
+    setBankState("loading");
+    try {
+      const res  = await fetch(`/api/grounds/${facilityId}/payment-details`);
+      const data = await res.json();
+      if (res.ok && data.paymentDetails) { setBankDetails(data.paymentDetails); setBankState("ready"); }
+      else setBankState("unavailable");
+    } catch {
+      setBankState("unavailable");
+    }
+  };
 
   useEffect(() => {
     if (!date) return;
@@ -106,10 +128,7 @@ export default function BookingForm({
     return true;
   };
 
-  const PAYHERE_FEE_PCT = 2.5;
   const totalAmount     = hourlyRate * duration;
-  const payhereFee      = paymentMethod === "ONLINE" ? Math.round(totalAmount * PAYHERE_FEE_PCT / 100) : 0;
-  const chargeAmount    = totalAmount + payhereFee;
 
   const validatePhone = (raw: string): string | null => {
     const cleaned = raw.replace(/[\s\-().]/g, "");
@@ -139,8 +158,10 @@ export default function BookingForm({
     if (courts.length > 0 && !selectedCourt) { setError("Please select a court."); return; }
     if (!selectedSlot) { setError("Please select a time slot."); return; }
 
-    // REMOVE this line once PayHere registration is complete:
-    if ((paymentMethod as string) === "ONLINE") { router.push("/payment/coming-soon"); return; }
+    if (paymentMethod === "ONLINE" && bankState !== "ready") {
+      setError("This ground doesn't accept online payments yet. Please choose Pay on Arrival.");
+      return;
+    }
 
     const phoneErr = validatePhone(contactNumber);
     if (phoneErr) { setPhoneError(phoneErr); return; }
@@ -174,31 +195,9 @@ export default function BookingForm({
       return;
     }
 
-    if (paymentMethod === "ONLINE" && data.payHereParams) {
-      // Submit a hidden form to PayHere
-      const p = data.payHereParams;
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = p.checkout_url;
-
-      const fields = [
-        "merchant_id","return_url","cancel_url","notify_url",
-        "order_id","items","currency","amount",
-        "first_name","last_name","email","phone",
-        "address","city","country","hash",
-      ] as const;
-
-      for (const key of fields) {
-        const input    = document.createElement("input");
-        input.type     = "hidden";
-        input.name     = key;
-        input.value    = String(p[key] ?? "");
-        form.appendChild(input);
-      }
-
-      document.body.appendChild(form);
-      form.submit();
-      return;
+    if (paymentMethod === "ONLINE") {
+      if (data.paymentDetails) setBankDetails(data.paymentDetails);
+      setCreatedBooking({ id: data.booking.id, windowMinutes: data.receiptWindowMinutes ?? 120 });
     }
 
     // ON_ARRIVAL — show inline success
@@ -211,6 +210,36 @@ export default function BookingForm({
         <div className="text-5xl mb-4">🚫</div>
         <h3 className="text-base font-semibold text-slate-900 mb-1">Booking not available</h3>
         <p className="text-sm text-slate-500">Ground owners cannot book sports grounds.</p>
+      </div>
+    );
+  }
+
+  if (success && createdBooking) {
+    const ref = createdBooking.id.slice(0, 8).toUpperCase();
+    return (
+      <div className="flex flex-col gap-4 py-2">
+        <div className="text-center">
+          <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-slate-900 mb-1">Slot held — now pay the ground</h3>
+          <p className="text-sm text-slate-500">
+            Transfer <span className="font-semibold text-slate-700">Rs. {totalAmount.toLocaleString()}</span> and upload the receipt
+            within {createdBooking.windowMinutes >= 60 ? `${Math.round(createdBooking.windowMinutes / 6) / 10} hours` : `${createdBooking.windowMinutes} minutes`}.
+          </p>
+        </div>
+        {bankDetails && <BankDetailsCard details={bankDetails} amount={totalAmount} reference={ref} />}
+        {receiptSent ? (
+          <div className="text-center bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800">
+            Receipt sent! The ground owner will confirm your booking once they see the payment.
+          </div>
+        ) : (
+          <ReceiptUploader endpoint={`/api/bookings/${createdBooking.id}/receipt`} onUploaded={() => setReceiptSent(true)} label="Send receipt to the ground" />
+        )}
+        <button
+          onClick={() => router.push("/my-bookings")}
+          className="text-sm font-semibold text-slate-600 hover:text-slate-900 py-2"
+        >
+          {receiptSent ? "View My Bookings" : "I'll upload it later from My Bookings"}
+        </button>
       </div>
     );
   }
@@ -517,7 +546,7 @@ export default function BookingForm({
           </button>
           <button
             type="button"
-            onClick={() => setPaymentMethod("ONLINE")}
+            onClick={choosePayOnline}
             className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
               paymentMethod === "ONLINE"
                 ? "border-blue-500 bg-blue-50 text-blue-700"
@@ -529,10 +558,25 @@ export default function BookingForm({
           </button>
         </div>
         {paymentMethod === "ONLINE" && (
-          <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            You will be redirected to PayHere to complete payment securely.
-          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            {!session ? (
+              <p className="text-xs text-slate-500">Sign in to see the ground&apos;s bank details.</p>
+            ) : bankState === "loading" ? (
+              <p className="text-xs text-slate-400 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Loading bank details…</p>
+            ) : bankState === "unavailable" ? (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                This ground hasn&apos;t set up online payments yet. Please choose Pay on Arrival.
+              </p>
+            ) : bankDetails ? (
+              <>
+                <BankDetailsCard details={bankDetails} amount={totalAmount} />
+                <p className="text-xs text-slate-500 flex items-start gap-1.5">
+                  <Clock className="w-3 h-3 mt-0.5 shrink-0" />
+                  Book first to hold the slot, then transfer and upload your receipt. The owner confirms once the money arrives.
+                </p>
+              </>
+            ) : null}
+          </div>
         )}
         {paymentMethod === "ON_ARRIVAL" && (
           <p className="text-xs text-slate-400 mt-2">
@@ -547,23 +591,14 @@ export default function BookingForm({
           <span>Rs. {hourlyRate.toLocaleString()} × {duration} {duration === 1 ? "hr" : "hrs"}</span>
           <span>Rs. {totalAmount.toLocaleString()}</span>
         </div>
-        {paymentMethod === "ONLINE" && (
-          <div className="flex justify-between text-sm text-slate-500 mb-1">
-            <span>Payment processing fee</span>
-            <span>+ Rs. {payhereFee.toLocaleString()}</span>
-          </div>
-        )}
         <div className="flex justify-between text-sm font-semibold text-slate-900 pt-2 border-t border-slate-200 mt-2">
           <span>Total</span>
           <span className={paymentMethod === "ONLINE" ? "text-blue-600" : "text-green-600"}>
-            Rs. {chargeAmount.toLocaleString()}
+            Rs. {totalAmount.toLocaleString()}
           </span>
         </div>
         {paymentMethod === "ONLINE" && (
-          <p className="text-xs text-blue-500 mt-1.5 text-right">Paid securely via PayHere</p>
-        )}
-        {paymentMethod === "ON_ARRIVAL" && (
-          <p className="text-xs text-slate-400 mt-1.5 text-right">No processing fee for cash payments</p>
+          <p className="text-xs text-blue-500 mt-1.5 text-right">Bank transfer directly to the ground</p>
         )}
       </div>
 
@@ -585,7 +620,7 @@ export default function BookingForm({
 
       <button
         type="submit"
-        disabled={submitting || !selectedSlot}
+        disabled={submitting || !selectedSlot || (paymentMethod === "ONLINE" && !!session && bankState !== "ready")}
         className={`w-full disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 ${
           paymentMethod === "ONLINE"
             ? "bg-blue-600 hover:bg-blue-700"
@@ -598,7 +633,7 @@ export default function BookingForm({
           : submitting
           ? "Processing..."
           : paymentMethod === "ONLINE"
-          ? "Pay Online — Rs. " + chargeAmount.toLocaleString()
+          ? "Book & Pay by Transfer — Rs. " + totalAmount.toLocaleString()
           : "Confirm Booking"}
       </button>
 

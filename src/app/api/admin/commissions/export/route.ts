@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
       e.facility.city,
       new Date(e.booking.bookingDate).toLocaleDateString("en-GB"),
       `${e.booking.startTime}–${e.booking.endTime}`,
-      e.paymentMethod === "ONLINE" ? "Online (PayHere)" : "Cash on Arrival",
+      e.paymentMethod === "ONLINE" ? "Bank transfer" : "Cash on Arrival",
       Math.round(e.grossAmount),
       Math.round(e.platformFee),
       Math.round(e.netAmount),

@@ -54,7 +54,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="4. Payments">
-            <p>All prices displayed on GoPlay are in Sri Lankan Rupees (LKR) inclusive of applicable taxes. Payments are processed securely via PayHere. GoPlay does not store card or bank account information.</p>
+            <p>All prices displayed on GoPlay are in Sri Lankan Rupees (LKR) inclusive of applicable taxes. Players pay the ground owner directly — in cash at the ground, or online by bank transfer to the ground's account followed by uploading the transfer receipt. GoPlay does not handle or hold player payments and does not store card information. If a ground rejects a receipt you believe is valid, you can raise a complaint through GoPlay.</p>
             <p>In the event of a payment failure, your booking will not be confirmed. Please retry or contact support.</p>
             <p><strong>Refunds:</strong> Refund eligibility is determined by the facility's cancellation policy and, where applicable, the GoPlay refund policy. Approved refunds are processed within 5–7 business days.</p>
           </Section>

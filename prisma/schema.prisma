@@ -30,6 +30,7 @@ model User {
   groundOwnerProfile    GroundOwnerProfile?
   notifications         Notification[]
   openMatchSpots        OpenMatchSpot[]
+  paymentComplaints     PaymentComplaint[]
   passwordResetTokens   PasswordResetToken[]
   providerApplications  ProviderApplication[]
 }
@@ -60,25 +61,7 @@ model GroundOwnerProfile {
   commissionRequestedAt     DateTime?
   earnings                  GroundEarning[]
   user                      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  payouts                   Payout[]
   facilities                SportsFacility[]
-}
-
-model Payout {
-  id                     String             @id @default(cuid())
-  ownerId                String
-  amount                 Float
-  commission             Float              @default(0)
-  netAmount              Float
-  status                 PayoutStatus       @default(PENDING)
-  requestedAt            DateTime           @default(now())
-  processedAt            DateTime?
-  reference              String?
-  notes                  String?
-  isCommissionSettlement Boolean            @default(false)
-  owner                  GroundOwnerProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-
-  @@index([ownerId, status])
 }
 
 model SportsCategory {
@@ -93,34 +76,41 @@ model SportsCategory {
 }
 
 model SportsFacility {
-  id                 String                 @id @default(cuid())
-  name               String
-  description        String?
-  address            String
-  city               String
-  hourlyRate         Float
-  capacity           Int?
-  amenities          String[]
-  images             String[]
-  status             FacilityStatus         @default(PENDING)
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  ownerId            String
-  latitude           Float?
-  longitude          Float?
-  cancelStrikeCount  Int                    @default(0)
-  isListingSuspended Boolean                @default(false)
-  strikeResetAt      DateTime?
-  blockedDates       BlockedDate[]
-  availability       FacilityAvailability[]
-  bookings           FacilityBooking[]
-  courts             FacilityCourt[]
-  reviews            FacilityReview[]
-  workers            FacilityWorker[]
-  earnings           GroundEarning[]
-  openMatches        OpenMatch[]
-  owner              GroundOwnerProfile     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  categories         SportsCategory[]       @relation("SportsCategoryToSportsFacility")
+  id                   String                 @id @default(cuid())
+  name                 String
+  description          String?
+  address              String
+  city                 String
+  hourlyRate           Float
+  capacity             Int?
+  amenities            String[]
+  images               String[]
+  status               FacilityStatus         @default(PENDING)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  ownerId              String
+  latitude             Float?
+  longitude            Float?
+  cancelStrikeCount    Int                    @default(0)
+  isListingSuspended   Boolean                @default(false)
+  strikeResetAt        DateTime?
+  // Where players send "Pay online" bank transfers. Blank fields fall back to the owner's profile details.
+  paymentBankName      String?
+  paymentBankBranch    String?
+  paymentAccountName   String?
+  paymentAccountNumber String?
+  paymentInstructions  String?
+  blockedDates         BlockedDate[]
+  availability         FacilityAvailability[]
+  bookings             FacilityBooking[]
+  courts               FacilityCourt[]
+  reviews              FacilityReview[]
+  workers              FacilityWorker[]
+  earnings             GroundEarning[]
+  openMatches          OpenMatch[]
+  paymentComplaints    PaymentComplaint[]
+  owner                GroundOwnerProfile     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  categories           SportsCategory[]       @relation("SportsCategoryToSportsFacility")
 
   @@index([ownerId])
   @@index([status])
@@ -167,40 +157,45 @@ model BlockedDate {
 }
 
 model FacilityBooking {
-  id                String          @id @default(cuid())
-  userId            String
-  facilityId        String
-  bookingDate       DateTime
-  startTime         String
-  endTime           String
-  totalHours        Float
-  totalAmount       Float
-  status            BookingStatus   @default(PENDING)
-  specialRequests   String?
-  contactNumber     String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  payHereOrderId    String?         @unique
-  paymentMethod     PaymentMethod   @default(ON_ARRIVAL)
-  paymentStatus     PaymentStatus   @default(PENDING)
-  refundNote        String?
-  refundProcessedAt DateTime?
-  refundStatus      RefundStatus    @default(NONE)
-  archivedAt        DateTime?
-  courtId           String?
-  cancelledAt       DateTime?
-  cancelledBy       String?
-  noShowMarkedAt    DateTime?
-  refundAmount      Float?
-  refundPercent     Int?
-  isOpenMatch       Boolean         @default(false)
-  openMatchId       String?
-  court             FacilityCourt?  @relation(fields: [courtId], references: [id])
-  facility          SportsFacility  @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  openMatch         OpenMatch?      @relation(fields: [openMatchId], references: [id])
-  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  review            FacilityReview?
-  earning           GroundEarning?
+  id                  String             @id @default(cuid())
+  userId              String
+  facilityId          String
+  bookingDate         DateTime
+  startTime           String
+  endTime             String
+  totalHours          Float
+  totalAmount         Float
+  status              BookingStatus      @default(PENDING)
+  specialRequests     String?
+  contactNumber       String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  paymentMethod       PaymentMethod      @default(ON_ARRIVAL)
+  paymentStatus       PaymentStatus      @default(PENDING)
+  refundNote          String?
+  refundProcessedAt   DateTime?
+  refundStatus        RefundStatus       @default(NONE)
+  archivedAt          DateTime?
+  courtId             String?
+  cancelledAt         DateTime?
+  cancelledBy         String?
+  noShowMarkedAt      DateTime?
+  refundAmount        Float?
+  refundPercent       Int?
+  isOpenMatch         Boolean            @default(false)
+  openMatchId         String?
+  receiptUrl          String?
+  receiptUploadedAt   DateTime?
+  receiptReviewedAt   DateTime?
+  receiptReviewedBy   String?
+  receiptRejectReason String?
+  court               FacilityCourt?     @relation(fields: [courtId], references: [id])
+  facility            SportsFacility     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  openMatch           OpenMatch?         @relation(fields: [openMatchId], references: [id])
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review              FacilityReview?
+  earning             GroundEarning?
+  complaints          PaymentComplaint[]
 
   @@index([userId])
   @@index([facilityId])
@@ -304,6 +299,27 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Raised by a player when an owner rejects their payment receipt.
+model PaymentComplaint {
+  id         String           @id @default(cuid())
+  userId     String
+  facilityId String
+  bookingId  String?
+  spotId     String?
+  message    String
+  status     ComplaintStatus  @default(OPEN)
+  adminNote  String?
+  createdAt  DateTime         @default(now())
+  resolvedAt DateTime?
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facility   SportsFacility   @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  booking    FacilityBooking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  spot       OpenMatchSpot?   @relation(fields: [spotId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId])
+}
+
 model FacilityWorker {
   id         String         @id @default(cuid())
   facilityId String
@@ -346,19 +362,25 @@ model OpenMatch {
 }
 
 model OpenMatchSpot {
-  id             String        @id @default(cuid())
-  matchId        String
-  userId         String
-  groupSize      Int           @default(1)
-  status         SpotStatus    @default(RESERVED)
-  paymentStatus  PaymentStatus @default(PENDING)
-  amountPaid     Float
-  payHereOrderId String?       @unique
-  cancelledAt    DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  match          OpenMatch     @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String             @id @default(cuid())
+  matchId             String
+  userId              String
+  groupSize           Int                @default(1)
+  status              SpotStatus         @default(RESERVED)
+  paymentStatus       PaymentStatus      @default(PENDING)
+  amountPaid          Float
+  amountDue           Float              @default(0)
+  receiptUrl          String?
+  receiptUploadedAt   DateTime?
+  receiptReviewedAt   DateTime?
+  receiptReviewedBy   String?
+  receiptRejectReason String?
+  cancelledAt         DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  match               OpenMatch          @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  complaints          PaymentComplaint[]
 
   @@index([matchId])
   @@index([userId])
@@ -391,11 +413,20 @@ enum RefundStatus {
   PROCESSED
 }
 
+// ONLINE = bank transfer to the ground owner. PENDING means no receipt yet.
 enum PaymentStatus {
   PENDING
+  RECEIPT_SUBMITTED
+  REJECTED
   PAID
   FAILED
   REFUNDED
+}
+
+enum ComplaintStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
 }
 
 enum FacilityStatus {
@@ -423,11 +454,4 @@ enum SpotStatus {
   CONFIRMED
   CANCELLED
   REFUNDED
-}
-
-enum PayoutStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
 }
