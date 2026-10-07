@@ -251,7 +251,7 @@ export async function expireLobby(matchId: string, reason?: string): Promise<num
         title:   "Open match cancelled — refunds due",
         message: `A ${match.category.name} open match at ${facility.name} on ${match.preferredDate.toDateString()} didn't fill. Please refund ${paidSpots.length} player(s) who transferred a total of Rs. ${owed.toLocaleString()}.`,
         type:    "warning",
-        link:    "/ground-owner/payments?filter=all",
+        link:    "/ground-owner/bookings",
       });
     }
   }

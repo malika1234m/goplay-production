@@ -15,6 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     include: {
       facility: { select: { id: true, name: true, address: true, city: true, images: true, hourlyRate: true, latitude: true, longitude: true, capacity: true } },
       category: { select: { id: true, name: true, icon: true, minPlayers: true } },
+      court:    { select: { name: true } },
       spots: {
         where:  { status: { in: ["RESERVED", "CONFIRMED", "CANCELLED", "REFUNDED"] } },
         select: {

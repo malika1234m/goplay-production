@@ -4,10 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   MapPin, Clock, Loader2, Search, Calendar, XCircle, CreditCard,
-  Banknote, AlertTriangle, CheckCircle, Star, X, ShieldAlert, Upload,
+  Banknote, AlertTriangle, CheckCircle, Star, X, ShieldAlert,
 } from "lucide-react";
 import AdSlot from "@/components/ads/AdSlot";
-import BookingPaymentSection from "@/components/payments/BookingPaymentSection";
 
 interface Booking {
   id: string;
@@ -341,8 +340,6 @@ export default function MyBookingsPage() {
   const [loadingPolicy,  setLoadingPolicy]  = useState(false);
   const [confirming,     setConfirming]     = useState(false);
 
-  // Expanded "Pay online" panel
-  const [payOpen, setPayOpen] = useState<string | null>(null);
 
   // Review modal
   const [reviewTarget, setReviewTarget] = useState<Booking | null>(null);
@@ -352,7 +349,8 @@ export default function MyBookingsPage() {
     setError("");
     try {
       const url = statusFilter ? `/api/user/bookings?status=${statusFilter}` : "/api/user/bookings";
-      const res  = await fetch(url);
+      // The API allows 30s browser caching; bypass it so changes (receipt, cancel) show at once
+      const res  = await fetch(url, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Failed to load bookings.");
@@ -550,35 +548,26 @@ export default function MyBookingsPage() {
                       <p className="mt-2 text-xs text-slate-500 italic">&ldquo;{b.specialRequests}&rdquo;</p>
                     )}
 
-                    {/* Bank transfer: details, receipt upload, review status, complaint */}
+                    {/* Bank transfer: the full flow lives on the booking's payment page */}
                     {b.paymentMethod === "ONLINE" && (b.status === "PENDING" || (b.status === "CONFIRMED" && b.paymentStatus !== "PAID")) && (
-                      payOpen === b.id ? (
-                        <div className="mt-3 rounded-xl border border-slate-200 p-4">
-                          <BookingPaymentSection bookingId={b.id} onChanged={load} />
-                          <button onClick={() => setPayOpen(null)} className="mt-3 text-xs text-slate-500 hover:text-slate-700">Hide</button>
-                        </div>
-                      ) : (
-                        <div className={`mt-3 rounded-xl px-4 py-3 border flex items-center justify-between gap-3 flex-wrap ${
-                          b.paymentStatus === "REJECTED" ? "bg-red-50 border-red-200" :
-                          b.paymentStatus === "RECEIPT_SUBMITTED" ? "bg-amber-50 border-amber-200" : "bg-blue-50 border-blue-200"
+                      <div className={`mt-3 rounded-xl px-4 py-3 border flex items-center justify-between gap-3 flex-wrap ${
+                        b.paymentStatus === "REJECTED" ? "bg-red-50 border-red-200" :
+                        b.paymentStatus === "RECEIPT_SUBMITTED" ? "bg-amber-50 border-amber-200" : "bg-slip border-rule"
+                      }`}>
+                        <p className={`text-sm ${
+                          b.paymentStatus === "REJECTED" ? "text-red-700" : b.paymentStatus === "RECEIPT_SUBMITTED" ? "text-amber-800" : "text-pitch-deep"
                         }`}>
-                          <p className={`text-xs font-medium flex items-center gap-1.5 ${
-                            b.paymentStatus === "REJECTED" ? "text-red-700" : b.paymentStatus === "RECEIPT_SUBMITTED" ? "text-amber-700" : "text-blue-700"
-                          }`}>
-                            <AlertTriangle className="w-4 h-4 shrink-0" />
-                            {b.paymentStatus === "REJECTED"
-                              ? "The ground rejected your receipt. Upload a new one or raise a complaint."
-                              : b.paymentStatus === "RECEIPT_SUBMITTED"
-                              ? "Receipt sent — waiting for the ground to confirm."
-                              : "Transfer the amount to the ground and upload your receipt to confirm this booking."}
-                          </p>
-                          <button onClick={() => setPayOpen(b.id)}
-                            className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 py-1.5 rounded-lg transition-colors">
-                            <Upload className="w-3.5 h-3.5" />
-                            {b.paymentStatus === "RECEIPT_SUBMITTED" ? "View details" : b.paymentStatus === "REJECTED" ? "Fix payment" : "Pay & upload receipt"}
-                          </button>
-                        </div>
-                      )
+                          {b.paymentStatus === "REJECTED"
+                            ? "The ground couldn't match your receipt. Send it again or ask GoPlay to step in."
+                            : b.paymentStatus === "RECEIPT_SUBMITTED"
+                            ? "Receipt sent. The ground confirms your booking once they see the money."
+                            : "Transfer the amount to the ground and send your receipt to lock in this slot."}
+                        </p>
+                        <Link href={`/my-bookings/${b.id}/pay`}
+                          className="inline-flex items-center gap-1.5 text-sm bg-pitch hover:bg-pitch-deep text-white font-semibold px-4 py-2 rounded-lg transition-colors">
+                          {b.paymentStatus === "RECEIPT_SUBMITTED" ? "View payment" : b.paymentStatus === "REJECTED" ? "Fix payment" : "Pay now"}
+                        </Link>
+                      </div>
                     )}
 
                     <div className="flex items-center gap-4 mt-3 flex-wrap">

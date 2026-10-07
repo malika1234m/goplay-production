@@ -35,7 +35,7 @@ export async function GET(
         refundAmount: true,
         complaints: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true, adminNote: true, createdAt: true } },
         facility: {
-          select: { id: true, name: true, address: true, city: true, ...paymentDetailsSelect },
+          select: { id: true, name: true, address: true, city: true, images: true, ...paymentDetailsSelect },
         },
         court: { select: { name: true } },
       },
@@ -48,7 +48,7 @@ export async function GET(
     return Response.json({
       booking: {
         ...rest,
-        facility:             { id: facility.id, name: facility.name, address: facility.address, city: facility.city },
+        facility:             { id: facility.id, name: facility.name, address: facility.address, city: facility.city, image: facility.images[0] ?? null },
         latestComplaint:      complaints[0] ?? null,
         paymentDetails:       booking.paymentMethod === "ONLINE" ? resolvePaymentDetails(facility) : null,
         receiptWindowMinutes: await getReceiptWindowMinutes(),

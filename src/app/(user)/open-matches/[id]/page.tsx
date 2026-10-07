@@ -11,7 +11,6 @@ import {
   ShieldCheck, CreditCard,
 } from "lucide-react";
 import ContactNumberField, { useContactNumber } from "@/components/shared/ContactNumberField";
-import PlayerPaymentPanel from "@/components/payments/PlayerPaymentPanel";
 import type { Complaint, PaymentDetails, PaymentStatus } from "@/components/payments/types";
 
 interface UserInfo { id: string; name: string; avatar: string | null; phone: string | null; email: string | null; }
@@ -116,8 +115,8 @@ function LobbyDetailInner({ id }: { id: string }) {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to reserve a spot."); return; }
-      setSuccess("Spot held! Transfer the amount to the ground and upload your receipt below to secure it.");
-      await fetchMatch();
+      // Transfer and receipt happen on the spot's own checkout page
+      window.location.assign(`/open-matches/${id}/pay`);
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -527,20 +526,21 @@ function LobbyDetailInner({ id }: { id: string }) {
                       Waiting for the lobby to fill. You will be notified when enough players join.
                     </div>
                   ) : match.mySpot && (
-                    <div className="mb-4">
-                      <PlayerPaymentPanel
-                        paymentStatus={match.mySpot.paymentStatus}
-                        amount={match.mySpot.amountDue}
-                        reference={match.mySpot.id.slice(0, 8).toUpperCase()}
-                        paymentDetails={match.mySpot.paymentDetails}
-                        receiptUrl={match.mySpot.receiptUrl}
-                        rejectReason={match.mySpot.receiptRejectReason}
-                        latestComplaint={match.mySpot.latestComplaint}
-                        receiptWindowMinutes={match.mySpot.receiptWindowMinutes}
-                        uploadEndpoint={`/api/open-matches/${id}/receipt`}
-                        spotId={match.mySpot.id}
-                        onChanged={fetchMatch}
-                      />
+                    <div className={`mb-4 rounded-xl px-4 py-3 border ${
+                      match.mySpot.paymentStatus === "REJECTED" ? "bg-red-50 border-red-200" :
+                      match.mySpot.paymentStatus === "RECEIPT_SUBMITTED" ? "bg-amber-50 border-amber-200" : "bg-slip border-rule"
+                    }`}>
+                      <p className="text-sm text-pitch-deep">
+                        {match.mySpot.paymentStatus === "REJECTED"
+                          ? "The ground couldn't match your receipt."
+                          : match.mySpot.paymentStatus === "RECEIPT_SUBMITTED"
+                          ? "Receipt sent. Your spot counts once the ground confirms it."
+                          : `Transfer Rs. ${match.mySpot.amountDue.toLocaleString()} to the ground to lock in your spot.`}
+                      </p>
+                      <Link href={`/open-matches/${id}/pay`}
+                        className="mt-3 inline-flex items-center justify-center w-full bg-pitch hover:bg-pitch-deep text-white text-sm font-semibold py-2.5 rounded-lg">
+                        {match.mySpot.paymentStatus === "RECEIPT_SUBMITTED" ? "View payment" : match.mySpot.paymentStatus === "REJECTED" ? "Fix payment" : "Pay for my spot"}
+                      </Link>
                     </div>
                   )}
 

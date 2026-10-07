@@ -1,10 +1,6 @@
-import { Suspense } from "react";
-import PaymentsReview from "@/components/payments/PaymentsReview";
+import { redirect } from "next/navigation";
 
+// Receipts now live in the Bookings "Needs action" tab
 export default function PaymentsPage() {
-  return (
-    <Suspense>
-      <PaymentsReview />
-    </Suspense>
-  );
+  redirect("/ground-owner/bookings");
 }

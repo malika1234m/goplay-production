@@ -132,7 +132,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       title:   "Open match refund due",
       message: `${session.user.name ?? "A player"} left the ${match.category.name} lobby at ${match.facility.name} on ${dateStr}. Please refund Rs. ${refundAmount.toLocaleString()} (${policy.refundPercent}% of their transfer).`,
       type:    "warning",
-      link:    "/ground-owner/payments?filter=all",
+      link:    "/ground-owner/bookings",
     });
   }
 

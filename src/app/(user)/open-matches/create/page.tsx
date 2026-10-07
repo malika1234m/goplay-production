@@ -217,7 +217,7 @@ function CreatePageInner() {
       }
 
       // The lobby page shows the ground's bank details and the receipt upload
-      router.push(`/open-matches/${data.id}?created=1`);
+      router.push(`/open-matches/${data.id}/pay`);
     } catch {
       setError("Network error. Please try again.");
       setSubmitting(false);

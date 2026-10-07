@@ -9,6 +9,7 @@ import {
   UserX, ShieldAlert, Zap,
 } from "lucide-react";
 import { TimeRangePicker } from "@/components/booking/TimeRangePicker";
+import ActionInbox from "@/components/payments/ActionInbox";
 
 function timeToMins(t: string) {
   const [h, m] = t.split(":").map(Number);
@@ -81,7 +82,7 @@ function formatDate(dateStr: string) {
 function PaymentBadge({ method, pStatus }: { method: string; pStatus: string }) {
   if (method === "ONLINE") {
     if (pStatus === "PAID")     return <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Transfer Confirmed</span>;
-    if (pStatus === "RECEIPT_SUBMITTED") return <Link href="/ground-owner/payments" className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-semibold hover:bg-amber-200"><CreditCard className="w-3 h-3" />Receipt to review →</Link>;
+    if (pStatus === "RECEIPT_SUBMITTED") return <Link href="/ground-owner/bookings" className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-semibold hover:bg-amber-200"><CreditCard className="w-3 h-3" />Receipt to review →</Link>;
     if (pStatus === "REJECTED") return <span className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Receipt Rejected</span>;
     if (pStatus === "FAILED")   return <span className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Payment Failed</span>;
     if (pStatus === "REFUNDED") return <span className="inline-flex items-center gap-1 text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Refunded</span>;
@@ -507,7 +508,7 @@ function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBook
             <div className="flex gap-2">
               {b.paymentMethod === "ONLINE" && b.paymentStatus !== "PAID" ? (
                 <Link
-                  href="/ground-owner/payments"
+                  href="/ground-owner/bookings"
                   className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <CreditCard className="w-3 h-3" />
@@ -970,6 +971,9 @@ export default function GroundOwnerBookingsPage() {
   const [showWalkIn,      setShowWalkIn]      = useState(false);
   const [facilities,      setFacilities]      = useState<FacilityOption[]>([]);
   const needsActionRef    = useRef<HTMLDivElement>(null);
+  // One screen: the action inbox (receipts, cash requests, refunds) and the full booking list
+  const [view,            setView]            = useState<"inbox" | "all">("inbox");
+  const [inboxCount,      setInboxCount]      = useState<number | null>(null);
 
   // Load facilities once for the walk-in modal
   useEffect(() => {
@@ -1124,7 +1128,6 @@ export default function GroundOwnerBookingsPage() {
   const cancelledGroup    = filtered.filter((b) => b.status === "CANCELLED").sort(byDateDesc);
   const noShowGroup       = filtered.filter((b) => b.status === "NO_SHOW").sort(byDateDesc);
 
-  const pendingCount  = bookings.filter((b) => b.status === "PENDING").length;
   const pastDueCount  = bookings.filter(isPastDue).length;
 
   return (
@@ -1135,11 +1138,6 @@ export default function GroundOwnerBookingsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Bookings</h1>
           <p className="text-slate-500 text-sm mt-1">
             Manage all bookings for your grounds
-            {pendingCount > 0 && (
-              <span className="ml-2 bg-amber-100 text-amber-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                {pendingCount} pending
-              </span>
-            )}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -1162,6 +1160,16 @@ export default function GroundOwnerBookingsPage() {
         </div>
       </div>
 
+      <div role="tablist" className="flex gap-6 border-b border-rule">
+        {([["inbox", "Needs action"], ["all", "All bookings"]] as const).map(([key, label]) => (
+          <button key={key} role="tab" aria-selected={view === key} onClick={() => setView(key)}
+            className={`-mb-px border-b-2 pb-2.5 text-[15px] font-medium ${view === key ? "border-pitch text-pitch-deep" : "border-transparent text-slate-500 hover:text-pitch-deep"}`}>
+            {label}{key === "inbox" && inboxCount ? <span className="ml-1.5 tabular-nums text-pitch">{inboxCount}</span> : null}
+          </button>
+        ))}
+      </div>
+
+      {view === "inbox" ? <ActionInbox role="owner" onCount={setInboxCount} /> : (<>
       {/* Needs Action Banner */}
       {pastDueCount > 0 && !statusFilter && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start justify-between gap-4">
@@ -1371,6 +1379,8 @@ export default function GroundOwnerBookingsPage() {
           )}
         </div>
       )}
+
+      </>)}
 
       {/* Complete modal */}
       {completeTarget && (

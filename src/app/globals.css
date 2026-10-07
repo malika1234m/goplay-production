@@ -10,6 +10,14 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-scoreboard: var(--font-barlow), var(--font-inter), sans-serif;
+
+  /* Payments: pitch green, deep pitch ink, slip paper, rule, deadline amber */
+  --color-pitch: #15803d;
+  --color-pitch-deep: #0f2a1d;
+  --color-slip: #f6f8f4;
+  --color-rule: #d9e1da;
+  --color-deadline: #b45309;
 }
 
 body {

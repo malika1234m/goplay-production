@@ -14,7 +14,7 @@ function CopyRow({ label, value, mono }: { label: string; value: string; mono?: 
     } catch { /* clipboard blocked — the value is still visible */ }
   };
   return (
-    <div className="flex items-center justify-between gap-3 py-2 border-b border-blue-100 last:border-0">
+    <div className="flex items-center justify-between gap-3 py-2 border-b border-dashed border-rule last:border-0">
       <div className="min-w-0">
         <p className="text-[11px] text-slate-500">{label}</p>
         <p className={`text-sm font-semibold text-slate-900 break-all ${mono ? "font-mono tracking-wide" : ""}`}>{value}</p>
@@ -23,7 +23,7 @@ function CopyRow({ label, value, mono }: { label: string; value: string; mono?: 
         type="button"
         onClick={copy}
         aria-label={`Copy ${label}`}
-        className="shrink-0 p-2 rounded-lg text-blue-600 hover:bg-blue-100 transition-colors"
+        className="shrink-0 p-2 rounded-lg text-pitch hover:bg-pitch/10 transition-colors"
       >
         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
       </button>
@@ -42,10 +42,10 @@ export default function BankDetailsCard({
   reference?: string;
 }) {
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+    <div className="bg-slip border border-rule rounded-xl p-4">
       <div className="flex items-center gap-2 mb-2">
-        <Building2 className="w-4 h-4 text-blue-600" />
-        <p className="text-sm font-semibold text-blue-900">Transfer to the ground&apos;s bank account</p>
+        <Building2 className="w-4 h-4 text-pitch" />
+        <p className="text-sm font-semibold text-pitch-deep">Transfer to the ground&apos;s bank account</p>
       </div>
       <div>
         <CopyRow label="Bank" value={details.bankBranch ? `${details.bankName} — ${details.bankBranch}` : details.bankName} />
@@ -55,7 +55,7 @@ export default function BankDetailsCard({
         {reference && <CopyRow label="Reference (add to your transfer)" value={reference} mono />}
       </div>
       {details.instructions && (
-        <p className="text-xs text-blue-800 mt-3 whitespace-pre-line">{details.instructions}</p>
+        <p className="text-xs text-pitch-deep mt-3 whitespace-pre-line">{details.instructions}</p>
       )}
     </div>
   );

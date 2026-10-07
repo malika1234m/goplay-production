@@ -408,7 +408,7 @@ export async function sendReceiptSubmittedEmail(opts: {
       ${infoRow("Reference", opts.reference)}
     </table>
     <p style="margin:16px 0 0"><a href="${opts.receiptUrl}" style="color:#16a34a;font-size:13px">Open the receipt</a></p>
-    ${button(`${APP_URL}/ground-owner/payments`, "Review payment")}
+    ${button(`${APP_URL}/ground-owner/bookings`, "Check the receipt")}
   `);
   await send(opts.to, `Receipt to review — ${opts.facilityName} on ${opts.date}`, html);
 }

@@ -6,7 +6,6 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Calendar, Phone, Clock, Loader2, CheckCircle, CreditCard, Banknote, Zap, ChevronRight, Users } from "lucide-react";
 import BankDetailsCard from "@/components/payments/BankDetailsCard";
-import ReceiptUploader from "@/components/payments/ReceiptUploader";
 import type { PaymentDetails } from "@/components/payments/types";
 
 interface OpenMatchSlotInfo {
@@ -74,8 +73,6 @@ export default function BookingForm({
   // "Pay online" = bank transfer to the ground; details load when the player picks it
   const [bankDetails,     setBankDetails]     = useState<PaymentDetails | null>(null);
   const [bankState,       setBankState]       = useState<"idle" | "loading" | "ready" | "unavailable">("idle");
-  const [createdBooking,  setCreatedBooking]  = useState<{ id: string; windowMinutes: number } | null>(null);
-  const [receiptSent,     setReceiptSent]     = useState(false);
 
   const choosePayOnline = async () => {
     setPaymentMethod("ONLINE");
@@ -195,9 +192,10 @@ export default function BookingForm({
       return;
     }
 
+    // Pay online: the transfer and receipt happen on their own checkout page
     if (paymentMethod === "ONLINE") {
-      if (data.paymentDetails) setBankDetails(data.paymentDetails);
-      setCreatedBooking({ id: data.booking.id, windowMinutes: data.receiptWindowMinutes ?? 120 });
+      router.push(`/my-bookings/${data.booking.id}/pay`);
+      return;
     }
 
     // ON_ARRIVAL — show inline success
@@ -210,36 +208,6 @@ export default function BookingForm({
         <div className="text-5xl mb-4">🚫</div>
         <h3 className="text-base font-semibold text-slate-900 mb-1">Booking not available</h3>
         <p className="text-sm text-slate-500">Ground owners cannot book sports grounds.</p>
-      </div>
-    );
-  }
-
-  if (success && createdBooking) {
-    const ref = createdBooking.id.slice(0, 8).toUpperCase();
-    return (
-      <div className="flex flex-col gap-4 py-2">
-        <div className="text-center">
-          <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-slate-900 mb-1">Slot held — now pay the ground</h3>
-          <p className="text-sm text-slate-500">
-            Transfer <span className="font-semibold text-slate-700">Rs. {totalAmount.toLocaleString()}</span> and upload the receipt
-            within {createdBooking.windowMinutes >= 60 ? `${Math.round(createdBooking.windowMinutes / 6) / 10} hours` : `${createdBooking.windowMinutes} minutes`}.
-          </p>
-        </div>
-        {bankDetails && <BankDetailsCard details={bankDetails} amount={totalAmount} reference={ref} />}
-        {receiptSent ? (
-          <div className="text-center bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800">
-            Receipt sent! The ground owner will confirm your booking once they see the payment.
-          </div>
-        ) : (
-          <ReceiptUploader endpoint={`/api/bookings/${createdBooking.id}/receipt`} onUploaded={() => setReceiptSent(true)} label="Send receipt to the ground" />
-        )}
-        <button
-          onClick={() => router.push("/my-bookings")}
-          className="text-sm font-semibold text-slate-600 hover:text-slate-900 py-2"
-        >
-          {receiptSent ? "View My Bookings" : "I'll upload it later from My Bookings"}
-        </button>
       </div>
     );
   }
@@ -572,7 +540,7 @@ export default function BookingForm({
                 <BankDetailsCard details={bankDetails} amount={totalAmount} />
                 <p className="text-xs text-slate-500 flex items-start gap-1.5">
                   <Clock className="w-3 h-3 mt-0.5 shrink-0" />
-                  Book first to hold the slot, then transfer and upload your receipt. The owner confirms once the money arrives.
+                  Booking holds the slot. Next you&apos;ll transfer from your banking app and send the receipt — the ground confirms your booking once the money arrives.
                 </p>
               </>
             ) : null}

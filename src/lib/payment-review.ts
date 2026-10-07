@@ -54,7 +54,7 @@ export async function submitBookingReceipt(bookingId: string, userId: string, re
     title:   "Payment receipt to review",
     message: `${booking.user.name} uploaded a bank transfer receipt of Rs. ${booking.totalAmount.toLocaleString()} for ${booking.facility.name} on ${fmtDate(booking.bookingDate)} ${booking.startTime}–${booking.endTime}.`,
     type:    "info",
-    link:    "/ground-owner/payments",
+    link:    "/ground-owner/bookings",
   });
   void sendReceiptSubmittedEmail({
     to: owner.email, ownerName: owner.name, playerName: booking.user.name, facilityName: booking.facility.name,
@@ -96,7 +96,7 @@ export async function reviewBookingPayment(opts: {
       title:   "Payment confirmed",
       message: `${booking.facility.name} confirmed your Rs. ${booking.totalAmount.toLocaleString()} transfer. Your booking on ${when} is confirmed!`,
       type:    "success",
-      link:    "/my-bookings",
+      link:    `/my-bookings/${booking.id}/pay`,
     });
     void sendBookingConfirmedEmail({
       to: booking.user.email, name: booking.user.name, facilityName: booking.facility.name,
@@ -111,12 +111,12 @@ export async function reviewBookingPayment(opts: {
         ? `${booking.facility.name} rejected your receipt for ${when}: ${reason}`
         : `${booking.facility.name} rejected your receipt for ${when} without giving a reason. You can upload it again or raise a complaint.`,
       type:    "error",
-      link:    "/my-bookings",
+      link:    `/my-bookings/${booking.id}/pay`,
     });
     void sendReceiptRejectedEmail({
       to: booking.user.email, name: booking.user.name, facilityName: booking.facility.name,
       date: fmtDate(booking.bookingDate), startTime: booking.startTime, endTime: booking.endTime,
-      reason, link: "/my-bookings",
+      reason, link: `/my-bookings/${booking.id}/pay`,
     });
   }
   return { ok: true };
@@ -155,7 +155,7 @@ export async function submitSpotReceipt(spotId: string, userId: string, receiptU
     title:   "Open match receipt to review",
     message: `${spot.user.name} uploaded a bank transfer receipt of Rs. ${spot.amountDue.toLocaleString()} for an open match spot at ${m.facility.name} on ${fmtDate(m.preferredDate)} ${m.preferredStartTime}–${m.preferredEndTime}.`,
     type:    "info",
-    link:    "/ground-owner/payments",
+    link:    "/ground-owner/bookings",
   });
   void sendReceiptSubmittedEmail({
     to: owner.email, ownerName: owner.name, playerName: spot.user.name, facilityName: m.facility.name,
@@ -187,7 +187,7 @@ export async function reviewSpotPayment(opts: {
   if (updated.count === 0) return { ok: false, status: 409, error: "This payment was already reviewed." };
 
   const m    = spot.match;
-  const link = `/open-matches/${m.id}`;
+  const link = `/open-matches/${m.id}/pay`;
   if (opts.approve) {
     await closeComplaintsOnConfirm({ spotId: spot.id });
     await createNotification({

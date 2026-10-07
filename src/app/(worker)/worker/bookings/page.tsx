@@ -9,6 +9,7 @@ import {
   UserX, ShieldAlert, Zap,
 } from "lucide-react";
 import { TimeRangePicker } from "@/components/booking/TimeRangePicker";
+import ActionInbox from "@/components/payments/ActionInbox";
 
 interface Booking {
   id:              string;
@@ -302,7 +303,7 @@ function BookingRow({
         {/* Actions */}
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           {b.status === "PENDING" && b.paymentMethod === "ONLINE" && b.paymentStatus !== "PAID" && (
-            <Link href="/worker/payments"
+            <Link href="/worker/bookings"
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
               <CheckCircle2 className="w-3.5 h-3.5" />
               {b.paymentStatus === "RECEIPT_SUBMITTED" ? "Review receipt" : "Awaiting receipt"}
@@ -641,6 +642,9 @@ export default function WorkerBookingsPage() {
   const [facility,      setFacility]      = useState<FacilityInfo | null>(null);
   const [cashTarget,    setCashTarget]    = useState<string | null>(null);
   const [cancelTarget,  setCancelTarget]  = useState<Booking | null>(null);
+  // One screen: the action inbox (receipts, cash requests, refunds) and the full booking list
+  const [view,          setView]          = useState<"inbox" | "all">("inbox");
+  const [inboxCount,    setInboxCount]    = useState<number | null>(null);
   const [noShowTarget,  setNoShowTarget]  = useState<Booking | null>(null);
 
   useEffect(() => {
@@ -743,6 +747,16 @@ export default function WorkerBookingsPage() {
         <div className="bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-xl">{actionError}</div>
       )}
 
+      <div role="tablist" className="flex gap-6 border-b border-rule">
+        {([["inbox", "Needs action"], ["all", "All bookings"]] as const).map(([key, label]) => (
+          <button key={key} role="tab" aria-selected={view === key} onClick={() => setView(key)}
+            className={`-mb-px border-b-2 pb-2.5 text-[15px] font-medium ${view === key ? "border-pitch text-pitch-deep" : "border-transparent text-slate-500 hover:text-pitch-deep"}`}>
+            {label}{key === "inbox" && inboxCount ? <span className="ml-1.5 tabular-nums text-pitch">{inboxCount}</span> : null}
+          </button>
+        ))}
+      </div>
+
+      {view === "inbox" ? <ActionInbox role="worker" onCount={setInboxCount} /> : (<>
       {/* Stats strip */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
         {[
@@ -822,6 +836,8 @@ export default function WorkerBookingsPage() {
           )}
         </div>
       )}
+
+      </>)}
 
       {/* Cash modal */}
       {cashTarget && (

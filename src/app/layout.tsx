@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Barlow_Condensed } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 
@@ -7,6 +7,14 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
+});
+
+// Scoreboard numerals for dates, times and amounts on the payment screens
+const scoreboard = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  display: "swap",
+  variable: "--font-barlow",
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://goplay.lk";
@@ -52,7 +60,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`h-full ${inter.variable}`}>
+    <html lang="en" className={`h-full ${inter.variable} ${scoreboard.variable}`}>
       <body className="min-h-full antialiased font-sans">
         <Providers>{children}</Providers>
       </body>

@@ -17,7 +17,7 @@ const EMPTY: Fields = { bankName: "", bankBranch: "", accountName: "", accountNu
  * Bank account players transfer to when they choose "Pay online".
  * mode "owner": default for every ground (profile). mode "ground": override for one ground.
  */
-export default function PaymentDetailsForm({ mode, groundId }: { mode: "owner" | "ground"; groundId?: string }) {
+export default function PaymentDetailsForm({ mode, groundId, onSaved, bare }: { mode: "owner" | "ground"; groundId?: string; onSaved?: () => void; bare?: boolean }) {
   const url = mode === "owner" ? "/api/ground-owner/bank-details" : `/api/ground-owner/grounds/${groundId}/payment-details`;
 
   const [form,    setForm]    = useState<Fields>(EMPTY);
@@ -58,7 +58,7 @@ export default function PaymentDetailsForm({ mode, groundId }: { mode: "owner" |
       const res  = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) setError(data.error ?? "Could not save.");
-      else setSaved(true);
+      else { setSaved(true); onSaved?.(); }
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -66,11 +66,11 @@ export default function PaymentDetailsForm({ mode, groundId }: { mode: "owner" |
     }
   };
 
-  const input = "w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-green-500";
+  const input = "w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-pitch";
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col gap-4">
-      <div className="flex items-start gap-3">
+    <div className={bare ? "flex flex-col gap-4" : "bg-white rounded-2xl border border-rule p-6 flex flex-col gap-4"}>
+      <div className={bare ? "hidden" : "flex items-start gap-3"}>
         <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
           <Building2 className="w-5 h-5 text-blue-600" />
         </div>
@@ -117,10 +117,10 @@ export default function PaymentDetailsForm({ mode, groundId }: { mode: "owner" |
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex items-center gap-3">
             <button onClick={save} disabled={saving}
-              className="bg-green-600 hover:bg-green-700 disabled:bg-slate-300 text-white text-sm font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2">
+              className="bg-pitch hover:bg-pitch-deep disabled:bg-slate-300 text-white text-sm font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2">
               {saving && <Loader2 className="w-4 h-4 animate-spin" />} Save payment details
             </button>
-            {saved && <span className="text-xs text-green-700 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" />Saved</span>}
+            {saved && <span className="text-xs text-pitch flex items-center gap-1"><CheckCircle2 className="w-4 h-4" />Saved</span>}
           </div>
         </>
       )}
