@@ -41,7 +41,7 @@ export default function PrivacyPage() {
           <Section title="1. Information We Collect">
             <p><strong>Account information:</strong> When you register, we collect your name, email address, phone number, and password (stored as a secure hash).</p>
             <p><strong>Booking information:</strong> When you make a booking, we collect the date, time, facility, payment method, and any special requests you provide.</p>
-            <p><strong>Payment information:</strong> We do not store card details. Payments are processed securely through PayHere. We only store transaction reference numbers and status.</p>
+            <p><strong>Payment information:</strong> We do not store card details. When you pay online by bank transfer, we store the receipt image you upload and its review status, and share it only with the ground owner (and their staff) for that booking, and with GoPlay support if you raise a complaint.</p>
             <p><strong>Usage data:</strong> We collect standard server logs including IP address, browser type, pages visited, and timestamps to help diagnose issues and improve the service.</p>
             <p><strong>Location data:</strong> If you use the "Near Me" feature, your browser shares your approximate GPS coordinates with us temporarily to show nearby facilities. This is not stored on our servers.</p>
           </Section>
@@ -64,7 +64,7 @@ export default function PrivacyPage() {
             <p>We share your information only in the following limited circumstances:</p>
             <ul className="list-disc pl-5 space-y-1.5">
               <li><strong>Facility owners and workers:</strong> When you book a ground, the facility owner and their assigned workers can see your name, contact number, and booking details.</li>
-              <li><strong>Payment processors:</strong> PayHere receives the minimum required data to process your payment.</li>
+              <li><strong>Ground owners:</strong> receive your payment receipts for their bookings so they can confirm your transfer.</li>
               <li><strong>Legal requirements:</strong> We may disclose information if required by law, court order, or to protect the rights and safety of our users.</li>
             </ul>
           </Section>

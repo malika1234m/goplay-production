@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
+import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
+import { getReceiptWindowMinutes } from "@/lib/settings";
 
 export async function GET(
   req: NextRequest,
@@ -24,8 +26,16 @@ export async function GET(
         status: true,
         paymentMethod: true,
         paymentStatus: true,
+        createdAt: true,
+        receiptUrl: true,
+        receiptUploadedAt: true,
+        receiptReviewedAt: true,
+        receiptRejectReason: true,
+        refundStatus: true,
+        refundAmount: true,
+        complaints: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true, adminNote: true, createdAt: true } },
         facility: {
-          select: { id: true, name: true, address: true, city: true },
+          select: { id: true, name: true, address: true, city: true, ...paymentDetailsSelect },
         },
         court: { select: { name: true } },
       },
@@ -33,7 +43,17 @@ export async function GET(
 
     if (!booking) return Response.json({ error: "Booking not found" }, { status: 404 });
 
-    return Response.json({ booking });
+    const { facility, complaints, ...rest } = booking;
+
+    return Response.json({
+      booking: {
+        ...rest,
+        facility:             { id: facility.id, name: facility.name, address: facility.address, city: facility.city },
+        latestComplaint:      complaints[0] ?? null,
+        paymentDetails:       booking.paymentMethod === "ONLINE" ? resolvePaymentDetails(facility) : null,
+        receiptWindowMinutes: await getReceiptWindowMinutes(),
+      },
+    });
   } catch (err) {
     console.error("[GET /api/user/bookings/[id]]", err);
     return Response.json({ error: "Failed to fetch booking." }, { status: 500 });

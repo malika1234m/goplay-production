@@ -276,7 +276,7 @@ function BookingRow({
             )}
             <span className="font-semibold text-slate-800">Rs. {b.totalAmount.toLocaleString()}</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${b.paymentMethod === "ONLINE" ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"}`}>
-              {b.paymentMethod === "ONLINE" ? "Online" : "Cash"}
+              {b.paymentMethod === "ONLINE" ? (b.paymentStatus === "PAID" ? "Transfer ✓" : b.paymentStatus === "RECEIPT_SUBMITTED" ? "Receipt to review" : "Transfer pending") : "Cash"}
             </span>
           </div>
 
@@ -301,7 +301,14 @@ function BookingRow({
 
         {/* Actions */}
         <div className="flex items-center gap-2 flex-wrap shrink-0">
-          {b.status === "PENDING" && (
+          {b.status === "PENDING" && b.paymentMethod === "ONLINE" && b.paymentStatus !== "PAID" && (
+            <Link href="/worker/payments"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {b.paymentStatus === "RECEIPT_SUBMITTED" ? "Review receipt" : "Awaiting receipt"}
+            </Link>
+          )}
+          {b.status === "PENDING" && !(b.paymentMethod === "ONLINE" && b.paymentStatus !== "PAID") && (
             <button onClick={onConfirm} disabled={updating}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-40 rounded-lg transition-colors">
               {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}

@@ -3,7 +3,9 @@ import { db } from "@/lib/db";
 import { slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
 import { slotInstant } from "@/lib/local-time";
 import { getSession } from "@/lib/mobile-auth";
-import { buildPayHereHash, PAYHERE_MERCHANT_ID, PAYHERE_CHECKOUT_URL } from "@/lib/payhere";
+import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
+import { staleUnpaidBookingWhere } from "@/lib/payment-review";
+import { getReceiptWindowMinutes } from "@/lib/settings";
 import { sendSMS } from "@/lib/sms";
 import { sendBookingReceivedEmail, sendNewBookingAlertEmail } from "@/lib/email";
 import { isAllowed } from "@/lib/rateLimiter";
@@ -99,6 +101,12 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Facility not found or not available." }, { status: 404 });
     }
 
+    // "Pay online" is a bank transfer to the owner, so the ground must have somewhere to send it
+    const paymentDetails = resolvePaymentDetails({ ...facility, owner: facility.owner });
+    if (paymentMethod === "ONLINE" && !paymentDetails) {
+      return Response.json({ error: "This ground has not set up online payments yet. Please choose Pay at Ground." }, { status: 400 });
+    }
+
     // Validate courtId when the facility has courts defined
     if (facility.courts.length > 0) {
       if (!courtId) {
@@ -155,8 +163,8 @@ export async function POST(req: NextRequest) {
     const totalHours  = (eh * 60 + em - (sh * 60 + sm)) / 60;
     const totalAmount = totalHours * facility.hourlyRate;
 
-    // Release expired unpaid online bookings for this slot before checking conflicts
-    const expiryCutoff = new Date(Date.now() - 30 * 60 * 1000);
+    // Release unpaid "Pay online" holds for this slot before checking conflicts
+    const expiryCutoff = new Date(Date.now() - (await getReceiptWindowMinutes()) * 60 * 1000);
 
     // Everything from here to the insert runs under one facility-day lock, so a
     // concurrent request cannot slip a booking in between the check and the write.
@@ -166,10 +174,7 @@ export async function POST(req: NextRequest) {
         facilityId,
         ...(courtId ? { courtId } : {}),
         bookingDate:   { gte: startOfDay, lte: endOfDay },
-        status:        "PENDING",
-        paymentMethod: "ONLINE",
-        paymentStatus: "PENDING",
-        createdAt:     { lt: expiryCutoff },
+        ...staleUnpaidBookingWhere(expiryCutoff),
         AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
       },
       data: { status: "CANCELLED" },
@@ -237,15 +242,15 @@ export async function POST(req: NextRequest) {
       type:    "info",
     });
 
-    // Notify ground owner of new cash booking (online bookings notify owner via PayHere webhook)
-    if (paymentMethod === "ON_ARRIVAL") {
-      await createNotification({
-        userId:  facility.owner.user.id,
-        title:   "New Booking Received",
-        message: `${session.user.name ?? "A player"} has booked ${facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime}. Payment: Cash on Arrival (Rs. ${totalAmount.toLocaleString()}).`,
-        type:    "info",
-      });
-    }
+    // Online bookings: the owner hears again (with email) once the receipt is uploaded
+    await createNotification({
+      userId:  facility.owner.user.id,
+      title:   "New Booking Received",
+      message: paymentMethod === "ONLINE"
+        ? `${session.user.name ?? "A player"} has booked ${facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime}. Payment: bank transfer (Rs. ${totalAmount.toLocaleString()}) — receipt to follow.`
+        : `${session.user.name ?? "A player"} has booked ${facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime}. Payment: Cash on Arrival (Rs. ${totalAmount.toLocaleString()}).`,
+      type:    "info",
+    });
 
     // SMS: booking received
     if (contactNumber) {
@@ -280,36 +285,14 @@ export async function POST(req: NextRequest) {
       ...emailOpts,
     });
 
-    // ── Online payment: return PayHere params for client-side checkout ──
     if (paymentMethod === "ONLINE") {
-      const appUrl       = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-      const orderId      = booking.id;
-      // Add 2.5% payment processing fee on top of the court rate for online payments
-      const chargeAmount = Math.round(totalAmount * 1.025 * 100) / 100;
-      const hash         = buildPayHereHash(orderId, chargeAmount);
-      const user         = session.user;
-
-      const payHereParams = {
-        merchant_id:  PAYHERE_MERCHANT_ID,
-        return_url:   `${appUrl}/booking-success?bookingId=${booking.id}`,
-        cancel_url:   `${appUrl}/booking-cancelled?bookingId=${booking.id}`,
-        notify_url:   `${appUrl}/api/payhere/notify`,
-        order_id:     orderId,
-        items:        `Booking at ${facility.name} on ${bookingDate} ${startTime}-${endTime}`,
-        currency:     "LKR",
-        amount:       chargeAmount.toFixed(2),
-        first_name:   (user.name ?? "").split(" ")[0] || "Customer",
-        last_name:    (user.name ?? "").split(" ").slice(1).join(" ") || "-",
-        email:        user.email ?? "",
-        phone:        contactNumber || "0771234567",
-        address:      facility.address,
-        city:         facility.city,
-        country:      "Sri Lanka",
-        hash,
-        checkout_url: PAYHERE_CHECKOUT_URL,
-      };
-
-      return Response.json({ booking, payHereParams }, { status: 201 });
+      const receiptWindowMinutes = await getReceiptWindowMinutes();
+      return Response.json({
+        booking,
+        paymentDetails,
+        receiptWindowMinutes,
+        message: "Booking created. Transfer the amount to the ground's bank account and upload the receipt.",
+      }, { status: 201 });
     }
 
     return Response.json({ booking, message: "Booking created. Pay at the ground." }, { status: 201 });

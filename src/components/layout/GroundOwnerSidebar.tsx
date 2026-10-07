@@ -17,7 +17,7 @@ const navItems = [
   { href: "/ground-owner/bookings",     label: "Bookings",     icon: CalendarCheck },
   { href: "/ground-owner/schedule",     label: "Schedule",     icon: CalendarDays },
   { href: "/ground-owner/earnings",     label: "Earnings",     icon: TrendingUp },
-  { href: "/ground-owner/payouts",      label: "Payouts",      icon: Wallet },
+  { href: "/ground-owner/payments",     label: "Payments",     icon: Wallet },
   { href: "/ground-owner/reviews",      label: "Reviews",      icon: Star },
   { href: "/ground-owner/availability", label: "Availability", icon: Clock },
   { href: "/ground-owner/maintenance",  label: "Maintenance",  icon: Wrench },

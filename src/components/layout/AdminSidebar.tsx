@@ -21,7 +21,7 @@ const NAV = [
   { id: "open-matches", href: "/admin/open-matches",  label: "Open Matches",      icon: Swords },
   { id: "earnings",     href: "/admin/earnings",      label: "Earnings",          icon: DollarSign },
   { id: "commissions",  href: "/admin/commissions",   label: "Commissions",       icon: BadgeDollarSign },
-  { id: "payouts",      href: "/admin/payouts",       label: "Payouts",           icon: Wallet },
+  { id: "complaints",   href: "/admin/complaints",    label: "Payment Complaints", icon: Wallet },
   { id: "refunds",      href: "/admin/refunds",       label: "Refunds",           icon: ReceiptText },
   { id: "reviews",      href: "/admin/reviews",       label: "Reviews",           icon: Star },
   { id: "cancellations", href: "/admin/cancellations", label: "Cancellations",     icon: ShieldAlert },
@@ -39,6 +39,7 @@ export default function AdminSidebar() {
   const [pendingCount,       setPendingCount]       = useState(0);
   const [commissionDebt,     setCommissionDebt]     = useState(0);
   const [refundNeeded,       setRefundNeeded]       = useState(0);
+  const [openComplaints,     setOpenComplaints]     = useState(0);
   const [reportedReviews,    setReportedReviews]    = useState(0);
   const [cancellationAlerts, setCancellationAlerts] = useState(0);
   const [openMatchAlerts,    setOpenMatchAlerts]    = useState(0);
@@ -72,6 +73,14 @@ export default function AdminSidebar() {
     } catch { /* silent */ }
   }, []);
 
+  const loadComplaints = useCallback(async () => {
+    try {
+      const res  = await fetch("/api/admin/complaints?status=OPEN");
+      const data = await res.json();
+      setOpenComplaints(data.openCount ?? 0);
+    } catch { /* silent */ }
+  }, []);
+
   const loadReportedReviews = useCallback(async () => {
     try {
       const res  = await fetch("/api/admin/reviews?reported=true");
@@ -101,8 +110,8 @@ export default function AdminSidebar() {
   }, []);
 
   useEffect(() => {
-    loadPending(); loadCommissions(); loadRefunds(); loadReportedReviews(); loadCancellationAlerts(); loadOpenMatchAlerts();
-  }, [loadPending, loadCommissions, loadRefunds, loadReportedReviews, loadCancellationAlerts, loadOpenMatchAlerts]);
+    loadPending(); loadCommissions(); loadRefunds(); loadComplaints(); loadReportedReviews(); loadCancellationAlerts(); loadOpenMatchAlerts();
+  }, [loadPending, loadCommissions, loadRefunds, loadComplaints, loadReportedReviews, loadCancellationAlerts, loadOpenMatchAlerts]);
 
   const toggle = () => {
     setCollapsed((c) => {
@@ -159,6 +168,7 @@ export default function AdminSidebar() {
               id === "applications" && pendingCount    > 0 ? pendingCount    :
               id === "commissions"  && commissionDebt  > 0 ? commissionDebt  :
               id === "refunds"      && refundNeeded    > 0 ? refundNeeded    :
+              id === "complaints"   && openComplaints  > 0 ? openComplaints  :
               id === "reviews"      && reportedReviews > 0 ? reportedReviews :
               id === "open-matches" && openMatchAlerts > 0 ? openMatchAlerts : 0;
             const showLabel = !collapsed || onClose;

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
+import PaymentDetailsForm from "@/components/payments/PaymentDetailsForm";
 import {
   Loader2, Building2, MapPin, DollarSign, Users,
   AlignLeft, ImagePlus, X, Upload, CheckCircle,
@@ -491,6 +492,10 @@ export default function EditGroundPage() {
           </button>
         </div>
       </form>
+
+      <div className="mt-6">
+        <PaymentDetailsForm mode="ground" groundId={id} />
+      </div>
     </div>
   );
 }

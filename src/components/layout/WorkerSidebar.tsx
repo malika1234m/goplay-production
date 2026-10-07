@@ -6,13 +6,14 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
 import {
-  LayoutDashboard, CalendarDays, CalendarCheck, Wrench, LogOut, User, Menu, X,
+  LayoutDashboard, CalendarDays, CalendarCheck, Wrench, LogOut, User, Menu, X, Wallet,
 } from "lucide-react";
 
 const navItems = [
   { href: "/worker/dashboard",    label: "Dashboard",   icon: LayoutDashboard },
   { href: "/worker/schedule",     label: "Schedule",    icon: CalendarDays    },
   { href: "/worker/bookings",     label: "Bookings",    icon: CalendarCheck   },
+  { href: "/worker/payments",     label: "Payments",    icon: Wallet          },
   { href: "/worker/maintenance",  label: "Maintenance", icon: Wrench          },
 ];
 

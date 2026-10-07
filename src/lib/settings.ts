@@ -26,3 +26,11 @@ export async function setSetting(key: string, value: string): Promise<void> {
     update: { value },
   });
 }
+
+const DEFAULT_RECEIPT_WINDOW_MINUTES = 120;
+
+/** How long a "Pay online" booking or lobby spot waits for a receipt before its slot is released. */
+export async function getReceiptWindowMinutes(): Promise<number> {
+  const v = Number(await getSetting("receiptWindowMinutes"));
+  return Number.isFinite(v) && v > 0 ? v : DEFAULT_RECEIPT_WINDOW_MINUTES;
+}

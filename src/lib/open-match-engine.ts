@@ -36,6 +36,12 @@ export function calcCostPerPlayer(
   return Math.round(perPlayerWithFee * groupSize);
 }
 
+/** What a group pays the ground by bank transfer for its spot(s). */
+export function calcSpotAmount(totalCost: number, divisor: number, groupSize: number, serviceFeePct: number) {
+  const perPerson = Math.round((totalCost / divisor) * (1 + serviceFeePct / 100));
+  return perPerson * groupSize;
+}
+
 // Called after a spot payment is confirmed — triggers booking when enough paid spots accumulate
 export async function tryMatchLobby(matchId: string): Promise<void> {
   const match = await db.openMatch.findUnique({
@@ -109,10 +115,15 @@ export async function tryMatchLobby(matchId: string): Promise<void> {
       where: { matchId, status: "RESERVED", paymentStatus: "PAID" },
       data:  { status: "CONFIRMED" },
     });
-    // Cancel any pending-payment spots — lobby is now matched, those slots are gone
+    // Unpaid spots lose their place now the lobby is matched. A receipt still under review
+    // may be real money, so that spot is flagged for a refund from the ground.
     await tx.openMatchSpot.updateMany({
-      where: { matchId, status: "RESERVED", paymentStatus: "PENDING" },
-      data:  { status: "CANCELLED", paymentStatus: "FAILED", cancelledAt: new Date() },
+      where: { matchId, status: "RESERVED", paymentStatus: { in: ["PENDING", "REJECTED"] } },
+      data:  { status: "CANCELLED", cancelledAt: new Date() },
+    });
+    await tx.openMatchSpot.updateMany({
+      where: { matchId, status: "RESERVED", paymentStatus: "RECEIPT_SUBMITTED" },
+      data:  { status: "REFUNDED", cancelledAt: new Date() },
     });
     return b;
   });
@@ -120,7 +131,7 @@ export async function tryMatchLobby(matchId: string): Promise<void> {
   if (!booking) {
     // Revert status before expiring so expireLobby's own COLLECTING check passes
     await db.openMatch.update({ where: { id: matchId }, data: { status: "COLLECTING" } });
-    await expireLobby(matchId, "The selected time slot at this facility was just booked by someone else. You have been refunded.");
+    await expireLobby(matchId, "The selected time slot at this facility was just booked by someone else. The ground will refund your bank transfer.");
     return;
   }
 
@@ -188,18 +199,18 @@ export async function expireLobby(matchId: string, reason?: string): Promise<num
 
   await db.openMatch.update({ where: { id: matchId }, data: { status: "EXPIRED" } });
 
-  // Paid spots get refund status; pending-payment spots (never charged) get cancelled
+  // Anyone who transferred money (confirmed or still under review) is owed a refund by the
+  // ground; spots that never sent a receipt are simply cancelled.
   await db.openMatchSpot.updateMany({
-    where: { matchId, status: "RESERVED", paymentStatus: "PAID" },
-    data:  { status: "REFUNDED", paymentStatus: "REFUNDED", cancelledAt: new Date() },
+    where: { matchId, status: "RESERVED", paymentStatus: { in: ["PAID", "RECEIPT_SUBMITTED"] } },
+    data:  { status: "REFUNDED", cancelledAt: new Date() },
   });
   await db.openMatchSpot.updateMany({
-    where: { matchId, status: "RESERVED", paymentStatus: "PENDING" },
-    data:  { status: "CANCELLED", paymentStatus: "FAILED", cancelledAt: new Date() },
+    where: { matchId, status: "RESERVED", paymentStatus: { in: ["PENDING", "REJECTED"] } },
+    data:  { status: "CANCELLED", cancelledAt: new Date() },
   });
 
-  // Only notify players who actually paid — they're owed a refund
-  const paidSpots = match.spots.filter((s) => s.paymentStatus === "PAID");
+  const paidSpots = match.spots.filter((s) => s.paymentStatus === "PAID" || s.paymentStatus === "RECEIPT_SUBMITTED");
   const playerIds = [...new Set(paidSpots.map((s) => s.userId))];
   const players   = await db.user.findMany({
     where:  { id: { in: playerIds } },
@@ -211,8 +222,8 @@ export async function expireLobby(matchId: string, reason?: string): Promise<num
       Promise.all([
         createNotification({
           userId:  p.id,
-          title:   "Match Not Found — Refund Initiated",
-          message: reason ?? `Your open match lobby for ${match.category.name} could not be filled. A refund will be processed to your original payment method within 5–7 business days.`,
+          title:   "Match Not Found — Refund Due",
+          message: reason ?? `Your open match lobby for ${match.category.name} could not be filled. The ground will refund your bank transfer. Contact GoPlay support if it hasn't arrived within 7 days.`,
           type:    "warning",
           link:    `/open-matches/my-matches`,
         }),
@@ -227,6 +238,23 @@ export async function expireLobby(matchId: string, reason?: string): Promise<num
       ])
     )
   );
+
+  if (paidSpots.length > 0) {
+    const facility = await db.sportsFacility.findUnique({
+      where:  { id: match.facilityId },
+      select: { name: true, owner: { select: { userId: true } } },
+    });
+    if (facility) {
+      const owed = paidSpots.reduce((sum, s) => sum + s.amountDue, 0);
+      await createNotification({
+        userId:  facility.owner.userId,
+        title:   "Open match cancelled — refunds due",
+        message: `A ${match.category.name} open match at ${facility.name} on ${match.preferredDate.toDateString()} didn't fill. Please refund ${paidSpots.length} player(s) who transferred a total of Rs. ${owed.toLocaleString()}.`,
+        type:    "warning",
+        link:    "/ground-owner/payments?filter=all",
+      });
+    }
+  }
 
   return paidSpots.length;
 }

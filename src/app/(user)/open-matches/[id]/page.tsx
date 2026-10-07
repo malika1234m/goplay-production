@@ -8,9 +8,11 @@ import {
   ArrowLeft, MapPin, Calendar, Clock, Users, Loader2,
   CheckCircle2, Phone, Mail, Trophy, Zap, Share2,
   ChevronRight, AlertCircle, ExternalLink, PartyPopper,
-  ShieldCheck, CreditCard, XCircle, RefreshCw,
+  ShieldCheck, CreditCard,
 } from "lucide-react";
 import ContactNumberField, { useContactNumber } from "@/components/shared/ContactNumberField";
+import PlayerPaymentPanel from "@/components/payments/PlayerPaymentPanel";
+import type { Complaint, PaymentDetails, PaymentStatus } from "@/components/payments/types";
 
 interface UserInfo { id: string; name: string; avatar: string | null; phone: string | null; email: string | null; }
 interface Spot { id: string; groupSize: number; status: string; paymentStatus: string; amountPaid: number; createdAt: string; user: UserInfo; }
@@ -23,6 +25,11 @@ interface Match {
   facility: { id: string; name: string; address: string; city: string; images: string[]; hourlyRate: number; latitude: number | null; longitude: number | null; capacity: number | null; };
   category: { id: string; name: string; icon: string; minPlayers: number };
   spots: Spot[];
+  mySpot: {
+    id: string; groupSize: number; status: string; paymentStatus: PaymentStatus; amountDue: number;
+    receiptUrl: string | null; receiptRejectReason: string | null;
+    latestComplaint: Complaint | null; paymentDetails: PaymentDetails | null; receiptWindowMinutes: number | null;
+  } | null;
 }
 
 function Countdown({ target }: { target: string }) {
@@ -50,7 +57,6 @@ function LobbyDetailInner({ id }: { id: string }) {
   const contact       = useContactNumber();
   const searchParams  = useSearchParams();
   const justCreated   = searchParams.get("created") === "1";
-  const paymentState  = searchParams.get("payment") as "success" | "cancelled" | null;
 
   const [match,             setMatch]            = useState<Match | null>(null);
   const [loading,           setLoading]          = useState(true);
@@ -71,14 +77,6 @@ function LobbyDetailInner({ id }: { id: string }) {
 
   useEffect(() => { fetchMatch(); }, [fetchMatch]);
 
-  // After a cancelled payment, re-fetch once after 3 s (webhook will have cleaned up the spot)
-  useEffect(() => {
-    if (paymentState === "cancelled") {
-      const t = setTimeout(fetchMatch, 3000);
-      return () => clearTimeout(t);
-    }
-  }, [paymentState, fetchMatch]);
-
   const activeSpots      = match?.spots.filter((s) => ["RESERVED", "CONFIRMED"].includes(s.status)) ?? [];
   const mySpot           = activeSpots.find((s) => s.user.id === ses?.user?.id);
   const isParticipant    = !!mySpot;
@@ -96,19 +94,12 @@ function LobbyDetailInner({ id }: { id: string }) {
     ? Math.max(0, (new Date(`1970-01-01T${match.preferredEndTime}`).getTime() -
        new Date(`1970-01-01T${match.preferredStartTime}`).getTime()) / 3600000) || 0
     : 0;
-  const PAYHERE_FEE_PCT = 2.5;
   const totalCost       = match ? match.facility.hourlyRate * hours : 0;
   const costDivisor     = match ? (match.status === "COLLECTING" ? minPlayers : Math.max(match.spotsReserved, 1)) : 1;
   const perPersonBase   = match ? totalCost / costDivisor : 0;
-  const perPersonGoPlay = Math.round(perPersonBase * (match?.serviceFeePct ?? 18) / 100);
-  const perPersonPayhere = Math.round(perPersonBase * PAYHERE_FEE_PCT / 100);
-  const perPersonTotal  = Math.round(perPersonBase + perPersonGoPlay + perPersonPayhere);
+  const perPersonGoPlay = Math.round(perPersonBase * (match?.serviceFeePct ?? 0) / 100);
+  const perPersonTotal  = Math.round(perPersonBase + perPersonGoPlay);
   const myGroupCost     = Math.round(perPersonTotal * groupSize);
-
-  // Amount paid for the current spot (from webhook) or the calculated charge if not yet confirmed
-  const spotAmountPaid = mySpot?.amountPaid && mySpot.amountPaid > 0
-    ? mySpot.amountPaid
-    : Math.round(perPersonTotal * (mySpot?.groupSize ?? groupSize));
 
   async function handlePay() {
     if (!contact.validate()) {
@@ -124,34 +115,12 @@ function LobbyDetailInner({ id }: { id: string }) {
         body:    JSON.stringify({ groupSize, contactNumber: contact.value }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed to initiate payment."); setJoining(false); return; }
-
-      // Submit hidden form to PayHere checkout
-      const p = data.payHereParams;
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = p.checkout_url;
-
-      const fields = [
-        "merchant_id", "return_url", "cancel_url", "notify_url",
-        "order_id", "items", "currency", "amount",
-        "first_name", "last_name", "email", "phone",
-        "address", "city", "country", "hash",
-      ] as const;
-
-      for (const key of fields) {
-        const input = document.createElement("input");
-        input.type  = "hidden";
-        input.name  = key;
-        input.value = String(p[key] ?? "");
-        form.appendChild(input);
-      }
-
-      document.body.appendChild(form);
-      form.submit();
-      // Page navigates away — spinner stays while PayHere loads
+      if (!res.ok) { setError(data.error ?? "Failed to reserve a spot."); return; }
+      setSuccess("Spot held! Transfer the amount to the ground and upload your receipt below to secure it.");
+      await fetchMatch();
     } catch {
       setError("Network error. Please try again.");
+    } finally {
       setJoining(false);
     }
   }
@@ -207,7 +176,7 @@ function LobbyDetailInner({ id }: { id: string }) {
     </div>
   );
 
-  const showJoin = isCollecting && !isParticipant && ses?.user?.role === "USER" && paymentState !== "cancelled";
+  const showJoin = isCollecting && !isParticipant && ses?.user?.role === "USER";
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 lg:pb-0">
@@ -256,22 +225,6 @@ function LobbyDetailInner({ id }: { id: string }) {
         {/* ── Alerts ───────────────────────────────────────────────── */}
         {error   && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-2"><AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />{error}</div>}
         {success && <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-green-800 text-sm">{success}</div>}
-
-        {/* ── Payment cancelled banner ──────────────────────────────── */}
-        {paymentState === "cancelled" && (
-          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-            <XCircle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
-            <div className="flex-1">
-              <p className="font-semibold text-amber-800 text-sm">Payment Cancelled</p>
-              <p className="text-amber-700 text-xs mt-0.5">
-                Your payment was not completed — no money was charged. You can try again below.
-              </p>
-            </div>
-            <button onClick={fetchMatch} className="text-amber-500 hover:text-amber-700 transition-colors" title="Refresh">
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
-        )}
 
         {/* ── Creation celebration (full width) ────────────────────── */}
         {justCreated && isCollecting && (
@@ -427,7 +380,7 @@ function LobbyDetailInner({ id }: { id: string }) {
                             : "bg-amber-100 text-amber-700"
                         }`}>
                           {s.status === "CONFIRMED" && <CheckCircle2 className="w-3 h-3 inline mr-0.5" />}
-                          {s.status === "CONFIRMED" ? "Confirmed" : s.paymentStatus === "PAID" ? "Paid" : "Paying…"}
+                          {s.status === "CONFIRMED" ? "Confirmed" : s.paymentStatus === "PAID" ? "Paid" : s.paymentStatus === "RECEIPT_SUBMITTED" ? "Receipt sent" : "Awaiting payment"}
                         </span>
                       </div>
                     </div>
@@ -456,14 +409,12 @@ function LobbyDetailInner({ id }: { id: string }) {
                   </span>
                   <span className="font-medium">Rs. {Math.round(perPersonBase).toLocaleString()}/person</span>
                 </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>Tax & service charge</span>
-                  <span>+ Rs. {perPersonGoPlay.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>Payment processing fee</span>
-                  <span>+ Rs. {perPersonPayhere.toLocaleString()}</span>
-                </div>
+                {perPersonGoPlay > 0 && (
+                  <div className="flex justify-between text-slate-500">
+                    <span>Tax & service charge</span>
+                    <span>+ Rs. {perPersonGoPlay.toLocaleString()}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold text-slate-900 pt-2 border-t border-slate-100 text-base">
                   <span>Per person total</span>
                   <span className="text-green-700">Rs. {perPersonTotal.toLocaleString()}</span>
@@ -477,89 +428,6 @@ function LobbyDetailInner({ id }: { id: string }) {
           <div className="lg:col-span-2 mt-4 lg:mt-0">
             <div className="lg:sticky lg:top-20 space-y-4">
 
-              {/* ── Payment success card ─────────────────────────────── */}
-              {paymentState === "success" && isParticipant && (
-                <div className="bg-white rounded-2xl border border-green-200 shadow-sm overflow-hidden">
-                  {/* Green header */}
-                  <div className="bg-gradient-to-br from-green-600 to-green-700 px-6 pt-6 pb-8">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                        <ShieldCheck className="w-7 h-7 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-white text-lg leading-tight">Payment Successful!</p>
-                        <p className="text-green-100 text-xs">Spot secured · Your money is safe</p>
-                      </div>
-                    </div>
-                    <div className="bg-white/15 rounded-xl px-4 py-3">
-                      <p className="text-green-100 text-xs mb-0.5">Amount paid</p>
-                      <p className="text-white font-bold text-2xl">Rs. {spotAmountPaid.toLocaleString()}</p>
-                      <p className="text-green-200 text-xs mt-0.5">
-                        {mySpot?.groupSize ?? groupSize} spot{(mySpot?.groupSize ?? groupSize) > 1 ? "s" : ""} reserved
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Status + info */}
-                  <div className="-mt-4 mx-4 bg-white rounded-xl border border-slate-100 shadow-sm p-4 mb-4">
-                    <div className="flex items-center gap-2.5 mb-3">
-                      <div className="w-2.5 h-2.5 bg-amber-400 rounded-full animate-pulse shrink-0" />
-                      <p className="font-semibold text-slate-800 text-sm">Waiting for lobby to fill</p>
-                    </div>
-                    <p className="text-xs text-slate-500 leading-relaxed">
-                      You&apos;ll receive an email and in-app notification the moment {minPlayers} players join.
-                      If the lobby expires without enough players, <span className="font-medium text-slate-700">a full refund will be processed</span> to your original payment method.
-                    </p>
-
-                    {/* Progress mini */}
-                    <div className="mt-3 flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${pctFilled}%` }} />
-                      </div>
-                      <span className="text-xs text-slate-500 shrink-0">{match.spotsReserved}/{minPlayers}</span>
-                    </div>
-                  </div>
-
-                  {/* Cancel option */}
-                  <div className="px-4 pb-4">
-                    {showCancelConfirm ? (
-                      <div className="space-y-2">
-                        <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 text-xs text-red-800">
-                          <p className="font-semibold mb-1">Cancel and request refund?</p>
-                          <p>{cancelWarning}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowCancelConfirm(false)}
-                            className="flex-1 border border-slate-200 text-slate-600 font-medium py-2.5 rounded-xl text-sm hover:bg-slate-50 transition-colors"
-                          >
-                            Keep My Spot
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCancel}
-                            disabled={cancelling}
-                            className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-                          >
-                            {cancelling && <Loader2 className="w-4 h-4 animate-spin" />}
-                            Yes, Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setShowCancelConfirm(true)}
-                        className="w-full border border-red-200 text-red-500 hover:bg-red-50 font-medium py-2.5 rounded-xl transition-colors text-sm"
-                      >
-                        Cancel My Spot
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
               {/* ── Pay to join panel ────────────────────────────────── */}
               {showJoin && (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
@@ -567,7 +435,7 @@ function LobbyDetailInner({ id }: { id: string }) {
                     <span className="text-2xl font-bold text-slate-900">Rs. {perPersonTotal.toLocaleString()}</span>
                     <span className="text-sm text-slate-400">/ person</span>
                   </div>
-                  <p className="text-xs text-slate-400 mb-5">Includes tax, service & payment processing · charged immediately</p>
+                  <p className="text-xs text-slate-400 mb-5">Paid straight to the ground by bank transfer</p>
 
                   <div className="mb-4">
                     <p className="text-sm font-semibold text-slate-700 mb-1">How many spots do you need?</p>
@@ -602,15 +470,15 @@ function LobbyDetailInner({ id }: { id: string }) {
                   <button onClick={handlePay} disabled={joining || groupSize > joinCapLeft || joinCapLeft === 0}
                     className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-base mb-3">
                     {joining
-                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting to payment…</>
-                      : <><CreditCard className="w-4 h-4" /> Pay Rs. {myGroupCost.toLocaleString()} &amp; Reserve <ChevronRight className="w-4 h-4" /></>}
+                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Reserving…</>
+                      : <><CreditCard className="w-4 h-4" /> Reserve &amp; Pay Rs. {myGroupCost.toLocaleString()} <ChevronRight className="w-4 h-4" /></>}
                   </button>
 
                   {/* Trust badges */}
                   <div className="flex items-center justify-center gap-3 mb-2">
                     <div className="flex items-center gap-1 text-[10px] text-slate-400">
                       <ShieldCheck className="w-3 h-3 text-green-500" />
-                      Secure payment
+                      Pay the ground directly
                     </div>
                     <span className="text-slate-200">·</span>
                     <div className="flex items-center gap-1 text-[10px] text-slate-400">
@@ -619,7 +487,7 @@ function LobbyDetailInner({ id }: { id: string }) {
                     </div>
                   </div>
                   <p className="text-[11px] text-slate-400 text-center leading-relaxed">
-                    Payment is collected upfront to secure your spot. Full refund if the lobby expires without enough players.
+                    After reserving, you&apos;ll see the ground&apos;s bank details. Transfer and upload the receipt — your spot counts once the owner confirms it. Full refund from the ground if the lobby expires without enough players.
                   </p>
                 </div>
               )}
@@ -635,8 +503,8 @@ function LobbyDetailInner({ id }: { id: string }) {
                 </div>
               )}
 
-              {/* Already joined status (regular — no payment=success param) */}
-              {isParticipant && isCollecting && paymentState !== "success" && (
+              {/* Already joined: payment status, transfer details and receipt upload */}
+              {isParticipant && isCollecting && (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                   <div className="flex items-center gap-3 mb-4">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
@@ -649,17 +517,32 @@ function LobbyDetailInner({ id }: { id: string }) {
                     </div>
                     <div>
                       <p className="font-bold text-slate-900">
-                        {mySpot?.paymentStatus === "PAID" ? "You're in!" : "Awaiting payment confirmation"}
+                        {mySpot?.paymentStatus === "PAID" ? "You're in!" : mySpot?.paymentStatus === "RECEIPT_SUBMITTED" ? "Receipt with the ground" : "Spot held — payment needed"}
                       </p>
                       <p className="text-xs text-slate-400">{mySpot?.groupSize} spot{(mySpot?.groupSize ?? 1) > 1 ? "s" : ""} reserved</p>
                     </div>
                   </div>
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs text-amber-800 mb-4">
-                    {mySpot?.paymentStatus === "PAID"
-                      ? `Waiting for the lobby to fill. You will be notified when enough players join.`
-                      : "Your payment is being confirmed. This may take a few minutes."
-                    }
-                  </div>
+                  {mySpot?.paymentStatus === "PAID" ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs text-amber-800 mb-4">
+                      Waiting for the lobby to fill. You will be notified when enough players join.
+                    </div>
+                  ) : match.mySpot && (
+                    <div className="mb-4">
+                      <PlayerPaymentPanel
+                        paymentStatus={match.mySpot.paymentStatus}
+                        amount={match.mySpot.amountDue}
+                        reference={match.mySpot.id.slice(0, 8).toUpperCase()}
+                        paymentDetails={match.mySpot.paymentDetails}
+                        receiptUrl={match.mySpot.receiptUrl}
+                        rejectReason={match.mySpot.receiptRejectReason}
+                        latestComplaint={match.mySpot.latestComplaint}
+                        receiptWindowMinutes={match.mySpot.receiptWindowMinutes}
+                        uploadEndpoint={`/api/open-matches/${id}/receipt`}
+                        spotId={match.mySpot.id}
+                        onChanged={fetchMatch}
+                      />
+                    </div>
+                  )}
 
                   {cancelResult && (
                     <div className={`rounded-xl px-3 py-2.5 text-xs mb-3 ${
@@ -749,7 +632,7 @@ function LobbyDetailInner({ id }: { id: string }) {
           <button onClick={handlePay} disabled={joining || groupSize > joinCapLeft || joinCapLeft === 0}
             className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold px-5 py-2.5 rounded-xl transition-colors flex items-center gap-1.5 text-sm shrink-0">
             {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-            Pay to Join
+            Reserve
           </button>
         </div>
       )}

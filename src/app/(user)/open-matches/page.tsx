@@ -127,7 +127,7 @@ export default function OpenMatchesPage() {
   const costPreview = (m: OpenMatch) => {
     const hours = (new Date(`1970-01-01T${m.preferredEndTime}`).getTime() -
                    new Date(`1970-01-01T${m.preferredStartTime}`).getTime()) / 3600000;
-    return Math.round((m.facility.hourlyRate * hours / m.category.minPlayers) * (1 + m.serviceFeePct / 100 + 0.025));
+    return Math.round((m.facility.hourlyRate * hours / m.category.minPlayers) * (1 + m.serviceFeePct / 100));
   };
 
   const hasFilters = !!(search.trim() || activeCity);

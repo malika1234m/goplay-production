@@ -319,7 +319,7 @@ function RefundModal({
         </div>
 
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-800">
-          Process the refund via PayHere merchant dashboard first, then mark it here to notify the player.
+          The ground owner holds the transfer and sends the refund (they can mark it from their Payments page). Mark it here once you have confirmed it was sent.
         </div>
 
         <div>
@@ -328,7 +328,7 @@ function RefundModal({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            placeholder="e.g. Refund processed via PayHere ref #TXN123"
+            placeholder="e.g. Owner refunded by bank transfer, ref #TXN123"
             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 resize-none"
           />
         </div>
@@ -580,7 +580,7 @@ export default function AdminRefundsPage() {
               {s.refundNeeded} refund{s.refundNeeded !== 1 ? "s" : ""} pending — {fmt(s.totalRefundValue)} to return to players
             </p>
             <p className="text-xs text-red-700 mt-0.5">
-              Process each refund via the PayHere merchant dashboard, then mark it done here to notify the player.
+              Online payments go straight to the ground, so owners send refunds. Follow up with owners on anything still pending.
             </p>
           </div>
         </div>
@@ -589,7 +589,7 @@ export default function AdminRefundsPage() {
       {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
         {([
-          { key: "online", label: `Online (PayHere) (${s.onlineTotal})`,  icon: CreditCard },
+          { key: "online", label: `Bank transfer (${s.onlineTotal})`,  icon: CreditCard },
           { key: "cash",   label: `Cash on Arrival (${s.cashTotal})`,      icon: Banknote  },
         ] as const).map(({ key, label, icon: Icon }) => (
           <button

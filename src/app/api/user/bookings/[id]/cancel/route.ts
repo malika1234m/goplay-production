@@ -45,7 +45,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const tiers        = await loadPolicyTiers();
     const policy       = getCancellationPolicyFromTiers(booking.bookingDate, booking.startTime, tiers);
-    const isOnlinePaid = booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID";
+    // A receipt still under review may be real money, so it is refunded like a confirmed one
+    const isOnlinePaid = booking.paymentMethod === "ONLINE" && ["PAID", "RECEIPT_SUBMITTED"].includes(booking.paymentStatus);
     const refundAmount = isOnlinePaid
       ? Math.round(booking.totalAmount * policy.refundPercent) / 100
       : 0;
@@ -91,7 +92,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const refundNote = isOnlinePaid
       ? policy.refundPercent > 0
-        ? `You will receive a ${policy.refundPercent}% refund (Rs. ${refundAmount.toLocaleString()}). Our team will process it shortly.`
+        ? `You will receive a ${policy.refundPercent}% refund (Rs. ${refundAmount.toLocaleString()}) by bank transfer from the ground.`
         : "No refund applies for cancellations within 4 hours of the booking."
       : "";
 
@@ -105,7 +106,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     await createNotification({
       userId:  booking.facility.owner.user.id,
       title:   "Booking Cancelled by Player",
-      message: `A player cancelled their booking at ${booking.facility.name} on ${dateStr} (${booking.startTime}–${booking.endTime}). The slot is now free.`,
+      message: `A player cancelled their booking at ${booking.facility.name} on ${dateStr} (${booking.startTime}–${booking.endTime}). The slot is now free.${needsRefund ? ` Please refund Rs. ${refundAmount.toLocaleString()} (${policy.refundPercent}%) to the player and mark it refunded.` : ""}`,
       type:    "warning",
     });
 

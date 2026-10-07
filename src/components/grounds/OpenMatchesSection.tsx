@@ -42,7 +42,7 @@ export default function OpenMatchesSection({ facilityId, facilityName, hourlyRat
     const hrs   = (new Date(`1970-01-01T${l.preferredEndTime}`).getTime() -
                    new Date(`1970-01-01T${l.preferredStartTime}`).getTime()) / 3600000;
     const total = hourlyRate * hrs;
-    return Math.round((total / l.totalSpotsNeeded) * (1 + l.serviceFeePct / 100 + 0.025));
+    return Math.round((total / l.totalSpotsNeeded) * (1 + l.serviceFeePct / 100));
   };
 
   return (

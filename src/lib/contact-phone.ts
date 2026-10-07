@@ -7,7 +7,7 @@ export function isValidLKMobile(raw: string): boolean {
 }
 
 /**
- * Resolve the real mobile number for a paid action (PayHere needs one, and
+ * Resolve the real mobile number for a paid action (the ground needs one, and
  * co-players reach each other with it). Uses the number sent with the request,
  * falling back to the one saved on the profile. A number sent by a player who
  * has none saved is stored on their profile so they aren't asked again.
