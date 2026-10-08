@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
+import { parsePaymentOptions } from "@/lib/payment-options";
 
 async function getOwnerProfile(userId: string) {
   return db.groundOwnerProfile.findUnique({ where: { userId } });
@@ -48,7 +49,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const ground = await verifyOwnership(id, profile.id);
     if (!ground) return Response.json({ error: "Ground not found." }, { status: 404 });
 
-    const { name, description, address, city, hourlyRate, capacity, amenities, images, categoryIds } = await req.json();
+    const { name, description, address, city, hourlyRate, capacity, amenities, images, categoryIds, paymentOptions } = await req.json();
+    const payOpts = paymentOptions === undefined ? undefined : parsePaymentOptions(paymentOptions);
+    if (payOpts === "invalid") return Response.json({ error: "Choose how players pay: at the ground, online, or both." }, { status: 400 });
 
     if (name !== undefined) {
       const n = (name ?? "").trim();
@@ -85,6 +88,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         ...(address     && { address }),
         ...(city        && { city }),
         ...(hourlyRate  && { hourlyRate: Number(hourlyRate) }),
+        ...(payOpts !== undefined && { paymentOptions: payOpts }),
         ...(capacity    !== undefined && { capacity: capacity ? Number(capacity) : null }),
         ...(amenities   && { amenities }),
         ...(images      !== undefined && { images: Array.isArray(images) ? images : [] }),

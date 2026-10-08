@@ -2,17 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { Users, Plus, Trash2, Loader2, AlertTriangle, UserCheck, Copy, Check, Building2 } from "lucide-react";
+import { useT } from "@/i18n/I18nProvider";
+import type { T } from "@/i18n/core";
 
 interface Facility { id: string; name: string; city: string }
+
 interface Worker   { id: string; userId: string; name: string; email: string; joinedAt: string }
 
-function timeAgo(d: string) {
+function timeAgo(d: string, t: T) {
   const diff = Date.now() - new Date(d).getTime();
   const days = Math.floor(diff / 86400000);
-  return days === 0 ? "Today" : days === 1 ? "Yesterday" : `${days}d ago`;
+  return days === 0 ? t("Today") : days === 1 ? t("Yesterday") : t("{n} d ago", { n: days });
 }
 
 export default function WorkersPage() {
+  const { t } = useT();
   const [facilities,  setFacilities]  = useState<Facility[]>([]);
   const [facilityId,  setFacilityId]  = useState("");
   const [workers,     setWorkers]     = useState<Worker[]>([]);
@@ -57,10 +61,10 @@ export default function WorkersPage() {
 
   const invite = async () => {
     const trimmedEmail = email.trim();
-    if (!trimmedEmail) { setInviteError("Email is required."); return; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setInviteError("Please enter a valid email address."); return; }
-    if (workerName.trim() && workerName.trim().length < 2) { setInviteError("Worker name must be at least 2 characters."); return; }
-    if (workerName.trim().length > 50) { setInviteError("Worker name must be under 50 characters."); return; }
+    if (!trimmedEmail) { setInviteError(t("Email is required.")); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { setInviteError(t("Please enter a valid email address.")); return; }
+    if (workerName.trim() && workerName.trim().length < 2) { setInviteError(t("Worker name must be at least 2 characters.")); return; }
+    if (workerName.trim().length > 50) { setInviteError(t("Worker name must be under 50 characters.")); return; }
     setInviteError(""); setInviting(true);
     try {
       const res  = await fetch("/api/ground-owner/workers",{
@@ -80,7 +84,7 @@ export default function WorkersPage() {
           setShowInvite(false);
         }
       } else {
-        setInviteError(data.error ?? "Failed to add worker.");
+        setInviteError(data.error ?? t("Failed to add worker."));
       }
     } finally { setInviting(false); }
   };
@@ -108,12 +112,11 @@ export default function WorkersPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Ground Workers</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Assign workers who can manage daily operations at your facility</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t("Ground Workers")}</h1>
         </div>
         <button onClick={() => { setShowInvite(true); setNewPass(null); setPromoted(false); setInviteError(""); }}
           className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors">
-          <Plus className="w-4 h-4" />Add Worker
+          <Plus className="w-4 h-4" />{t("Add Worker")}
         </button>
       </div>
 
@@ -133,17 +136,17 @@ export default function WorkersPage() {
 
       {/* What workers can/can't do */}
       <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
-        <h3 className="text-sm font-semibold text-blue-800 mb-3">Worker Permissions</h3>
+        <h3 className="text-sm font-semibold text-blue-800 mb-3">{t("Worker Permissions")}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-xs">
           <div>
-            <p className="font-medium text-green-700 mb-1.5">Can do</p>
-            {["View schedule & bookings","Add walk-in bookings","Block time slots / maintenance","View facility details"].map((s) => (
+            <p className="font-medium text-green-700 mb-1.5">{t("Can do")}</p>
+            {[t("View schedule & bookings"), t("Confirm bookings and check receipts"), t("Add walk-in bookings"), t("Block time slots for maintenance")].map((s) => (
               <p key={s} className="text-slate-600 flex gap-1.5 items-start mb-1"><UserCheck className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />{s}</p>
             ))}
           </div>
           <div>
-            <p className="font-medium text-red-600 mb-1.5">Cannot do</p>
-            {["Edit facility profile or pricing","Manage availability schedule","View earnings","Add/remove other workers"].map((s) => (
+            <p className="font-medium text-red-600 mb-1.5">{t("Cannot do")}</p>
+            {[t("Edit ground details or pricing"), t("Change bank details"), t("View earnings"), t("Add or remove workers")].map((s) => (
               <p key={s} className="text-slate-600 flex gap-1.5 items-start mb-1"><AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />{s}</p>
             ))}
           </div>
@@ -161,13 +164,13 @@ export default function WorkersPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
-            <Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">Loading…</span>
+            <Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">{t("Loading…")}</span>
           </div>
         ) : workers.length === 0 ? (
           <div className="px-6 py-14 text-center">
             <Users className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No workers assigned to this facility</p>
-            <p className="text-xs text-slate-300 mt-1">Add a worker using the button above</p>
+            <p className="text-sm text-slate-400">{t("No workers assigned to this facility")}</p>
+            <p className="text-xs text-slate-300 mt-1">{t("Add a worker using the button above")}</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-50">
@@ -183,16 +186,16 @@ export default function WorkersPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-slate-400 hidden sm:block">Added {timeAgo(w.joinedAt)}</span>
+                  <span className="text-xs text-slate-400 hidden sm:block">{t("Added {when}", { when: timeAgo(w.joinedAt, t) })}</span>
                   {confirmRemoveId === w.id ? (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-red-600 font-medium">Remove?</span>
-                      <button onClick={() => remove(w.id)} className="text-xs font-semibold text-red-600 hover:text-red-700 transition-colors">Yes</button>
-                      <button onClick={() => setConfirmRemoveId(null)} className="text-xs text-slate-400 hover:text-slate-600 transition-colors">No</button>
+                      <span className="text-xs text-red-600 font-medium">{t("Remove?")}</span>
+                      <button onClick={() => remove(w.id)} className="text-xs font-semibold text-red-600 hover:text-red-700 transition-colors">{t("Yes")}</button>
+                      <button onClick={() => setConfirmRemoveId(null)} className="text-xs text-slate-400 hover:text-slate-600 transition-colors">{t("No")}</button>
                     </div>
                   ) : (
                     <button onClick={() => setConfirmRemoveId(w.id)} disabled={removing===w.id}
-                      className="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50" title="Remove worker">
+                      className="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50" title={t("Remove worker")}>
                       {removing===w.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                     </button>
                   )}
@@ -213,9 +216,9 @@ export default function WorkersPage() {
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <UserCheck className="w-6 h-6 text-green-600" />
                 </div>
-                <h3 className="text-base font-semibold text-slate-900 mb-1">Worker Added!</h3>
+                <h3 className="text-base font-semibold text-slate-900 mb-1">{t("Worker Added!")}</h3>
                 <p className="text-sm text-slate-500 mb-4">
-                  A new account was created. Share this temporary password — they'll be asked to change it on first login.
+                  {t("A new account was created. Share this temporary password — they'll be asked to change it on first login.")}
                 </p>
                 <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mb-5">
                   <code className="flex-1 text-sm font-mono text-slate-800 text-left">{newPass}</code>
@@ -225,7 +228,7 @@ export default function WorkersPage() {
                 </div>
                 <button onClick={() => { setShowInvite(false); setNewPass(null); }}
                   className="w-full px-4 py-2.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-xl transition-colors">
-                  Done
+                  {t("Done")}
                 </button>
               </div>
             ) : promoted ? (
@@ -234,39 +237,39 @@ export default function WorkersPage() {
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <UserCheck className="w-6 h-6 text-blue-600" />
                 </div>
-                <h3 className="text-base font-semibold text-slate-900 mb-1">Worker Added!</h3>
+                <h3 className="text-base font-semibold text-slate-900 mb-1">{t("Worker Added!")}</h3>
                 <p className="text-sm text-slate-500 mb-2">
-                  This person already had a GoPlay account. Their role has been upgraded to Ground Worker.
+                  {t("This person already had a GoPlay account. Their role has been upgraded to Ground Worker.")}
                 </p>
                 <p className="text-xs text-slate-400 mb-5">
-                  They need to log out and log back in to access the worker dashboard.
+                  {t("They need to log out and log back in to access the worker dashboard.")}
                 </p>
                 <button onClick={() => { setShowInvite(false); setPromoted(false); }}
                   className="w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors">
-                  Done
+                  {t("Done")}
                 </button>
               </div>
             ) : (
               /* Invite form */
               <>
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-                  <h3 className="text-base font-semibold text-slate-900">Add Worker</h3>
+                  <h3 className="text-base font-semibold text-slate-900">{t("Add Worker")}</h3>
                   <button onClick={() => { setShowInvite(false); setInviteError(""); }}
                     className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
                 </div>
                 <div className="px-6 py-5 flex flex-col gap-4">
                   <p className="text-xs text-slate-500">
-                    If this email doesn't have an account, a new one will be created and a temporary password will be shown.
+                    {t("If this email doesn't have an account, a new one will be created and a temporary password will be shown.")}
                   </p>
                   <div>
-                    <label className="text-xs font-medium text-slate-500 block mb-1">Email Address *</label>
-                    <input type="email" placeholder="worker@email.com" value={email}
+                    <label className="text-xs font-medium text-slate-500 block mb-1">{t("Email Address *")}</label>
+                    <input type="email" placeholder={t("worker@email.com")} value={email}
                       onChange={(e)=>setEmail(e.target.value)}
                       className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-green-500 placeholder:text-slate-300" />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-slate-500 block mb-1">Full Name (if new account)</label>
-                    <input type="text" placeholder="e.g. Saman Perera" value={workerName}
+                    <input type="text" placeholder={t("e.g. Saman Perera")} value={workerName}
                       onChange={(e)=>setWorkerName(e.target.value)}
                       className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-green-500 placeholder:text-slate-300" />
                   </div>
@@ -279,12 +282,12 @@ export default function WorkersPage() {
                 <div className="px-6 pb-5 flex gap-3">
                   <button onClick={() => { setShowInvite(false); setInviteError(""); }}
                     className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button onClick={invite} disabled={inviting}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-slate-100 disabled:text-slate-400 rounded-xl transition-colors">
                     {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    Add Worker
+                    {t("Add Worker")}
                   </button>
                 </div>
               </>

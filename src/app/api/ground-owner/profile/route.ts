@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
+import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
+import { acceptsOnline } from "@/lib/payment-options";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,8 +20,10 @@ export async function GET(req: NextRequest) {
             id: true, businessName: true, bio: true, address: true, city: true, phone: true,
             facilities: {
               select: {
-                status: true,
-                _count: { select: { bookings: true, reviews: true } },
+                id: true, name: true, status: true, images: true, paymentOptions: true,
+                ...paymentDetailsSelect,
+                availability: { where: { isOpen: true }, select: { id: true } },
+                _count: { select: { bookings: true, reviews: true, workers: true, courts: true } },
               },
             },
           },
@@ -37,7 +41,32 @@ export async function GET(req: NextRequest) {
       totalReviews:    facilities.reduce((s, f) => s + f._count.reviews, 0),
     };
 
-    return Response.json({ user, stats });
+    // Setup progress — drives the profile checklist and the setup guide
+    const active = facilities.filter((f) => f.status === "ACTIVE");
+    const setup = {
+      contact:  !!user.phone,
+      business: !!(user.groundOwnerProfile?.businessName && user.groundOwnerProfile?.city),
+      ground:   facilities.length > 0,
+      approved: active.length > 0,
+      photos:   facilities.length > 0 && facilities.every((f) => f.images.length > 0),
+      hours:    active.length > 0 && active.every((f) => f.availability.length > 0),
+      method:   facilities.length > 0 && facilities.every((f) => f.paymentOptions !== null),
+      // Only grounds that take online payment need a bank account
+      payments: active.length > 0 && active.filter((f) => acceptsOnline(f.paymentOptions)).every((f) => resolvePaymentDetails(f) !== null),
+      workers:  facilities.some((f) => f._count.workers > 0),
+    };
+
+    // Don't send bank fields or the owner relation back with the profile
+    const { groundOwnerProfile, ...rest } = user;
+    const safeProfile = groundOwnerProfile && {
+      businessName: groundOwnerProfile.businessName, bio: groundOwnerProfile.bio,
+      address: groundOwnerProfile.address, city: groundOwnerProfile.city, phone: groundOwnerProfile.phone,
+    };
+    const grounds = facilities.map((f) => ({
+      id: f.id, name: f.name, status: f.status, photos: f.images.length, paymentOptions: f.paymentOptions,
+      hasAccount: resolvePaymentDetails(f) !== null, openDays: f.availability.length,
+    }));
+    return Response.json({ user: { ...rest, groundOwnerProfile: safeProfile }, stats, setup, grounds });
   } catch (err) {
     console.error("[GET /api/ground-owner/profile]", err);
     return Response.json({ error: "Failed to fetch profile." }, { status: 500 });

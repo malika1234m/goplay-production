@@ -4,11 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import PaymentDetailsForm from "@/components/payments/PaymentDetailsForm";
+import GroundPaymentMethod from "@/components/payments/GroundPaymentMethod";
 import {
   Loader2, Building2, MapPin, DollarSign, Users,
   AlignLeft, ImagePlus, X, Upload, CheckCircle,
   ChevronLeft, AlertCircle, Tag,
 } from "lucide-react";
+import { tk } from "@/i18n/core";
+import { useT } from "@/i18n/I18nProvider";
 
 interface Category { id: string; name: string; icon: string | null }
 
@@ -27,20 +30,21 @@ interface Ground {
 }
 
 const AMENITIES = [
-  "Parking", "Changing Rooms", "Showers", "Floodlights",
-  "Cafeteria", "WiFi", "Toilets", "First Aid",
-  "Drinking Water", "Equipment Rental", "Seating / Spectator Area",
-  "Security / CCTV", "Air Conditioning", "Coaching Available", "Scoreboard",
+  tk("Parking"), tk("Changing Rooms"), tk("Showers"), tk("Floodlights"),
+  tk("Cafeteria"), tk("WiFi"), tk("Toilets"), tk("First Aid"),
+  tk("Drinking Water"), tk("Equipment Rental"), tk("Seating / Spectator Area"),
+  tk("Security / CCTV"), tk("Air Conditioning"), tk("Coaching Available"), tk("Scoreboard"),
 ];
 
 const STATUS_INFO: Record<string, { label: string; color: string; note: string }> = {
-  PENDING:  { label: "Pending Review",  color: "bg-amber-50 border-amber-200 text-amber-800",  note: "This ground is awaiting admin approval. You can still update details and add photos — the admin will see your latest version." },
-  ACTIVE:   { label: "Active",          color: "bg-green-50 border-green-200 text-green-800",  note: "This ground is live. Changes are saved immediately." },
-  INACTIVE: { label: "Inactive",        color: "bg-slate-100 border-slate-200 text-slate-600", note: "This ground is currently inactive." },
-  REJECTED: { label: "Rejected",        color: "bg-red-50 border-red-200 text-red-800",        note: "This ground was rejected by admin. Update the details and contact support." },
+  PENDING:  { label: tk("Pending Review"),  color: "bg-amber-50 border-amber-200 text-amber-800",  note: tk("This ground is awaiting admin approval. You can still update details and add photos — the admin will see your latest version.") },
+  ACTIVE:   { label: tk("Active"),          color: "bg-green-50 border-green-200 text-green-800",  note: tk("This ground is live. Changes are saved immediately.") },
+  INACTIVE: { label: tk("Inactive"),        color: "bg-slate-100 border-slate-200 text-slate-600", note: tk("This ground is currently inactive.") },
+  REJECTED: { label: tk("Rejected"),        color: "bg-red-50 border-red-200 text-red-800",        note: tk("This ground was rejected by admin. Update the details and contact support.") },
 };
 
 export default function EditGroundPage() {
+  const { t } = useT();
   const router  = useRouter();
   const params  = useParams();
   const id      = params.id as string;
@@ -92,7 +96,7 @@ export default function EditGroundPage() {
           setImages(g.images ?? []);
         }
       })
-      .catch(() => setError("Failed to load ground."))
+      .catch(() => setError(t("Failed to load ground.")))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -113,17 +117,17 @@ export default function EditGroundPage() {
   const uploadFiles = async (files: FileList | File[]) => {
     const arr = Array.from(files);
     if (!arr.length) return;
-    if (images.length + arr.length > 8) { setUploadError("Maximum 8 images allowed."); return; }
+    if (images.length + arr.length > 8) { setUploadError(t("Maximum 8 images allowed.")); return; }
     setUploading(true); setUploadError("");
     try {
       const fd = new FormData();
       arr.forEach((f) => fd.append("images", f));
       const res  = await fetch("/api/upload/ground-images", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) { setUploadError(data.error ?? "Upload failed."); return; }
+      if (!res.ok) { setUploadError(data.error ?? t("Upload failed.")); return; }
       setImages((prev) => [...prev, ...(data.urls as string[])]);
     } catch {
-      setUploadError("Upload failed. Please try again.");
+      setUploadError(t("Upload failed. Please try again."));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -142,21 +146,21 @@ export default function EditGroundPage() {
     const name    = form.name.trim();
     const address = form.address.trim();
     const city    = form.city.trim();
-    if (!name || name.length < 3)       { setError("Ground name must be at least 3 characters."); return; }
-    if (name.length > 100)              { setError("Ground name must be under 100 characters."); return; }
-    if (!address || address.length < 5) { setError("Address must be at least 5 characters."); return; }
-    if (!city || city.length < 2)       { setError("City must be at least 2 characters."); return; }
+    if (!name || name.length < 3)       { setError(t("Ground name must be at least 3 characters.")); return; }
+    if (name.length > 100)              { setError(t("Ground name must be under 100 characters.")); return; }
+    if (!address || address.length < 5) { setError(t("Address must be at least 5 characters.")); return; }
+    if (!city || city.length < 2)       { setError(t("City must be at least 2 characters.")); return; }
     const rate = Number(form.hourlyRate);
-    if (!form.hourlyRate || rate < 1)   { setError("Hourly rate must be at least Rs. 1."); return; }
-    if (rate > 100000)                  { setError("Hourly rate cannot exceed Rs. 100,000."); return; }
+    if (!form.hourlyRate || rate < 1)   { setError(t("Hourly rate must be at least Rs. 1.")); return; }
+    if (rate > 100000)                  { setError(t("Hourly rate cannot exceed Rs. 100,000.")); return; }
     if (form.capacity) {
       const cap = Number(form.capacity);
-      if (cap < 1)   { setError("Capacity must be at least 1 player."); return; }
-      if (cap > 500) { setError("Capacity cannot exceed 500 players."); return; }
+      if (cap < 1)   { setError(t("Capacity must be at least 1 player.")); return; }
+      if (cap > 500) { setError(t("Capacity cannot exceed 500 players.")); return; }
     }
     setSaving(true); setError("");
 
-    if (form.categoryIds.length === 0) { setError("Please select at least one sport."); return; }
+    if (form.categoryIds.length === 0) { setError(t("Please select at least one sport.")); return; }
 
     const res = await fetch(`/api/ground-owner/grounds/${id}`, {
       method:  "PUT",
@@ -177,7 +181,7 @@ export default function EditGroundPage() {
     const data = await res.json();
     setSaving(false);
 
-    if (!res.ok) { setError(data.error ?? "Failed to save."); return; }
+    if (!res.ok) { setError(data.error ?? t("Failed to save.")); return; }
     setSuccess(true);
     setTimeout(() => router.push("/ground-owner/grounds"), 1000);
   };
@@ -185,7 +189,7 @@ export default function EditGroundPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 gap-2 text-slate-400">
-        <Loader2 className="w-5 h-5 animate-spin" /> <span className="text-sm">Loading ground...</span>
+        <Loader2 className="w-5 h-5 animate-spin" /> <span className="text-sm">{t("Loading ground...")}</span>
       </div>
     );
   }
@@ -194,9 +198,9 @@ export default function EditGroundPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <AlertCircle className="w-10 h-10 text-red-400 mb-3" />
-        <p className="text-slate-600 font-medium">Ground not found</p>
+        <p className="text-slate-600 font-medium">{t("Ground not found")}</p>
         <button onClick={() => router.push("/ground-owner/grounds")} className="mt-4 text-sm text-green-600 hover:underline">
-          Back to My Grounds
+          {t("Back to My Grounds")}
         </button>
       </div>
     );
@@ -212,11 +216,11 @@ export default function EditGroundPage() {
           onClick={() => router.push("/ground-owner/grounds")}
           className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-green-600 transition-colors mb-4"
         >
-          <ChevronLeft className="w-4 h-4" /> Back to My Grounds
+          <ChevronLeft className="w-4 h-4" /> {t("Back to My Grounds")}
         </button>
-        <h1 className="text-2xl font-bold text-slate-900">Edit Ground</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{t("Edit Ground")}</h1>
         <p className="text-slate-500 text-sm mt-0.5">
-          {ground.categories.map((c) => `${c.icon ?? ""} ${c.name}`).join(" · ") || "No sport set"}
+          {ground.categories.map((c) => `${c.icon ?? ""} ${t(c.name)}`).join(" · ") || t("No sport set")}
         </p>
       </div>
 
@@ -224,14 +228,14 @@ export default function EditGroundPage() {
       <div className={`border rounded-xl px-4 py-3 text-sm flex items-start gap-2 ${statusInfo.color}`}>
         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
         <div>
-          <span className="font-semibold">{statusInfo.label} — </span>{statusInfo.note}
+          <span className="font-semibold">{t(statusInfo.label)} — </span>{t(statusInfo.note)}
         </div>
       </div>
 
       {/* Success toast */}
       {success && (
         <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center gap-2 text-green-700 text-sm">
-          <CheckCircle className="w-4 h-4" /> Changes saved successfully!
+          <CheckCircle className="w-4 h-4" /> {t("Changes saved successfully!")}
         </div>
       )}
 
@@ -241,12 +245,12 @@ export default function EditGroundPage() {
         <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col gap-4">
           <div className="flex items-center gap-2 mb-1">
             <Building2 className="w-4 h-4 text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-900">Basic Information</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("Basic Information")}</h2>
           </div>
 
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">
-              Ground Name <span className="text-red-500">*</span>
+              {t("Ground Name")} <span className="text-red-500">*</span>
             </label>
             <input
               type="text" required value={form.name}
@@ -256,11 +260,11 @@ export default function EditGroundPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Description</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">{t("Description")}</label>
             <textarea
               rows={3} value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Describe your ground, facilities, rules..."
+              placeholder={t("Describe your ground, facilities, rules...")}
               className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-green-500 resize-none"
             />
           </div>
@@ -270,8 +274,8 @@ export default function EditGroundPage() {
         <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col gap-3">
           <div className="flex items-center gap-2 mb-1">
             <Tag className="w-4 h-4 text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-900">Sports</h2>
-            <span className="text-xs text-slate-400 ml-auto">Select all that apply</span>
+            <h2 className="text-sm font-semibold text-slate-900">{t("Sports")}</h2>
+            <span className="text-xs text-slate-400 ml-auto">{t("Select all that apply")}</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {allCategories.map((c) => {
@@ -288,13 +292,13 @@ export default function EditGroundPage() {
                   }`}
                 >
                   {c.icon && <span>{c.icon}</span>}
-                  {c.name}
+                  {t(c.name)}
                   {on && <CheckCircle className="w-3 h-3" />}
                 </button>
               );
             })}
             {allCategories.length === 0 && (
-              <p className="text-xs text-slate-400">Loading…</p>
+              <p className="text-xs text-slate-400">{t("Loading…")}</p>
             )}
           </div>
         </div>
@@ -303,12 +307,12 @@ export default function EditGroundPage() {
         <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col gap-4">
           <div className="flex items-center gap-2 mb-1">
             <MapPin className="w-4 h-4 text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-900">Location</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("Location")}</h2>
           </div>
 
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">
-              Address <span className="text-red-500">*</span>
+              {t("Address")} <span className="text-red-500">*</span>
             </label>
             <input
               type="text" required value={form.address}
@@ -319,7 +323,7 @@ export default function EditGroundPage() {
 
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">
-              City <span className="text-red-500">*</span>
+              {t("City")} <span className="text-red-500">*</span>
             </label>
             <input
               type="text" required value={form.city}
@@ -333,13 +337,13 @@ export default function EditGroundPage() {
         <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col gap-4">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign className="w-4 h-4 text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-900">Pricing & Capacity</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("Pricing & Capacity")}</h2>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                Hourly Rate (Rs.) <span className="text-red-500">*</span>
+                {t("Hourly Rate (Rs.)")} <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -351,7 +355,7 @@ export default function EditGroundPage() {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">Capacity (players)</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">{t("Capacity (players)")}</label>
               <div className="relative">
                 <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
@@ -368,8 +372,8 @@ export default function EditGroundPage() {
         <div className="bg-white rounded-2xl border border-slate-100 p-6">
           <div className="flex items-center gap-2 mb-4">
             <ImagePlus className="w-4 h-4 text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-900">Ground Photos</h2>
-            <span className="text-xs text-slate-400 ml-1">(up to 8 images, 5 MB each)</span>
+            <h2 className="text-sm font-semibold text-slate-900">{t("Ground Photos")}</h2>
+            <span className="text-xs text-slate-400 ml-1">{t("(up to 8 images, 5 MB each)")}</span>
           </div>
 
           {/* Current images */}
@@ -377,7 +381,7 @@ export default function EditGroundPage() {
             <div className="grid grid-cols-4 gap-3 mb-4">
               {images.map((url, i) => (
                 <div key={url} className="relative group aspect-square rounded-xl overflow-hidden bg-slate-100">
-                  <Image src={url} alt={`Photo ${i + 1}`} fill className="object-cover" sizes="120px" />
+                  <Image src={url} alt={t("Photo {n}", { n: i + 1 })} fill className="object-cover" sizes="120px" />
                   <button
                     type="button"
                     onClick={() => removeImage(url)}
@@ -387,7 +391,7 @@ export default function EditGroundPage() {
                   </button>
                   {i === 0 && (
                     <div className="absolute bottom-1 left-1 bg-green-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-semibold">
-                      COVER
+                      {t("COVER")}
                     </div>
                   )}
                 </div>
@@ -418,13 +422,13 @@ export default function EditGroundPage() {
               {uploading ? (
                 <div className="flex flex-col items-center gap-2 text-slate-500">
                   <Loader2 className="w-8 h-8 animate-spin text-green-500" />
-                  <p className="text-sm">Uploading photos...</p>
+                  <p className="text-sm">{t("Uploading photos...")}</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-2 text-slate-400">
                   <Upload className="w-8 h-8" />
-                  <p className="text-sm font-medium text-slate-600">Drag & drop photos here</p>
-                  <p className="text-xs">or click to browse — JPEG, PNG, WebP</p>
+                  <p className="text-sm font-medium text-slate-600">{t("Drag & drop photos here")}</p>
+                  <p className="text-xs">{t("or click to browse — JPEG, PNG, WebP")}</p>
                 </div>
               )}
             </div>
@@ -432,7 +436,7 @@ export default function EditGroundPage() {
 
           {uploading && images.length > 0 && (
             <div className="flex items-center gap-2 text-slate-500 text-sm mt-2">
-              <Loader2 className="w-4 h-4 animate-spin text-green-500" /> Uploading...
+              <Loader2 className="w-4 h-4 animate-spin text-green-500" /> {t("Uploading...")}
             </div>
           )}
 
@@ -443,14 +447,14 @@ export default function EditGroundPage() {
             onChange={(e) => e.target.files && uploadFiles(e.target.files)}
           />
 
-          {uploadError && <p className="text-xs text-red-600 mt-2">{uploadError}</p>}
+          {uploadError && <p className="text-xs text-red-600 mt-2">{t(uploadError)}</p>}
         </div>
 
         {/* Amenities */}
         <div className="bg-white rounded-2xl border border-slate-100 p-6">
           <div className="flex items-center gap-2 mb-4">
             <AlignLeft className="w-4 h-4 text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-900">Amenities</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("Amenities")}</h2>
           </div>
           <div className="flex flex-wrap gap-2">
             {AMENITIES.map((a) => {
@@ -464,7 +468,7 @@ export default function EditGroundPage() {
                       : "bg-white border-slate-200 text-slate-600 hover:border-green-400 hover:text-green-600"
                   }`}
                 >
-                  {a}
+                  {t(a)}
                 </button>
               );
             })}
@@ -472,7 +476,7 @@ export default function EditGroundPage() {
         </div>
 
         {error && (
-          <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-xl">{error}</p>
+          <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-xl">{t(error)}</p>
         )}
 
         <div className="flex gap-3">
@@ -481,18 +485,21 @@ export default function EditGroundPage() {
             onClick={() => router.push("/ground-owner/grounds")}
             className="px-5 py-3 text-sm text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
           >
-            Cancel
+            {t("Cancel")}
           </button>
           <button
             type="submit" disabled={saving || uploading}
             className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-300 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? t("Saving…") : t("Save changes")}
           </button>
         </div>
       </form>
 
+      <div className="mt-6">
+        <GroundPaymentMethod groundId={id} />
+      </div>
       <div className="mt-6">
         <PaymentDetailsForm mode="ground" groundId={id} />
       </div>

@@ -8,6 +8,8 @@ import {
   CheckCircle, Clock, XCircle, Loader2, Grid3X3, QrCode,
 } from "lucide-react";
 import QRModal from "@/components/ground-owner/QRModal";
+import { tk } from "@/i18n/core";
+import { useT } from "@/i18n/I18nProvider";
 
 interface Ground {
   id:            string;
@@ -27,18 +29,19 @@ interface Ground {
 const categoryEmoji: Record<string, string> = {
   Cricket: "🏏", Football: "⚽", Futsal: "🥅", Tennis: "🎾",
   Badminton: "🏸", Basketball: "🏀", Volleyball: "🏐",
-  Netball: "🏐", Rugby: "🏉", Swimming: "🏊", "Table Tennis": "🏓",
-  Pickleball: "🏓", "Billiards & Pool": "🎱",
+  Netball: "🏐", Rugby: "🏉", Swimming: "🏊", 'Table Tennis': "🏓",
+  Pickleball: "🏓", 'Billiards & Pool': "🎱",
 };
 
 const statusConfig: Record<string, { label: string; style: string; icon: React.ElementType }> = {
-  ACTIVE:   { label: "Active",   style: "bg-green-50 text-green-700 border-green-100",  icon: CheckCircle },
-  PENDING:  { label: "Pending",  style: "bg-amber-50 text-amber-700 border-amber-100",  icon: Clock },
-  INACTIVE: { label: "Inactive", style: "bg-slate-100 text-slate-600 border-slate-200", icon: XCircle },
-  REJECTED: { label: "Rejected", style: "bg-red-50 text-red-600 border-red-100",        icon: XCircle },
+  ACTIVE:   { label: tk("Active"),   style: "bg-green-50 text-green-700 border-green-100",  icon: CheckCircle },
+  PENDING:  { label: tk("Pending"),  style: "bg-amber-50 text-amber-700 border-amber-100",  icon: Clock },
+  INACTIVE: { label: tk("Inactive"), style: "bg-slate-100 text-slate-600 border-slate-200", icon: XCircle },
+  REJECTED: { label: tk("Rejected"), style: "bg-red-50 text-red-600 border-red-100",        icon: XCircle },
 };
 
 function DeleteConfirmModal({ ground, onClose, onConfirm }: { ground: Ground; onClose: () => void; onConfirm: () => void }) {
+  const { t } = useT();
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
@@ -47,20 +50,19 @@ function DeleteConfirmModal({ ground, onClose, onConfirm }: { ground: Ground; on
             <Trash2 className="w-5 h-5 text-red-600" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 text-base">Delete Ground</h3>
-            <p className="text-xs text-slate-400">This action cannot be undone</p>
+            <h3 className="font-bold text-slate-900 text-base">{t("Delete Ground")}</h3>
+            <p className="text-xs text-slate-400">{t("This action cannot be undone")}</p>
           </div>
         </div>
         <p className="text-sm text-slate-600">
-          Are you sure you want to delete <span className="font-semibold text-slate-900">&ldquo;{ground.name}&rdquo;</span>?
-          All associated data will be permanently removed.
+          {t("Delete “{name}”? All its data will be removed permanently.", { name: ground.name })}
         </p>
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-            Cancel
+            {t("Cancel")}
           </button>
           <button onClick={onConfirm} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2">
-            <Trash2 className="w-4 h-4" /> Delete
+            <Trash2 className="w-4 h-4" /> {t("Delete")}
           </button>
         </div>
       </div>
@@ -69,6 +71,7 @@ function DeleteConfirmModal({ ground, onClose, onConfirm }: { ground: Ground; on
 }
 
 export default function GroundOwnerGrounds() {
+  const { t, tn } = useT();
   const [grounds,      setGrounds]      = useState<Ground[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [deleting,     setDeleting]     = useState<string | null>(null);
@@ -92,12 +95,12 @@ export default function GroundOwnerGrounds() {
       const res  = await fetch(`/api/ground-owner/grounds/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to delete ground.");
+        setError(data.error ?? t("Failed to delete ground."));
       } else {
         setGrounds((prev) => prev.filter((g) => g.id !== id));
       }
     } catch {
-      setError("Network error. Please try again.");
+      setError(t("Network error. Check your connection and try again."));
     } finally {
       setDeleting(null);
     }
@@ -107,7 +110,7 @@ export default function GroundOwnerGrounds() {
     return (
       <div className="flex items-center justify-center py-20 text-slate-400 gap-2">
         <Loader2 className="w-5 h-5 animate-spin" />
-        <span className="text-sm">Loading grounds...</span>
+        <span className="text-sm">{t("Loading grounds...")}</span>
       </div>
     );
   }
@@ -117,31 +120,31 @@ export default function GroundOwnerGrounds() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">My Grounds</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{t("My Grounds")}</h1>
           <p className="text-slate-500 text-sm mt-1">
-            {grounds.length} {grounds.length === 1 ? "facility" : "facilities"} listed
+            {tn(grounds.length, "{n} ground listed", "{n} grounds listed")}
           </p>
         </div>
         <Link
           href="/ground-owner/grounds/new"
           className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2 shrink-0"
         >
-          <Plus className="w-4 h-4" /> Add Ground
+          <Plus className="w-4 h-4" /> {t("Add Ground")}
         </Link>
       </div>
 
       {error && (
         <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-xl">
-          {error}
+          {t(error)}
         </p>
       )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Total",   value: grounds.length,                                       color: "text-slate-900" },
-          { label: "Active",  value: grounds.filter((g) => g.status === "ACTIVE").length,  color: "text-green-600" },
-          { label: "Pending", value: grounds.filter((g) => g.status === "PENDING").length, color: "text-amber-600" },
+          { label: t("Total"),   value: grounds.length,                                       color: "text-slate-900" },
+          { label: t("Active"),  value: grounds.filter((g) => g.status === "ACTIVE").length,  color: "text-green-600" },
+          { label: t("Pending"), value: grounds.filter((g) => g.status === "PENDING").length, color: "text-amber-600" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-2xl border border-slate-100 p-5 text-center">
             <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
@@ -154,13 +157,13 @@ export default function GroundOwnerGrounds() {
       {grounds.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-100 p-16 text-center">
           <div className="text-6xl mb-4">🏟️</div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">No grounds yet</h3>
-          <p className="text-slate-400 text-sm mb-6">Add your first ground to start receiving bookings.</p>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">{t("No grounds yet")}</h3>
+          <p className="text-slate-400 text-sm mb-6">{t("Add your first ground to start receiving bookings.")}</p>
           <Link
             href="/ground-owner/grounds/new"
             className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors inline-flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" /> Add Your First Ground
+            <Plus className="w-4 h-4" /> {t("Add Your First Ground")}
           </Link>
         </div>
       ) : (
@@ -194,7 +197,7 @@ export default function GroundOwnerGrounds() {
                         <div className="flex items-center gap-2 flex-wrap mb-1">
                           <h3 className="font-semibold text-slate-900">{g.name}</h3>
                           <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${style}`}>
-                            <StatusIcon className="w-3 h-3" /> {label}
+                            <StatusIcon className="w-3 h-3" /> {t(label)}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 text-sm text-slate-400">
@@ -203,7 +206,7 @@ export default function GroundOwnerGrounds() {
                           </span>
                           {(g.categories ?? []).slice(0, 2).map((c) => (
                             <span key={c.id} className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">
-                              {c.icon} {c.name}
+                              {c.icon} {t(c.name)}
                             </span>
                           ))}
                           {(g.categories ?? []).length > 2 && (
@@ -219,21 +222,21 @@ export default function GroundOwnerGrounds() {
                         <button
                           onClick={() => setQrGround(g)}
                           className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
-                          title="QR Code"
+                          title={t("QR Code")}
                         >
                           <QrCode className="w-4 h-4" />
                         </button>
                         <Link
                           href={`/grounds/${g.id}`}
                           className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
-                          title="Preview"
+                          title={t("Preview")}
                         >
                           <Eye className="w-4 h-4" />
                         </Link>
                         <Link
                           href={`/ground-owner/grounds/${g.id}/courts`}
                           className="relative p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="Manage Courts"
+                          title={t("Manage Courts")}
                         >
                           <Grid3X3 className="w-4 h-4" />
                           {g.courtCount > 0 && (
@@ -245,7 +248,7 @@ export default function GroundOwnerGrounds() {
                         <Link
                           href={`/ground-owner/grounds/${g.id}/edit`}
                           className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Edit"
+                          title={t("Edit")}
                         >
                           <Pencil className="w-4 h-4" />
                         </Link>
@@ -253,7 +256,7 @@ export default function GroundOwnerGrounds() {
                           onClick={() => setDeleteTarget(g)}
                           disabled={deleting === g.id}
                           className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                          title="Delete"
+                          title={t("Delete")}
                         >
                           {deleting === g.id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -267,19 +270,19 @@ export default function GroundOwnerGrounds() {
                     {/* Stats row */}
                     <div className="flex items-center gap-5 mt-3 pt-3 border-t border-slate-50">
                       <div>
-                        <p className="text-xs text-slate-400">Rate</p>
+                        <p className="text-xs text-slate-400">{t("Rate")}</p>
                         <p className="text-sm font-semibold text-slate-900">
-                          Rs. {g.hourlyRate.toLocaleString()}/hr
+                          {t("Rs. {amount} / hour", { amount: g.hourlyRate.toLocaleString() })}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-slate-400">Courts</p>
+                        <p className="text-xs text-slate-400">{t("Courts")}</p>
                         <p className="text-sm font-semibold text-slate-900">{g.courtCount || "—"}</p>
                       </div>
                       {g.status === "ACTIVE" && (
                         <>
                           <div>
-                            <p className="text-xs text-slate-400">Rating</p>
+                            <p className="text-xs text-slate-400">{t("Rating")}</p>
                             <div className="flex items-center gap-1">
                               <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                               <p className="text-sm font-semibold text-slate-900">
@@ -288,19 +291,19 @@ export default function GroundOwnerGrounds() {
                             </div>
                           </div>
                           <div>
-                            <p className="text-xs text-slate-400">Total Bookings</p>
+                            <p className="text-xs text-slate-400">{t("Total Bookings")}</p>
                             <p className="text-sm font-semibold text-slate-900">{g.totalBookings}</p>
                           </div>
                         </>
                       )}
                       {g.status === "PENDING" && (
                         <p className="text-xs text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full">
-                          Awaiting admin approval
+                          {t("Awaiting admin approval")}
                         </p>
                       )}
                       {g.status === "REJECTED" && (
                         <p className="text-xs text-red-600 bg-red-50 px-2.5 py-1 rounded-full">
-                          Rejected by admin
+                          {t("Rejected by admin")}
                         </p>
                       )}
                     </div>

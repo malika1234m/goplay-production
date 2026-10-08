@@ -3,10 +3,17 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
 import { reviewableFacilityIds } from "@/lib/payment-review";
 import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
+import { slotInstant } from "@/lib/local-time";
+import { activeBookingWindow } from "@/lib/booking-window";
+
+/** Walk-in bookings store the caller's name in the note: "[Walk-in] Name — note". */
+const walkInName = (note: string) => note.replace("[Walk-in]", "").trim().split(" — ")[0].trim() || "Walk-in";
 
 // GET /api/ground-owner/inbox?facilityId=
 // Everything a ground owner (or their worker) has to act on, in one list:
-// transfer receipts to check, cash bookings to confirm, transfers still awaited, refunds owed.
+// transfer receipts to check, booking requests to confirm, played sessions to close,
+// refunds owed, and transfers still awaited. Uses the same rules as the full booking list
+// (every PENDING booking, every CONFIRMED booking whose session has ended), so the two agree.
 export async function GET(req: NextRequest) {
   try {
     const session = await getSession(req);
@@ -19,13 +26,14 @@ export async function GET(req: NextRequest) {
     const ids     = wanted && allIds.includes(wanted) ? [wanted] : allIds;
     const today   = new Date(); today.setUTCHours(0, 0, 0, 0);
 
+    const win      = activeBookingWindow();
     const player   = { select: { name: true, phone: true, email: true } } as const;
     const facility = { select: { id: true, name: true } } as const;
     const court    = { select: { name: true } } as const;
 
-    const [receipts, spotReceipts, cashToConfirm, awaitingTransfer, refunds, grounds] = await Promise.all([
+    const [receipts, spotReceipts, cashToConfirm, awaitingTransfer, refunds, grounds, confirmedSoFar] = await Promise.all([
       db.facilityBooking.findMany({
-        where:   { facilityId: { in: ids }, paymentStatus: "RECEIPT_SUBMITTED", isOpenMatch: false, status: { in: ["PENDING", "CONFIRMED"] } },
+        where:   { facilityId: { in: ids }, paymentStatus: "RECEIPT_SUBMITTED", isOpenMatch: false, status: { in: ["PENDING", "CONFIRMED"] }, ...win },
         orderBy: { receiptUploadedAt: "asc" },
         select:  {
           id: true, bookingDate: true, startTime: true, endTime: true, totalAmount: true, contactNumber: true,
@@ -41,12 +49,12 @@ export async function GET(req: NextRequest) {
         },
       }),
       db.facilityBooking.findMany({
-        where:   { facilityId: { in: ids }, status: "PENDING", paymentMethod: "ON_ARRIVAL", bookingDate: { gte: today } },
+        where:   { facilityId: { in: ids }, status: "PENDING", paymentMethod: "ON_ARRIVAL", ...win },
         orderBy: [{ bookingDate: "asc" }, { startTime: "asc" }],
         select:  { id: true, bookingDate: true, startTime: true, endTime: true, totalAmount: true, contactNumber: true, specialRequests: true, user: player, facility, court },
       }),
       db.facilityBooking.findMany({
-        where:   { facilityId: { in: ids }, status: "PENDING", paymentMethod: "ONLINE", paymentStatus: { in: ["PENDING", "REJECTED"] } },
+        where:   { facilityId: { in: ids }, status: "PENDING", paymentMethod: "ONLINE", paymentStatus: { in: ["PENDING", "REJECTED"] }, ...win },
         orderBy: { createdAt: "asc" },
         select:  {
           id: true, bookingDate: true, startTime: true, endTime: true, totalAmount: true, paymentStatus: true, createdAt: true,
@@ -64,7 +72,17 @@ export async function GET(req: NextRequest) {
         orderBy: { name: "asc" },
         select:  { id: true, name: true, status: true, ...paymentDetailsSelect },
       }),
+      db.facilityBooking.findMany({
+        where:   { facilityId: { in: ids }, status: "CONFIRMED", archivedAt: null, bookingDate: { gte: win.bookingDate.gte, lte: new Date(today.getTime() + 86_400_000) } },
+        orderBy: [{ bookingDate: "asc" }, { startTime: "asc" }],
+        select:  {
+          id: true, bookingDate: true, startTime: true, endTime: true, totalAmount: true, paymentMethod: true, paymentStatus: true,
+          isOpenMatch: true, contactNumber: true, specialRequests: true, user: player, facility, court,
+        },
+      }),
     ]);
+    const now = Date.now();
+    const toClose = confirmedSoFar.filter((b) => slotInstant(b.bookingDate, b.endTime).getTime() <= now);
 
     const toReview = [
       ...receipts.map((b) => ({
@@ -87,7 +105,15 @@ export async function GET(req: NextRequest) {
       grounds: grounds.map((g) => ({ id: g.id, name: g.name, status: g.status, account: resolvePaymentDetails(g) })),
       toReview,
       cashToConfirm: cashToConfirm.map((b) => ({
-        id: b.id, player: b.specialRequests?.startsWith("[Walk-in]") ? "Phone booking" : b.user.name, phone: b.contactNumber ?? b.user.phone,
+        id: b.id, type: b.specialRequests?.startsWith("[Walk-in]") ? "walkin" as const : "cash" as const, past: slotInstant(b.bookingDate, b.startTime).getTime() <= now, player: b.specialRequests?.startsWith("[Walk-in]") ? walkInName(b.specialRequests) : b.user.name, phone: b.contactNumber ?? b.user.phone,
+        facilityId: b.facility.id, facilityName: b.facility.name, court: b.court?.name ?? null,
+        date: b.bookingDate, startTime: b.startTime, endTime: b.endTime, amount: b.totalAmount,
+      })),
+      toClose: toClose.map((b) => ({
+        id: b.id, cash: b.paymentMethod === "ON_ARRIVAL", openMatch: b.isOpenMatch,
+        type: b.paymentMethod === "ONLINE" ? "online" as const : b.specialRequests?.startsWith("[Walk-in]") ? "walkin" as const : "cash" as const,
+        player: b.isOpenMatch ? "Open match" : b.specialRequests?.startsWith("[Walk-in]") ? walkInName(b.specialRequests) : b.user.name,
+        phone: b.contactNumber ?? b.user.phone,
         facilityId: b.facility.id, facilityName: b.facility.name, court: b.court?.name ?? null,
         date: b.bookingDate, startTime: b.startTime, endTime: b.endTime, amount: b.totalAmount,
       })),

@@ -2,16 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { Wrench, CalendarX, Plus, Trash2, Loader2, AlertTriangle, Clock } from "lucide-react";
+import { useT } from "@/i18n/I18nProvider";
+import { formatDay } from "@/i18n/core";
 
 interface BlockedEntry {
   id: string; date: string;
   startTime: string | null; endTime: string | null; reason: string | null;
 }
 
-const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric", year:"numeric" });
+const fmtDate = (d: string, locale: string) =>
+  formatDay(new Date(d), locale, { weekday:"long", month:"long", day:"numeric", year:"numeric" });
 
 export default function WorkerMaintenancePage() {
+  const { t, locale } = useT();
   const [facilityName, setFacilityName] = useState("");
   const [blocked,  setBlocked]   = useState<BlockedEntry[]>([]);
   const [loading,  setLoading]   = useState(true);
@@ -34,10 +37,10 @@ export default function WorkerMaintenancePage() {
   }, []);
 
   const addEntry = async () => {
-    if (!form.date) { setFormError("Please select a date."); return; }
+    if (!form.date) { setFormError(t("Please select a date.")); return; }
     if (form.blockType==="hours") {
-      if (!form.startTime||!form.endTime) { setFormError("Set both start and end times."); return; }
-      if (form.startTime>=form.endTime)   { setFormError("Start time must be before end time."); return; }
+      if (!form.startTime||!form.endTime) { setFormError(t("Set both start and end times.")); return; }
+      if (form.startTime>=form.endTime)   { setFormError(t("Start time must be before end time.")); return; }
     }
     setFormError(""); setAdding(true);
     try {
@@ -53,13 +56,13 @@ export default function WorkerMaintenancePage() {
         );
         setForm((f) => ({ ...f, date:"", reason:"", startTime:"08:00", endTime:"10:00" }));
       } else {
-        setFormError(data.error ?? "Failed to add.");
+        setFormError(data.error ?? t("Failed to add."));
       }
     } finally { setAdding(false); }
   };
 
   const removeEntry = async (id: string) => {
-    if (!confirm("Remove this blocked date?")) return;
+    if (!confirm(t("Remove this blocked date?"))) return;
     setRemoving(id);
     try {
       const res = await fetch(`/api/worker/blocked-dates/${id}`,{method:"DELETE"});
@@ -73,14 +76,14 @@ export default function WorkerMaintenancePage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-96 text-slate-400 gap-3">
-      <Loader2 className="w-6 h-6 animate-spin" /><span className="text-sm">Loading…</span>
+      <Loader2 className="w-6 h-6 animate-spin" /><span className="text-sm">{t("Loading…")}</span>
     </div>
   );
 
   return (
     <div className="flex flex-col gap-7">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Maintenance</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{t("Maintenance")}</h1>
         <p className="text-slate-500 text-sm mt-0.5">
           Block full days or specific hours at {facilityName || "your facility"}
         </p>
@@ -91,23 +94,23 @@ export default function WorkerMaintenancePage() {
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <div className="w-10 h-10 bg-orange-50 text-orange-500 rounded-xl flex items-center justify-center mb-3"><CalendarX className="w-5 h-5" /></div>
           <p className="text-2xl font-bold text-slate-900">{upcoming.length}</p>
-          <p className="text-xs text-slate-500 mt-1">Upcoming Blocked</p>
+          <p className="text-xs text-slate-500 mt-1">{t("Upcoming Blocked")}</p>
         </div>
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <div className="w-10 h-10 bg-red-50 text-red-500 rounded-xl flex items-center justify-center mb-3"><Clock className="w-5 h-5" /></div>
           <p className="text-2xl font-bold text-slate-900">{upcoming.filter((b)=>b.startTime).length}</p>
-          <p className="text-xs text-slate-500 mt-1">Partial Hour Blocks</p>
+          <p className="text-xs text-slate-500 mt-1">{t("Partial Hour Blocks")}</p>
         </div>
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center mb-3"><Wrench className="w-5 h-5" /></div>
           <p className="text-2xl font-bold text-slate-900">{past.length}</p>
-          <p className="text-xs text-slate-500 mt-1">Past Maintenance</p>
+          <p className="text-xs text-slate-500 mt-1">{t("Past Maintenance")}</p>
         </div>
       </div>
 
       {/* Add form */}
       <div className="bg-white rounded-2xl border border-slate-100 p-6">
-        <h2 className="text-base font-semibold text-slate-900 mb-5">Block a Date or Time</h2>
+        <h2 className="text-base font-semibold text-slate-900 mb-5">{t("Block a Date or Time")}</h2>
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap gap-3">
             <input type="date" value={form.date} min={new Date().toISOString().split("T")[0]}
@@ -123,7 +126,7 @@ export default function WorkerMaintenancePage() {
                                   : "border-red-500 bg-red-50 text-red-700"
                     : "border-slate-200 text-slate-500 hover:border-slate-300"
                 }`}>
-                {bt==="full" ? "Full Day Closed" : "Specific Hours"}
+                {bt==="full" ? t("Full Day Closed") : t("Specific Hours")}
               </button>
             ))}
           </div>
@@ -131,13 +134,13 @@ export default function WorkerMaintenancePage() {
             <div className="flex items-center gap-3 flex-wrap bg-slate-50 rounded-xl px-4 py-3">
               <Clock className="w-4 h-4 text-slate-400 shrink-0" />
               <div className="flex items-center gap-2">
-                <label className="text-xs text-slate-500">From</label>
+                <label className="text-xs text-slate-500">{t("From")}</label>
                 <input type="time" value={form.startTime}
                   onChange={(e)=>setForm((f)=>({...f,startTime:e.target.value}))}
                   className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-red-400" />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs text-slate-500">To</label>
+                <label className="text-xs text-slate-500">{t("To")}</label>
                 <input type="time" value={form.endTime}
                   onChange={(e)=>setForm((f)=>({...f,endTime:e.target.value}))}
                   className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-red-400" />
@@ -145,18 +148,18 @@ export default function WorkerMaintenancePage() {
             </div>
           )}
           <div className="flex flex-wrap gap-3">
-            <input type="text" placeholder="Reason (e.g. Resurfacing, Maintenance)" value={form.reason}
+            <input type="text" placeholder={t("Reason (e.g. Resurfacing, Maintenance)")} value={form.reason}
               onChange={(e)=>setForm((f)=>({...f,reason:e.target.value}))}
               className="flex-1 min-w-[200px] text-sm border border-slate-200 rounded-lg px-3 py-2.5 text-slate-700 outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-slate-400" />
             <button onClick={addEntry} disabled={adding}
               className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-100 disabled:text-slate-400 text-white text-sm font-medium rounded-lg transition-colors">
               {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Add Block
+              {t("Add Block")}
             </button>
           </div>
           {formError && (
             <p className="text-xs text-red-500 flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5" />{formError}
+              <AlertTriangle className="w-3.5 h-3.5" />{t(formError)}
             </p>
           )}
         </div>
@@ -165,12 +168,12 @@ export default function WorkerMaintenancePage() {
       {/* Upcoming */}
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-50">
-          <h2 className="text-base font-semibold text-slate-900">Upcoming Blocks <span className="ml-2 text-slate-400 font-normal text-sm">({upcoming.length})</span></h2>
+          <h2 className="text-base font-semibold text-slate-900">{t("Upcoming Blocks")} <span className="ml-2 text-slate-400 font-normal text-sm">({upcoming.length})</span></h2>
         </div>
         {upcoming.length===0 ? (
           <div className="px-6 py-12 text-center">
             <CalendarX className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No upcoming blocked dates or hours</p>
+            <p className="text-sm text-slate-400">{t("No upcoming blocked dates or hours")}</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-50">
@@ -181,11 +184,11 @@ export default function WorkerMaintenancePage() {
                     {b.startTime ? <Clock className="w-4 h-4" /> : <Wrench className="w-4 h-4" />}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-slate-900">{fmtDate(b.date)}</p>
+                    <p className="text-sm font-medium text-slate-900">{fmtDate(b.date, locale)}</p>
                     <p className="text-xs text-slate-400 mt-0.5">
                       {b.startTime && b.endTime
                         ? <><span className="text-red-500 font-medium">{b.startTime}–{b.endTime}</span></>
-                        : <span className="text-orange-600 font-medium">Full Day Closed</span>
+                        : <span className="text-orange-600 font-medium">{t("Full Day Closed")}</span>
                       }
                       {b.reason && <> · {b.reason}</>}
                     </p>
@@ -205,7 +208,7 @@ export default function WorkerMaintenancePage() {
       {past.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-50">
-            <h2 className="text-base font-semibold text-slate-900">Past Maintenance <span className="ml-2 text-slate-400 font-normal text-sm">({past.length})</span></h2>
+            <h2 className="text-base font-semibold text-slate-900">{t("Past Maintenance")} <span className="ml-2 text-slate-400 font-normal text-sm">({past.length})</span></h2>
           </div>
           <div className="divide-y divide-slate-50">
             {past.slice(0,10).map((b) => (
@@ -213,9 +216,9 @@ export default function WorkerMaintenancePage() {
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center shrink-0"><Wrench className="w-4 h-4" /></div>
                   <div>
-                    <p className="text-sm font-medium text-slate-700">{fmtDate(b.date)}</p>
+                    <p className="text-sm font-medium text-slate-700">{fmtDate(b.date, locale)}</p>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      {b.startTime&&b.endTime ? <>{b.startTime}–{b.endTime}</> : "Full Day"}
+                      {b.startTime&&b.endTime ? <>{b.startTime}–{b.endTime}</> : t("Full Day")}
                       {b.reason && <> · {b.reason}</>}
                     </p>
                   </div>

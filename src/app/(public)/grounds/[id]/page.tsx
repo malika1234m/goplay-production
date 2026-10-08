@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Star, Clock, Users, CheckCircle, ChevronLeft, Navigation } from "lucide-react";
+import { MapPin, Star, Clock, Users, CheckCircle, ChevronLeft, Navigation, Banknote, Landmark } from "lucide-react";
+import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
+import { bookablePaymentMethods } from "@/lib/payment-options";
 import { db } from "@/lib/db";
 import BookingForm from "@/components/booking/BookingForm";
 import GroundImageGallery from "@/components/grounds/GroundImageGallery";
@@ -35,6 +37,7 @@ const getGround = cache(async (id: string) => {
         orderBy: { createdAt: "desc" },
         take: 10,
       },
+      owner: { select: paymentDetailsSelect.owner.select },
     },
   });
   return ground;
@@ -173,6 +176,15 @@ export default async function GroundDetailsPage({
                     <span>Up to {ground.capacity} players</span>
                   </div>
                 )}
+                {(() => {
+                  const pay = bookablePaymentMethods(ground.paymentOptions, resolvePaymentDetails(ground) !== null);
+                  return (
+                    <div className="flex items-center gap-2 text-sm" aria-label="Accepted payment">
+                      {pay.cash && <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-amber-800"><Banknote className="w-3.5 h-3.5" />Pay at ground</span>}
+                      {pay.online && <span className="inline-flex items-center gap-1 rounded-md bg-green-50 px-2 py-0.5 text-green-800"><Landmark className="w-3.5 h-3.5" />Pay online</span>}
+                    </div>
+                  );
+                })()}
               </div>
 
               {ground.description && (
@@ -190,6 +202,7 @@ export default async function GroundDetailsPage({
               <BookingForm
                 facilityId={ground.id}
                 hourlyRate={ground.hourlyRate}
+                paymentMethods={bookablePaymentMethods(ground.paymentOptions, resolvePaymentDetails(ground) !== null)}
                 availability={availabilityProps}
                 courts={ground.courts}
               />

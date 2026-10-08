@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const match = await db.openMatch.findUnique({
     where:   { id },
     include: {
-      facility: { select: { name: true, address: true, city: true, capacity: true, hourlyRate: true, ...paymentDetailsSelect } },
+      facility: { select: { name: true, address: true, city: true, capacity: true, hourlyRate: true, paymentOptions: true, ...paymentDetailsSelect } },
       category: { select: { name: true, minPlayers: true } },
       spots:    { where: { status: { in: ["RESERVED", "CONFIRMED"] } } },
     },
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const paymentDetails = resolvePaymentDetails(match.facility);
-  if (!paymentDetails) {
+  if (!paymentDetails || match.facility.paymentOptions === "ON_ARRIVAL_ONLY") {
     return Response.json({ error: "This ground has not set up online payments yet." }, { status: 400 });
   }
   const chargeAmount = calcSpotAmount(

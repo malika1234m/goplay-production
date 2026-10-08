@@ -7,6 +7,8 @@ import {
   X, Clock, User, Phone, Mail, CreditCard, StickyNote, CheckCircle2,
   AlertCircle, XCircle, CalendarCheck, Zap, Users,
 } from "lucide-react";
+import { tk, formatDay } from "@/i18n/core";
+import { useT } from "@/i18n/I18nProvider";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -51,9 +53,8 @@ interface BlockedEv {
 
 const HOUR_H = 56;
 const HOURS  = Array.from({ length: 24 }, (_, i) => i);
-const DAYS_S = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const MONTHS = ["January","February","March","April","May","June","July",
-                "August","September","October","November","December"];
+
+const DAYS_S = [tk("Sun"), tk("Mon"), tk("Tue"), tk("Wed"), tk("Thu"), tk("Fri"), tk("Sat")];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -86,24 +87,25 @@ function fmtTime(t: string) {
 // ─── Booking Detail Modal ─────────────────────────────────────────────────────
 
 const STATUS_META: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  PENDING:   { label: "Pending",   color: "bg-amber-50  text-amber-700  border-amber-200",  icon: AlertCircle  },
-  CONFIRMED: { label: "Confirmed", color: "bg-blue-50   text-blue-700   border-blue-200",   icon: CheckCircle2 },
-  COMPLETED: { label: "Completed", color: "bg-green-50  text-green-700  border-green-200",  icon: CheckCircle2 },
-  CANCELLED: { label: "Cancelled", color: "bg-red-50    text-red-700    border-red-200",    icon: XCircle      },
+  PENDING:   { label: tk("Pending"),   color: "bg-amber-50  text-amber-700  border-amber-200",  icon: AlertCircle  },
+  CONFIRMED: { label: tk("Confirmed"), color: "bg-blue-50   text-blue-700   border-blue-200",   icon: CheckCircle2 },
+  COMPLETED: { label: tk("Completed"), color: "bg-green-50  text-green-700  border-green-200",  icon: CheckCircle2 },
+  CANCELLED: { label: tk("Cancelled"), color: "bg-red-50    text-red-700    border-red-200",    icon: XCircle      },
 };
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
+function fmtDate(iso: string, locale: string) {
+  return formatDay(new Date(iso), locale, {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
 }
 
 function BookingDetailModal({ bk, onClose }: { bk: BookingEv; onClose: () => void }) {
+  const { t, locale } = useT();
   const sm     = STATUS_META[bk.status] ?? STATUS_META.PENDING;
   const Icon   = sm.icon;
   const phone  = bk.contactNumber ?? bk.playerPhone;
-  const pmLabel: Record<string, string> = { ONLINE: "Online", ON_ARRIVAL: "Pay on Arrival" };
-  const psLabel: Record<string, string> = { PENDING: "Pending", PAID: "Paid", FAILED: "Failed", REFUNDED: "Refunded" };
+  const pmLabel: Record<string, string> = { ONLINE: t("Online"), ON_ARRIVAL: t("Pay on Arrival") };
+  const psLabel: Record<string, string> = { PENDING: t("Pending"), PAID: t("Paid"), FAILED: t("Failed"), REFUNDED: t("Refunded"), RECEIPT_SUBMITTED: t("Receipt sent"), REJECTED: t("Receipt sent back") };
 
   return (
     <div
@@ -120,16 +122,16 @@ function BookingDetailModal({ bk, onClose }: { bk: BookingEv; onClose: () => voi
             <div className="flex items-center gap-2 mb-1">
               {bk.isOpenMatch && (
                 <span className="text-xs font-semibold bg-teal-100 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Zap className="w-3 h-3" /> GoPlay Open Match
+                  <Zap className="w-3 h-3" /> {t("GoPlay Open Match")}
                 </span>
               )}
               {bk.isPhoneBooking && (
                 <span className="text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">
-                  📞 Phone / Walk-in
+                  {t("📞 Phone / Walk-in")}
                 </span>
               )}
               <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${sm.color}`}>
-                <Icon className="w-3 h-3" /> {sm.label}
+                <Icon className="w-3 h-3" /> {t(sm.label)}
               </span>
             </div>
             <h2 className="text-lg font-bold text-slate-900">{bk.playerName}</h2>
@@ -150,7 +152,7 @@ function BookingDetailModal({ bk, onClose }: { bk: BookingEv; onClose: () => voi
           <div className="flex items-start gap-3">
             <CalendarCheck className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-slate-800">{fmtDate(bk.bookingDate)}</p>
+              <p className="text-sm font-semibold text-slate-800">{fmtDate(bk.bookingDate, locale)}</p>
               <p className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">
                 <Clock className="w-3.5 h-3.5" />
                 {fmtTime(bk.startTime)} – {fmtTime(bk.endTime)}
@@ -184,7 +186,7 @@ function BookingDetailModal({ bk, onClose }: { bk: BookingEv; onClose: () => voi
           <div className="flex items-center gap-3">
             <CreditCard className="w-4 h-4 text-slate-400 shrink-0" />
             <div className="flex items-center gap-3 flex-wrap">
-              <p className="text-sm font-bold text-slate-800">Rs. {bk.totalAmount.toLocaleString()}</p>
+              <p className="text-sm font-bold text-slate-800">{t("Rs.")} {bk.totalAmount.toLocaleString()}</p>
               <span className="text-xs text-slate-400">{pmLabel[bk.paymentMethod] ?? bk.paymentMethod}</span>
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
                 bk.paymentStatus === "PAID"
@@ -216,7 +218,7 @@ function BookingDetailModal({ bk, onClose }: { bk: BookingEv; onClose: () => voi
                 className="text-sm text-teal-700 hover:underline font-medium"
                 onClick={onClose}
               >
-                View open match lobby →
+                {t("View open match lobby →")}
               </Link>
             </div>
           )}
@@ -228,7 +230,7 @@ function BookingDetailModal({ bk, onClose }: { bk: BookingEv; onClose: () => voi
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition-colors"
           >
-            Close
+            {t("Close")}
           </button>
         </div>
       </div>
@@ -239,21 +241,22 @@ function BookingDetailModal({ bk, onClose }: { bk: BookingEv; onClose: () => voi
 // ─── Legend ──────────────────────────────────────────────────────────────────
 
 function Legend() {
+  const { t } = useT();
   return (
     <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
       {[
-        { color:"bg-green-500",  label:"Confirmed"           },
-        { color:"bg-teal-500",   label:"Open match confirmed"},
-        { color:"bg-blue-400",   label:"Open match lobby"    },
-        { color:"bg-purple-400", label:"Phone booking"       },
-        { color:"bg-amber-400",  label:"Pending"             },
-        { color:"bg-red-400",    label:"Blocked hours"       },
-        { color:"bg-orange-400", label:"Full-day closed"     },
-        { color:"bg-slate-200",  label:"Outside hours"       },
+        { color:"bg-green-500",  label: tk("Confirmed")           },
+        { color:"bg-teal-500",   label: tk("Open match confirmed")},
+        { color:"bg-blue-400",   label: tk("Open match lobby")    },
+        { color:"bg-purple-400", label: tk("Phone booking")       },
+        { color:"bg-amber-400",  label: tk("Pending")             },
+        { color:"bg-red-400",    label: tk("Blocked hours")       },
+        { color:"bg-orange-400", label: tk("Full-day closed")     },
+        { color:"bg-slate-200",  label: tk("Outside hours")       },
       ].map(({ color, label }) => (
         <div key={label} className="flex items-center gap-1.5">
           <span className={`w-2.5 h-2.5 rounded-sm ${color} inline-block`} />
-          {label}
+          {t(label)}
         </div>
       ))}
     </div>
@@ -265,6 +268,7 @@ function Legend() {
 function BookingPill({
   bk, showCourt = false, onClick,
 }: { bk: BookingEv; showCourt?: boolean; onClick?: () => void }) {
+  const { t } = useT();
   const top       = (toMins(bk.startTime)/60)*HOUR_H;
   const h         = ((toMins(bk.endTime)-toMins(bk.startTime))/60)*HOUR_H;
   const phone     = bk.isPhoneBooking;
@@ -292,7 +296,7 @@ function BookingPill({
       onKeyDown={(e) => e.key === "Enter" && onClick?.()}
       className={`absolute inset-x-1 rounded-lg z-20 overflow-hidden px-2 pt-1 border ${bg} ${onClick ? "cursor-pointer hover:brightness-95 transition-[filter]" : ""}`}
       style={{ top, height: Math.max(h, 24) }}
-      title={`${openMatch?"⚡ ":phone?"📞 ":""}${bk.playerName}${bk.courtName?` · ${bk.courtName}`:""} · Rs. ${bk.totalAmount.toLocaleString()}`}
+      title={`${openMatch?"⚡ ":phone?"📞 ":""}${bk.playerName}${bk.courtName?` · ${bk.courtName}`:""} · ${t("Rs.")} ${bk.totalAmount.toLocaleString()}`}
     >
       <p className={`text-[10px] font-bold leading-tight ${txt}`}>
         {bk.startTime}–{bk.endTime}
@@ -307,7 +311,7 @@ function BookingPill({
       )}
       {h >= 52 && (
         <p className={`text-[9px] font-semibold ${txt}`}>
-          Rs. {bk.totalAmount.toLocaleString()}
+          {t("Rs.")} {bk.totalAmount.toLocaleString()}
         </p>
       )}
     </div>
@@ -315,6 +319,7 @@ function BookingPill({
 }
 
 function OpenMatchPill({ om }: { om: OpenMatchEv }) {
+  const { t } = useT();
   const top = (toMins(om.preferredStartTime)/60)*HOUR_H;
   const h   = ((toMins(om.preferredEndTime)-toMins(om.preferredStartTime))/60)*HOUR_H;
   const pct = Math.round((om.spotsReserved / om.minPlayers) * 100);
@@ -325,7 +330,7 @@ function OpenMatchPill({ om }: { om: OpenMatchEv }) {
       target="_blank"
       className="absolute inset-x-1 rounded-lg z-10 overflow-hidden px-2 pt-1 border bg-blue-100 border-blue-300 hover:brightness-95 transition-[filter]"
       style={{ top, height: Math.max(h, 24) }}
-      title={`Open Match: ${om.categoryName} · ${om.spotsReserved}/${om.minPlayers} players · ${om.lobbyCode ? `#${om.lobbyCode}` : ""}`}
+      title={`${t("Open Match")}: ${t(om.categoryName)} · ${t("{n}/{min} players", { n: om.spotsReserved, min: om.minPlayers })}${om.lobbyCode ? ` · #${om.lobbyCode}` : ""}`}
     >
       <p className="text-[10px] font-bold leading-tight text-blue-700">
         ⚡ {om.preferredStartTime}–{om.preferredEndTime}
@@ -360,6 +365,7 @@ function DayColumn({
   sched: AvailDay | undefined; fullDayBlock: BlockedEv | undefined;
   showCourt?: boolean; onBookingClick?: (bk: BookingEv) => void;
 }) {
+  const { t } = useT();
   const openMins  = sched?.isOpen ? toMins(sched.openTime)  : null;
   const closeMins = sched?.isOpen ? toMins(sched.closeTime) : null;
 
@@ -390,7 +396,7 @@ function DayColumn({
         <div className="absolute inset-1 rounded-xl bg-orange-100 border border-orange-200 z-10
                         flex items-center justify-center">
           <p className="text-xs font-semibold text-orange-600 text-center px-2">
-            {fullDayBlock.reason ?? "Closed"}
+            {fullDayBlock.reason ?? t("Closed")}
           </p>
         </div>
       )}
@@ -404,7 +410,7 @@ function DayColumn({
             className="absolute inset-x-1 rounded-md bg-red-100 border border-red-200 z-10
                        overflow-hidden px-1.5 pt-0.5"
             style={{ top, height: Math.max(h,18) }}
-            title={b.reason ? `Blocked: ${b.reason}` : "Maintenance"}
+            title={b.reason ? t("Blocked: {reason}", { reason: b.reason }) : t("Maintenance")}
           >
             <p className="text-[10px] font-medium text-red-600 leading-tight truncate">
               {b.startTime}–{b.endTime}{b.reason && ` · ${b.reason}`}
@@ -438,6 +444,7 @@ function DayView({
   openMatchesByDate: Map<string,OpenMatchEv[]>;
   onBookingClick: (bk: BookingEv) => void;
 }) {
+  const { t } = useT();
   const key    = dateKey(date);
   const dow    = date.getDay();
   const sched  = availByDow.get(dow);
@@ -459,10 +466,10 @@ function DayView({
         })),
         // Legacy/general bookings with no court assigned
         ...(allBk.some((b) => !b.courtId)
-          ? [{ id: null, label: "General", bookings: allBk.filter((b) => !b.courtId) }]
+          ? [{ id: null, label: t("General"), bookings: allBk.filter((b) => !b.courtId) }]
           : []),
       ]
-    : [{ id: null, label: "All Bookings", bookings: allBk }];
+    : [{ id: null, label: t("All Bookings"), bookings: allBk }];
 
   // Open match lobbies are always shown in the first column (they're facility-wide, not per-court)
   const firstColOmList = omList;
@@ -536,6 +543,7 @@ function WeekView({
   onDayClick: (d: Date) => void;
   onBookingClick: (bk: BookingEv) => void;
 }) {
+  const { t } = useT();
   const today = dateKey(new Date());
   const days  = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -557,7 +565,7 @@ function WeekView({
                             hover:bg-green-50 transition-colors group ${isToday ? "bg-green-50" : ""}`}
               >
                 <p className={`text-xs font-medium ${isToday ? "text-green-600" : "text-slate-400"}`}>
-                  {DAYS_S[dow]}
+                  {t(DAYS_S[dow])}
                 </p>
                 <p className={`text-lg font-bold leading-tight
                                group-hover:text-green-700 transition-colors
@@ -566,7 +574,7 @@ function WeekView({
                 </p>
                 {sched?.isOpen
                   ? <p className="text-[10px] text-slate-400">{fmtTime(sched.openTime)}–{fmtTime(sched.closeTime)}</p>
-                  : <p className="text-[10px] text-red-400">Closed</p>
+                  : <p className="text-[10px] text-red-400">{t("Closed")}</p>
                 }
               </button>
             );
@@ -625,6 +633,7 @@ function MonthView({
   openMatchesByDate: Map<string,OpenMatchEv[]>;
   onDayClick: (d: Date) => void;
 }) {
+  const { t } = useT();
   const today = dateKey(new Date());
   const cells = getMonthGrid(year, month);
 
@@ -634,7 +643,7 @@ function MonthView({
       <div className="grid grid-cols-7 border-b border-slate-100">
         {DAYS_S.map((d) => (
           <div key={d} className="py-2.5 text-center text-xs font-semibold text-slate-400 uppercase tracking-wide">
-            {d}
+            {t(d)}
           </div>
         ))}
       </div>
@@ -678,11 +687,11 @@ function MonthView({
               </div>
 
               {isClosed && !fullBlock && (
-                <span className="text-[9px] text-slate-400 font-medium">Closed</span>
+                <span className="text-[9px] text-slate-400 font-medium">{t("Closed")}</span>
               )}
               {fullBlock && (
                 <div className="rounded-md text-[9px] font-semibold text-orange-700 bg-orange-100 px-1.5 py-0.5 mb-0.5 truncate">
-                  {fullBlock.reason ?? "Closed"}
+                  {fullBlock.reason ?? t("Closed")}
                 </div>
               )}
               {partials.length > 0 && (
@@ -717,7 +726,7 @@ function MonthView({
               )}
               {hasEvents && (
                 <p className="text-[8px] text-slate-300 font-medium mt-1 group-hover:text-green-400 transition-colors">
-                  View day →
+                  {t("View day →")}
                 </p>
               )}
             </button>
@@ -731,6 +740,7 @@ function MonthView({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function SchedulePage() {
+  const { t, locale } = useT();
   const [facilities,  setFacilities]  = useState<Facility[]>([]);
   const [facilityId,  setFacilityId]  = useState("");
   const [courts,      setCourts]      = useState<Court[]>([]);
@@ -862,24 +872,24 @@ export default function SchedulePage() {
   // Header label
   const headerLabel = useMemo(() => {
     if (view === "day") {
-      return selectedDay.toLocaleDateString("en-US", {
+      return formatDay(selectedDay, locale, {
         weekday: "long", month: "long", day: "numeric", year: "numeric",
       });
     }
     if (view === "week") {
       const end = addDays(weekStart, 6); const s = weekStart;
       return s.getMonth() === end.getMonth()
-        ? `${MONTHS[s.getMonth()]} ${s.getDate()}–${end.getDate()}, ${s.getFullYear()}`
-        : `${MONTHS[s.getMonth()]} ${s.getDate()} – ${MONTHS[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
+        ? `${formatDay(s, locale, { month: "long", day: "numeric" })} – ${formatDay(end, locale, { day: "numeric", year: "numeric" })}`
+        : `${formatDay(s, locale, { month: "short", day: "numeric" })} – ${formatDay(end, locale, { month: "short", day: "numeric", year: "numeric" })}`;
     }
-    return `${MONTHS[monthDate.getMonth()]} ${monthDate.getFullYear()}`;
-  }, [view, selectedDay, weekStart, monthDate]);
+    return formatDay(monthDate, locale, { month: "long", year: "numeric" });
+  }, [view, selectedDay, weekStart, monthDate, locale]);
 
   if (loadingFac) {
     return (
       <div className="flex items-center justify-center h-96 text-slate-400 gap-3">
         <Loader2 className="w-6 h-6 animate-spin" />
-        <span className="text-sm">Loading…</span>
+        <span className="text-sm">{t("Loading…")}</span>
       </div>
     );
   }
@@ -893,10 +903,7 @@ export default function SchedulePage() {
       {/* Page header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Schedule</h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            Bookings, maintenance blocks, and availability in one view
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900">{t("Schedule")}</h1>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -921,7 +928,7 @@ export default function SchedulePage() {
               className="text-sm border border-indigo-200 rounded-lg px-3 py-2 text-slate-700
                          outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
             >
-              <option value="">All Courts</option>
+              <option value="">{t("All Courts")}</option>
               {courts.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
@@ -937,9 +944,9 @@ export default function SchedulePage() {
         {/* View toggle */}
         <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
           {([
-            { v: "day"   as const, icon: CalendarClock, label: "Day"   },
-            { v: "week"  as const, icon: CalendarDays,  label: "Week"  },
-            { v: "month" as const, icon: LayoutGrid,    label: "Month" },
+            { v: "day"   as const, icon: CalendarClock, label: tk("Day")   },
+            { v: "week"  as const, icon: CalendarDays,  label: tk("Week")  },
+            { v: "month" as const, icon: LayoutGrid,    label: tk("Month") },
           ]).map(({ v, icon: Icon, label }) => (
             <button
               key={v}
@@ -951,7 +958,7 @@ export default function SchedulePage() {
               }`}
             >
               <Icon className="w-4 h-4" />
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -978,7 +985,7 @@ export default function SchedulePage() {
             className="ml-1 px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100
                        hover:bg-slate-200 rounded-lg transition-colors"
           >
-            Today
+            {t("Today")}
           </button>
         </div>
 
@@ -993,7 +1000,7 @@ export default function SchedulePage() {
         {facilities.length === 0 ? (
           <div className="px-6 py-16 text-center">
             <CalendarDays className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No grounds found. Add a ground first.</p>
+            <p className="text-sm text-slate-400">{t("No grounds found. Add a ground first.")}</p>
           </div>
         ) : view === "day" ? (
           <DayView

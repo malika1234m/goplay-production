@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Building2, CheckCircle2, Loader2 } from "lucide-react";
+import { useT } from "@/i18n/I18nProvider";
 
 interface Fields {
   bankName:      string;
@@ -25,6 +26,7 @@ export default function PaymentDetailsForm({ mode, groundId, onSaved, bare }: { 
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
   const [saved,   setSaved]   = useState(false);
+  const { t } = useT();
 
   useEffect(() => {
     fetch(url)
@@ -38,7 +40,7 @@ export default function PaymentDetailsForm({ mode, groundId, onSaved, bare }: { 
           setForm({ bankName: p.paymentBankName ?? "", bankBranch: p.paymentBankBranch ?? "", accountName: p.paymentAccountName ?? "", accountNumber: p.paymentAccountNumber ?? "", instructions: p.paymentInstructions ?? "" });
         }
       })
-      .catch(() => setError("Could not load payment details."))
+      .catch(() => setError(t("Could not load payment details.")))
       .finally(() => setLoading(false));
   }, [url, mode]);
 
@@ -57,16 +59,16 @@ export default function PaymentDetailsForm({ mode, groundId, onSaved, bare }: { 
     try {
       const res  = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
-      if (!res.ok) setError(data.error ?? "Could not save.");
+      if (!res.ok) setError(data.error ?? t("Could not save."));
       else { setSaved(true); onSaved?.(); }
     } catch {
-      setError("Network error. Please try again.");
+      setError(t("Network error. Check your connection and try again."));
     } finally {
       setSaving(false);
     }
   };
 
-  const input = "w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-pitch";
+  const input = "w-full rounded-lg border border-rule bg-white px-3.5 py-2.5 text-[15px] text-pitch-deep placeholder:text-slate-400 outline-none focus:border-pitch focus:ring-2 focus:ring-pitch/20";
 
   return (
     <div className={bare ? "flex flex-col gap-4" : "bg-white rounded-2xl border border-rule p-6 flex flex-col gap-4"}>
@@ -75,11 +77,11 @@ export default function PaymentDetailsForm({ mode, groundId, onSaved, bare }: { 
           <Building2 className="w-5 h-5 text-blue-600" />
         </div>
         <div>
-          <h2 className="text-sm font-semibold text-slate-900">{mode === "owner" ? "Default payment details" : "Payment details for this ground"}</h2>
+          <h2 className="text-sm font-semibold text-slate-900">{mode === "owner" ? t("Default payment details") : t("Payment details for this ground")}</h2>
           <p className="text-xs text-slate-500 mt-0.5">
             {mode === "owner"
-              ? "Players who choose \"Pay online\" transfer to this account and upload the receipt. Used for every ground that doesn't have its own details."
-              : "Players booking this ground transfer here. Leave the account fields blank to use your default details from your profile."}
+              ? t("Players who choose \"Pay online\" transfer to this account and upload the receipt. Used for every ground that doesn't have its own details.")
+              : t("Players booking this ground transfer here. Leave the account fields blank to use your default details from your profile.")}
           </p>
         </div>
       </div>
@@ -90,37 +92,37 @@ export default function PaymentDetailsForm({ mode, groundId, onSaved, bare }: { 
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Bank name</label>
-              <input value={form.bankName} onChange={set("bankName")} maxLength={50} placeholder="e.g. Commercial Bank" className={input} />
+              <label className="block text-sm font-medium text-pitch-deep mb-1.5">{t("Bank name")}</label>
+              <input value={form.bankName} onChange={set("bankName")} maxLength={50} placeholder={t("e.g. Commercial Bank")} className={input} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Branch</label>
-              <input value={form.bankBranch} onChange={set("bankBranch")} maxLength={60} placeholder="e.g. Kandy" className={input} />
+              <label className="block text-sm font-medium text-pitch-deep mb-1.5">{t("Branch")}</label>
+              <input value={form.bankBranch} onChange={set("bankBranch")} maxLength={60} placeholder={t("e.g. Kandy")} className={input} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Account holder name</label>
+              <label className="block text-sm font-medium text-pitch-deep mb-1.5">{t("Account holder name")}</label>
               <input value={form.accountName} onChange={set("accountName")} maxLength={60} className={input} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Account number</label>
+              <label className="block text-sm font-medium text-pitch-deep mb-1.5">{t("Account number")}</label>
               <input value={form.accountNumber} onChange={set("accountNumber")} maxLength={24} inputMode="numeric" className={`${input} font-mono`} />
             </div>
           </div>
           {mode === "ground" && (
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Instructions for players (optional)</label>
+              <label className="block text-sm font-medium text-pitch-deep mb-1.5">{t("Instructions for players (optional)")}</label>
               <textarea value={form.instructions} onChange={set("instructions")} rows={2} maxLength={500}
-                placeholder="e.g. Use your booking reference as the transfer remark."
+                placeholder={t("e.g. Use your booking reference as the transfer remark.")}
                 className={`${input} resize-none`} />
             </div>
           )}
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p className="text-xs text-red-600">{t(error)}</p>}
           <div className="flex items-center gap-3">
             <button onClick={save} disabled={saving}
-              className="bg-pitch hover:bg-pitch-deep disabled:bg-slate-300 text-white text-sm font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2">
-              {saving && <Loader2 className="w-4 h-4 animate-spin" />} Save payment details
+              className="bg-pitch hover:bg-pitch-deep disabled:bg-slate-300 text-white text-sm font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2">
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />} {t("Save payment details")}
             </button>
-            {saved && <span className="text-xs text-pitch flex items-center gap-1"><CheckCircle2 className="w-4 h-4" />Saved</span>}
+            {saved && <span className="text-xs text-pitch flex items-center gap-1"><CheckCircle2 className="w-4 h-4" />{t("Saved")}</span>}
           </div>
         </>
       )}

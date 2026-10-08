@@ -94,6 +94,8 @@ model SportsFacility {
   cancelStrikeCount    Int                    @default(0)
   isListingSuspended   Boolean                @default(false)
   strikeResetAt        DateTime?
+  // How players may pay for this ground. Null = the owner hasn't chosen yet (treated as BOTH).
+  paymentOptions       PaymentOptions?
   // Where players send "Pay online" bank transfers. Blank fields fall back to the owner's profile details.
   paymentBankName      String?
   paymentBankBranch    String?
@@ -421,6 +423,12 @@ enum PaymentStatus {
   PAID
   FAILED
   REFUNDED
+}
+
+enum PaymentOptions {
+  ON_ARRIVAL_ONLY
+  ONLINE_ONLY
+  BOTH
 }
 
 enum ComplaintStatus {

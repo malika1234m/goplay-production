@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { X, Download, Printer } from "lucide-react";
+import { useT } from "@/i18n/I18nProvider";
 
 interface Props {
   groundId:   string;
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function QRModal({ groundId, groundName, city, address, onClose }: Props) {
+  const { t } = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [groundUrl, setGroundUrl] = useState("");
 
@@ -70,11 +72,11 @@ export default function QRModal({ groundId, groundName, city, address, onClose }
 <body>
   <div class="poster">
     <div class="brand"><span class="go">Go</span><span class="play">Play</span></div>
-    <div class="tagline">Book Sports Grounds Instantly</div>
-    <div class="qr-wrap"><img src="${dataUrl}" alt="QR Code"/></div>
+    <div class="tagline">{t("Book Sports Grounds Instantly")}</div>
+    <div class="qr-wrap"><img src="${dataUrl}" alt={t("QR Code")}/></div>
     <div class="ground-name">${esc(groundName)}</div>
     <div class="ground-loc">${esc(address)}, ${esc(city)}</div>
-    <div class="cta">Scan to Book Your Slot</div>
+    <div class="cta">{t("Scan to Book Your Slot")}</div>
     <div class="url">${esc(groundUrl)}</div>
   </div>
   <script>window.onload=()=>{window.print();}<\/script>
@@ -93,8 +95,8 @@ export default function QRModal({ groundId, groundName, city, address, onClose }
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">QR Code Poster</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Scan to open booking page</p>
+            <h2 className="text-base font-semibold text-slate-900">{t("QR Code Poster")}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{t("Scan to open booking page")}</p>
           </div>
           <button
             onClick={onClose}
@@ -111,7 +113,7 @@ export default function QRModal({ groundId, groundName, city, address, onClose }
             <span className="text-slate-900">Play</span>
           </p>
           <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-4">
-            Book Sports Grounds Instantly
+            {t("Book Sports Grounds Instantly")}
           </p>
           <div className="bg-white border border-slate-100 rounded-xl p-3 inline-block shadow-sm mb-4">
             <canvas ref={canvasRef} className="block" />
@@ -119,7 +121,7 @@ export default function QRModal({ groundId, groundName, city, address, onClose }
           <p className="text-sm font-semibold text-slate-900">{groundName}</p>
           <p className="text-xs text-slate-500 mt-0.5">{city}</p>
           <div className="mt-3 bg-green-600 text-white text-xs font-bold px-4 py-2 rounded-lg inline-block">
-            Scan to Book Your Slot
+            {t("Scan to Book Your Slot")}
           </div>
         </div>
 
@@ -129,13 +131,13 @@ export default function QRModal({ groundId, groundName, city, address, onClose }
             onClick={handleDownload}
             className="flex-1 flex items-center justify-center gap-1.5 text-sm font-medium border border-slate-200 text-slate-700 py-2.5 rounded-xl hover:bg-slate-50 transition-colors"
           >
-            <Download className="w-4 h-4" /> Download
+            <Download className="w-4 h-4" /> {t("Download")}
           </button>
           <button
             onClick={handlePrint}
             className="flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl transition-colors"
           >
-            <Printer className="w-4 h-4" /> Print Poster
+            <Printer className="w-4 h-4" /> {t("Print Poster")}
           </button>
         </div>
       </div>

@@ -6,6 +6,8 @@ import {
   ChevronLeft, ChevronRight, User, Phone, Clock,
   CheckCircle2, XCircle, AlertCircle, StickyNote, Zap,
 } from "lucide-react";
+import { useT } from "@/i18n/I18nProvider";
+import { tk, formatDay } from "@/i18n/core";
 
 interface Booking {
   id: string;
@@ -29,14 +31,14 @@ interface Booking {
 }
 
 const STATUS_META: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  PENDING:   { label: "Pending",   color: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20", icon: AlertCircle  },
-  CONFIRMED: { label: "Confirmed", color: "bg-blue-500/10 text-blue-400 border border-blue-500/20",       icon: CheckCircle2 },
-  COMPLETED: { label: "Completed", color: "bg-green-500/10 text-green-400 border border-green-500/20",    icon: CheckCircle2 },
-  CANCELLED: { label: "Cancelled", color: "bg-red-500/10 text-red-400 border border-red-500/20",          icon: XCircle      },
+  PENDING:   { label: tk("Pending"),   color: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20", icon: AlertCircle  },
+  CONFIRMED: { label: tk("Confirmed"), color: "bg-blue-500/10 text-blue-400 border border-blue-500/20",       icon: CheckCircle2 },
+  COMPLETED: { label: tk("Completed"), color: "bg-green-500/10 text-green-400 border border-green-500/20",    icon: CheckCircle2 },
+  CANCELLED: { label: tk("Cancelled"), color: "bg-red-500/10 text-red-400 border border-red-500/20",          icon: XCircle      },
 };
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+function fmtDate(iso: string, locale = "en-GB") {
+  return formatDay(new Date(iso), locale, { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 }
 function fmtTime(t: string) {
   const [h, m] = t.split(":").map(Number);
@@ -49,6 +51,7 @@ function displayName(b: Booking) { return b.playerName; }
 const PAGE_SIZE = 20;
 
 export default function WorkerBookingHistoryPage() {
+  const { t, locale, tn } = useT();
   const today = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
@@ -129,8 +132,7 @@ export default function WorkerBookingHistoryPage() {
             <History className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white">Booking History</h1>
-            <p className="text-slate-400 text-sm">Browse and export past bookings</p>
+            <h1 className="text-2xl font-bold text-white">{t("Booking History")}</h1>
           </div>
         </div>
         <button
@@ -139,7 +141,7 @@ export default function WorkerBookingHistoryPage() {
           className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white text-sm rounded-xl transition-colors"
         >
           <Download className="w-4 h-4" />
-          Export CSV
+          {t("Export CSV")}
         </button>
       </div>
 
@@ -147,7 +149,7 @@ export default function WorkerBookingHistoryPage() {
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-6">
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400 font-medium">From</label>
+            <label className="text-xs text-slate-400 font-medium">{t("From")}</label>
             <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2">
               <Calendar className="w-4 h-4 text-slate-400" />
               <input
@@ -159,7 +161,7 @@ export default function WorkerBookingHistoryPage() {
             </div>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400 font-medium">To</label>
+            <label className="text-xs text-slate-400 font-medium">{t("To")}</label>
             <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2">
               <Calendar className="w-4 h-4 text-slate-400" />
               <input
@@ -171,7 +173,7 @@ export default function WorkerBookingHistoryPage() {
             </div>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-400 font-medium">Status</label>
+            <label className="text-xs text-slate-400 font-medium">{t("Status")}</label>
             <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2">
               <Filter className="w-4 h-4 text-slate-400" />
               <select
@@ -179,11 +181,11 @@ export default function WorkerBookingHistoryPage() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="bg-transparent text-white text-sm outline-none pr-2"
               >
-                <option value="ALL">All Statuses</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="CONFIRMED">Confirmed</option>
-                <option value="PENDING">Pending</option>
-                <option value="CANCELLED">Cancelled</option>
+                <option value="ALL">{t("All Statuses")}</option>
+                <option value="COMPLETED">{t("Completed")}</option>
+                <option value="CONFIRMED">{t("Confirmed")}</option>
+                <option value="PENDING">{t("Pending")}</option>
+                <option value="CANCELLED">{t("Cancelled")}</option>
               </select>
             </div>
           </div>
@@ -197,7 +199,7 @@ export default function WorkerBookingHistoryPage() {
             ) : (
               <Search className="w-4 h-4" />
             )}
-            Search
+            {t("Search")}
           </button>
         </div>
 
@@ -206,7 +208,7 @@ export default function WorkerBookingHistoryPage() {
             <Search className="w-4 h-4 text-slate-400 shrink-0" />
             <input
               type="text"
-              placeholder="Filter by name, email, phone…"
+              placeholder={t("Filter by name, email, phone…")}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="bg-transparent text-white text-sm outline-none w-full placeholder:text-slate-500"
@@ -225,8 +227,8 @@ export default function WorkerBookingHistoryPage() {
       {!loading && fetched && filtered.length === 0 && (
         <div className="text-center py-16">
           <History className="w-12 h-12 text-slate-700 mx-auto mb-3" />
-          <p className="text-slate-400 font-medium">No bookings found</p>
-          <p className="text-slate-600 text-sm mt-1">Try adjusting the date range or filters</p>
+          <p className="text-slate-400 font-medium">{t("No bookings found")}</p>
+          <p className="text-slate-600 text-sm mt-1">{t("Try adjusting the date range or filters")}</p>
         </div>
       )}
 
@@ -234,7 +236,7 @@ export default function WorkerBookingHistoryPage() {
         <>
           <div className="text-sm text-slate-400 mb-3">
             Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of{" "}
-            <span className="text-white font-medium">{filtered.length}</span> bookings
+            {tn(filtered.length, "{n} booking", "{n} bookings")}
           </div>
 
           <div className="space-y-3">
@@ -249,7 +251,7 @@ export default function WorkerBookingHistoryPage() {
                   <div className="flex flex-wrap items-start gap-4">
                     {/* Date + time + court */}
                     <div className="min-w-[130px]">
-                      <p className="text-white text-sm font-semibold">{fmtDate(b.bookingDate)}</p>
+                      <p className="text-white text-sm font-semibold">{fmtDate(b.bookingDate, locale)}</p>
                       <p className="text-slate-400 text-xs mt-0.5 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {fmtTime(b.startTime)} – {fmtTime(b.endTime)}
@@ -267,12 +269,12 @@ export default function WorkerBookingHistoryPage() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {openMatch && (
                           <span className="inline-flex items-center gap-0.5 text-xs bg-teal-500/10 text-teal-400 border border-teal-500/20 px-1.5 py-0.5 rounded-md font-medium">
-                            <Zap className="w-3 h-3" /> Open Match
+                            <Zap className="w-3 h-3" /> {t("Open Match")}
                           </span>
                         )}
                         {walkin && !openMatch && (
                           <span className="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded-md font-medium">
-                            Phone
+                            {t("Phone")}
                           </span>
                         )}
                         <p className="text-slate-200 text-sm font-medium flex items-center gap-1">
@@ -306,7 +308,7 @@ export default function WorkerBookingHistoryPage() {
                     <div className="ml-auto flex items-center">
                       <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium ${sm.color}`}>
                         <Icon className="w-3 h-3" />
-                        {sm.label}
+                        {t(sm.label)}
                       </span>
                     </div>
                   </div>
@@ -325,7 +327,7 @@ export default function WorkerBookingHistoryPage() {
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <span className="text-sm text-slate-400">
-                Page <span className="text-white font-medium">{page}</span> of {totalPages}
+                {t("Page")} <span className="text-white font-medium">{page}</span> of {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}

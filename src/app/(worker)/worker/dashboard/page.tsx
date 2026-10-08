@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Building2, CalendarCheck, Clock, Grid3X3, Loader2, MapPin, Tag, User, Zap } from "lucide-react";
+import { useT } from "@/i18n/I18nProvider";
+import { tk } from "@/i18n/core";
 
 interface Facility {
   id: string; name: string; address: string; city: string;
@@ -16,9 +18,10 @@ interface Booking {
   openMatchId?: string | null;
 }
 
-const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const DAYS = [tk("Sun"), tk("Mon"), tk("Tue"), tk("Wed"), tk("Thu"), tk("Fri"), tk("Sat")];
 
 export default function WorkerDashboard() {
+  const { t } = useT();
   const [facility, setFacility] = useState<Facility | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -37,7 +40,7 @@ export default function WorkerDashboard() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-96 text-slate-400 gap-3">
-      <Loader2 className="w-6 h-6 animate-spin" /><span className="text-sm">Loading…</span>
+      <Loader2 className="w-6 h-6 animate-spin" /><span className="text-sm">{t("Loading…")}</span>
     </div>
   );
 
@@ -46,7 +49,7 @@ export default function WorkerDashboard() {
       <div className="text-center">
         <Building2 className="w-10 h-10 text-slate-200 mx-auto mb-3" />
         <p className="text-slate-500 text-sm">{error || "No facility assigned."}</p>
-        <p className="text-slate-400 text-xs mt-1">Contact your facility owner to get assigned.</p>
+        <p className="text-slate-400 text-xs mt-1">{t("Contact your facility owner to get assigned.")}</p>
       </div>
     </div>
   );
@@ -61,7 +64,7 @@ export default function WorkerDashboard() {
     <div className="flex flex-col gap-7">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{t("Dashboard")}</h1>
         <p className="text-slate-500 text-sm mt-0.5">Today's overview for {facility.name}</p>
       </div>
 
@@ -92,7 +95,7 @@ export default function WorkerDashboard() {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-xs text-slate-400">Hourly rate</p>
+            <p className="text-xs text-slate-400">{t("Hourly rate")}</p>
             <p className="text-lg font-bold text-slate-900">Rs. {facility.hourlyRate.toLocaleString()}</p>
           </div>
         </div>
@@ -107,7 +110,7 @@ export default function WorkerDashboard() {
               Open today · {todaySched.openTime} – {todaySched.closeTime}
             </p>
           ) : (
-            <p className="text-sm text-slate-500">Closed today</p>
+            <p className="text-sm text-slate-500">{t("Closed today")}</p>
           )}
         </div>
       </div>
@@ -116,15 +119,15 @@ export default function WorkerDashboard() {
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <p className="text-2xl font-bold text-slate-900">{confirmed}</p>
-          <p className="text-xs text-slate-500 mt-1">Confirmed Today</p>
+          <p className="text-xs text-slate-500 mt-1">{t("Confirmed Today")}</p>
         </div>
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <p className="text-2xl font-bold text-amber-600">{pending}</p>
-          <p className="text-xs text-slate-500 mt-1">Pending Today</p>
+          <p className="text-xs text-slate-500 mt-1">{t("Pending Today")}</p>
         </div>
         <div className="bg-white rounded-2xl border border-slate-100 p-5">
           <p className="text-2xl font-bold text-slate-900">Rs. {revenue.toLocaleString()}</p>
-          <p className="text-xs text-slate-500 mt-1">Today's Revenue</p>
+          <p className="text-xs text-slate-500 mt-1">{t("Today's Revenue")}</p>
         </div>
       </div>
 
@@ -132,16 +135,16 @@ export default function WorkerDashboard() {
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between">
           <h2 className="text-base font-semibold text-slate-900">
-            Today's Bookings
+            {t("Today's Bookings")}
             <span className="ml-2 text-slate-400 font-normal text-sm">({bookings.filter((b) => b.status !== "CANCELLED").length})</span>
           </h2>
-          <a href="/worker/bookings" className="text-xs text-blue-600 hover:underline">View all →</a>
+          <a href="/worker/bookings" className="text-xs text-blue-600 hover:underline">{t("View all →")}</a>
         </div>
 
         {bookings.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <CalendarCheck className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No bookings today</p>
+            <p className="text-sm text-slate-400">{t("No bookings today")}</p>
           </div>
         ) : (
           <div className="divide-y divide-slate-50">
@@ -163,11 +166,11 @@ export default function WorkerDashboard() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {isOpenMatch && (
                           <span className="inline-flex items-center gap-0.5 text-[10px] font-medium bg-teal-50 text-teal-700 border border-teal-100 px-1.5 py-0.5 rounded-full">
-                            <Zap className="w-2.5 h-2.5" /> Open Match
+                            <Zap className="w-2.5 h-2.5" /> {t("Open Match")}
                           </span>
                         )}
                         {isPhoneBook && !isOpenMatch && (
-                          <span className="text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-full">Phone</span>
+                          <span className="text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-full">{t("Phone")}</span>
                         )}
                         <p className="text-xs text-slate-400">{b.playerName}</p>
                       </div>
@@ -196,7 +199,7 @@ export default function WorkerDashboard() {
       {/* Weekly schedule */}
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-50">
-          <h2 className="text-base font-semibold text-slate-900">Weekly Schedule</h2>
+          <h2 className="text-base font-semibold text-slate-900">{t("Weekly Schedule")}</h2>
         </div>
         <div className="divide-y divide-slate-50">
           {facility.availability.map((a) => (
@@ -204,13 +207,13 @@ export default function WorkerDashboard() {
               a.dayOfWeek === todayDow ? "bg-blue-50" : ""
             }`}>
               <span className={`text-sm font-medium ${a.dayOfWeek === todayDow ? "text-blue-700" : "text-slate-700"}`}>
-                {DAYS[a.dayOfWeek]}
-                {a.dayOfWeek === todayDow && <span className="ml-2 text-[10px] bg-blue-200 text-blue-700 rounded px-1.5 py-0.5">Today</span>}
+                {t(DAYS[a.dayOfWeek])}
+                {a.dayOfWeek === todayDow && <span className="ml-2 text-[10px] bg-blue-200 text-blue-700 rounded px-1.5 py-0.5">{t("Today")}</span>}
               </span>
               {a.isOpen ? (
                 <span className="text-xs text-slate-500">{a.openTime} – {a.closeTime}</span>
               ) : (
-                <span className="text-xs text-slate-400">Closed</span>
+                <span className="text-xs text-slate-400">{t("Closed")}</span>
               )}
             </div>
           ))}

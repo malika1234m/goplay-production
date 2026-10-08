@@ -6,6 +6,8 @@ import {
   MapPin, Building2, CheckCircle, Eye, EyeOff,
   Save, KeyRound, ClipboardList, CalendarDays,
 } from "lucide-react";
+import { useT } from "@/i18n/I18nProvider";
+import { formatDay } from "@/i18n/core";
 
 type Tab = "personal" | "security";
 
@@ -54,6 +56,7 @@ function PwField({ label, value, show, onChange, onToggle }: {
 }
 
 export default function WorkerProfilePage() {
+  const { t, locale } = useT();
   const [tab,         setTab]         = useState<Tab>("personal");
   const [user,        setUser]        = useState<WorkerProfile | null>(null);
   const [facility,    setFacility]    = useState<Facility | null>(null);
@@ -86,11 +89,11 @@ export default function WorkerProfilePage() {
 
   const savePersonal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pForm.name.trim() || pForm.name.trim().length < 2) { setPError("Full name must be at least 2 characters."); return; }
-    if (pForm.name.trim().length > 50) { setPError("Full name must be under 50 characters."); return; }
+    if (!pForm.name.trim() || pForm.name.trim().length < 2) { setPError(t("Full name must be at least 2 characters.")); return; }
+    if (pForm.name.trim().length > 50) { setPError(t("Full name must be under 50 characters.")); return; }
     if (pForm.phone.trim()) {
       const cleaned = pForm.phone.replace(/[\s\-().]/g, "");
-      if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned)) { setPError("Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)."); return; }
+      if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned)) { setPError(t("Enter a valid Sri Lankan mobile number (e.g. 077 123 4567).")); return; }
     }
     setPSaving(true); setPError("");
     const res  = await fetch("/api/worker/profile", {
@@ -99,17 +102,17 @@ export default function WorkerProfilePage() {
     });
     const data = await res.json();
     setPSaving(false);
-    if (!res.ok) { setPError(data.error ?? "Failed to save."); return; }
+    if (!res.ok) { setPError(data.error ?? t("Failed to save.")); return; }
     setUser((u) => u ? { ...u, name: pForm.name, phone: pForm.phone || null } : u);
     setPSaved(true); setTimeout(() => setPSaved(false), 3000);
   };
 
   const savePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pwForm.next !== pwForm.confirm) { setPwError("Passwords do not match."); return; }
-    if (pwForm.next.length < 8)        { setPwError("Password must be at least 8 characters."); return; }
-    if (!/[a-zA-Z]/.test(pwForm.next)) { setPwError("Password must contain at least one letter."); return; }
-    if (!/[0-9]/.test(pwForm.next))    { setPwError("Password must contain at least one number."); return; }
+    if (pwForm.next !== pwForm.confirm) { setPwError(t("Passwords do not match.")); return; }
+    if (pwForm.next.length < 8)        { setPwError(t("Password must be at least 8 characters.")); return; }
+    if (!/[a-zA-Z]/.test(pwForm.next)) { setPwError(t("Password must contain at least one letter.")); return; }
+    if (!/[0-9]/.test(pwForm.next))    { setPwError(t("Password must contain at least one number.")); return; }
     setPwSaving(true); setPwError("");
     const res  = await fetch("/api/user/password", {
       method: "PUT", headers: { "Content-Type": "application/json" },
@@ -117,28 +120,28 @@ export default function WorkerProfilePage() {
     });
     const data = await res.json();
     setPwSaving(false);
-    if (!res.ok) { setPwError(data.error ?? "Failed to change password."); return; }
+    if (!res.ok) { setPwError(data.error ?? t("Failed to change password.")); return; }
     setPwForm({ current: "", next: "", confirm: "" });
     setPwSaved(true); setTimeout(() => setPwSaved(false), 4000);
   };
 
   if (loading) return (
     <div className="flex items-center justify-center h-96 text-slate-400 gap-2">
-      <Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">Loading profile…</span>
+      <Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">{t("Loading profile…")}</span>
     </div>
   );
 
-  const name = user?.name ?? "Worker";
+  const name = user?.name ?? t("Worker");
   const memberSince = user
-    ? new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+    ? formatDay(new Date(user.createdAt), locale, { month: "short", year: "numeric" })
     : "—";
   const addedOn = workerSince
-    ? new Date(workerSince).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    ? formatDay(new Date(workerSince), locale, { month: "short", day: "numeric", year: "numeric" })
     : "—";
 
   const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: "personal", label: "Personal Info", icon: User },
-    { id: "security", label: "Security",      icon: Shield },
+    { id: "personal", label: t("Personal Info"), icon: User },
+    { id: "security", label: t("Security"),      icon: Shield },
   ];
 
   return (
@@ -164,14 +167,14 @@ export default function WorkerProfilePage() {
               <p className="text-blue-200 text-sm mt-0.5">{user?.email}</p>
               <div className="flex flex-wrap items-center gap-2 mt-3">
                 <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur text-white text-xs px-3 py-1 rounded-full font-semibold">
-                  <User className="w-3 h-3" />Ground Worker
+                  <User className="w-3 h-3" />{t("Ground Worker")}
                 </span>
                 {facility?.city && (
                   <span className="inline-flex items-center gap-1 bg-white/15 text-blue-100 text-xs px-3 py-1 rounded-full">
                     <MapPin className="w-3 h-3" />{facility.city}
                   </span>
                 )}
-                <span className="text-blue-200 text-xs">Account since {memberSince}</span>
+                <span className="text-blue-200 text-xs">{t("Account since {date}", { date: memberSince })}</span>
               </div>
             </div>
           </div>
@@ -180,19 +183,19 @@ export default function WorkerProfilePage() {
           <div className="grid grid-cols-3 gap-3 mt-7 pt-6 border-t border-white/20">
             {[
               {
-                label: "Facility",
+                label: t("Facility"),
                 value: facility?.categories?.[0]?.name ?? "—",
                 icon: Building2,
                 small: true,
               },
               {
-                label: "Walk-ins Created",
+                label: t("Walk-ins Created"),
                 value: stats?.walkins ?? 0,
                 icon: ClipboardList,
                 small: false,
               },
               {
-                label: "Worker Since",
+                label: t("Worker Since"),
                 value: addedOn,
                 icon: CalendarDays,
                 small: true,
@@ -220,7 +223,7 @@ export default function WorkerProfilePage() {
               </p>
             </div>
             <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium shrink-0">
-              {(facility.categories ?? []).map((c: any) => `${c.icon ?? ""} ${c.name}`.trim()).join(" · ") || "—"}
+              {(facility.categories ?? []).map((c: any) => `${c.icon ?? ""} ${t(c.name)}`.trim()).join(" · ") || "—"}
             </span>
           </div>
         )}
@@ -245,27 +248,27 @@ export default function WorkerProfilePage() {
           {/* ── Personal Info ── */}
           {tab === "personal" && (
             <form onSubmit={savePersonal} className="flex flex-col gap-5">
-              <Field label="Full Name">
+              <Field label={t("Full Name")}>
                 <div className="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all bg-white">
                   <User className="w-4 h-4 text-slate-400 shrink-0" />
                   <input
                     type="text" required value={pForm.name}
                     onChange={(e) => setPForm({ ...pForm, name: e.target.value })}
-                    placeholder="Your full name"
+                    placeholder={t("Your full name")}
                     className="flex-1 text-sm text-slate-900 outline-none bg-transparent placeholder:text-slate-400"
                   />
                 </div>
               </Field>
 
-              <Field label="Email Address">
+              <Field label={t("Email Address")}>
                 <div className="flex items-center gap-3 border border-slate-100 rounded-xl px-4 py-3 bg-slate-50">
                   <Mail className="w-4 h-4 text-slate-300 shrink-0" />
                   <span className="flex-1 text-sm text-slate-400">{user?.email}</span>
-                  <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">Read only</span>
+                  <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{t("Read only")}</span>
                 </div>
               </Field>
 
-              <Field label="Phone Number" hint="Used for scheduling and operational alerts.">
+              <Field label={t("Phone Number")} hint={t("Used for scheduling and operational alerts.")}>
                 <div className="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all bg-white">
                   <Phone className="w-4 h-4 text-slate-400 shrink-0" />
                   <input
@@ -282,7 +285,7 @@ export default function WorkerProfilePage() {
               <button type="submit" disabled={pSaving}
                 className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-3 rounded-xl transition-colors mt-1">
                 {pSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : pSaved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                {pSaved ? "Saved!" : pSaving ? "Saving…" : "Save Changes"}
+                {pSaved ? t("Saved!") : pSaving ? t("Saving…") : t("Save Changes")}
               </button>
             </form>
           )}
@@ -293,31 +296,31 @@ export default function WorkerProfilePage() {
               <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
                 <Shield className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-xs text-blue-700">
-                  Choose a strong password with at least 8 characters, mixing letters and numbers.
+                  {t("Choose a strong password with at least 8 characters, mixing letters and numbers.")}
                 </p>
               </div>
 
-              <PwField label="Current Password" value={pwForm.current}
+              <PwField label={t("Current Password")} value={pwForm.current}
                 show={showPw.current} onChange={(v) => setPwForm({ ...pwForm, current: v })}
                 onToggle={() => setShowPw((s) => ({ ...s, current: !s.current }))} />
-              <PwField label="New Password" value={pwForm.next}
+              <PwField label={t("New Password")} value={pwForm.next}
                 show={showPw.next} onChange={(v) => setPwForm({ ...pwForm, next: v })}
                 onToggle={() => setShowPw((s) => ({ ...s, next: !s.next }))} />
-              <PwField label="Confirm New Password" value={pwForm.confirm}
+              <PwField label={t("Confirm New Password")} value={pwForm.confirm}
                 show={showPw.confirm} onChange={(v) => setPwForm({ ...pwForm, confirm: v })}
                 onToggle={() => setShowPw((s) => ({ ...s, confirm: !s.confirm }))} />
 
-              {pwError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-2.5 rounded-xl">{pwError}</p>}
+              {pwError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-2.5 rounded-xl">{t(pwError)}</p>}
               {pwSaved && (
                 <p className="text-xs text-green-700 bg-green-50 border border-green-100 px-4 py-2.5 rounded-xl flex items-center gap-2">
-                  <CheckCircle className="w-3.5 h-3.5" />Password changed successfully.
+                  <CheckCircle className="w-3.5 h-3.5" />{t("Password changed successfully.")}
                 </p>
               )}
 
               <button type="submit" disabled={pwSaving}
                 className="flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-3 rounded-xl transition-colors mt-1">
                 {pwSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-                {pwSaving ? "Updating…" : "Update Password"}
+                {pwSaving ? t("Updating…") : t("Update Password")}
               </button>
             </form>
           )}

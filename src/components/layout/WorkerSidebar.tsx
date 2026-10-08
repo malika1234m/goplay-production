@@ -8,17 +8,21 @@ import { useState } from "react";
 import {
   LayoutDashboard, CalendarDays, CalendarCheck, Wrench, LogOut, User, Menu, X,
 } from "lucide-react";
+import { tk } from "@/i18n/core";
+import { useT } from "@/i18n/I18nProvider";
+import LanguageSwitch from "@/components/shared/LanguageSwitch";
 
 const navItems = [
-  { href: "/worker/dashboard",    label: "Dashboard",   icon: LayoutDashboard },
-  { href: "/worker/schedule",     label: "Schedule",    icon: CalendarDays    },
-  { href: "/worker/bookings",     label: "Bookings",    icon: CalendarCheck   },
-  { href: "/worker/maintenance",  label: "Maintenance", icon: Wrench          },
+  { href: "/worker/dashboard",    label: tk("Dashboard"),   icon: LayoutDashboard },
+  { href: "/worker/schedule",     label: tk("Schedule"),    icon: CalendarDays    },
+  { href: "/worker/bookings",     label: tk("Bookings"),    icon: CalendarCheck   },
+  { href: "/worker/maintenance",  label: tk("Maintenance"), icon: Wrench          },
 ];
 
 function SidebarContent({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { t } = useT();
 
   return (
     <div className="flex flex-col h-full">
@@ -28,7 +32,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           <Image src="/logo.jpeg" alt="GoPlay" width={34} height={34} className="rounded-lg object-contain bg-white" />
           <div>
             <span className="text-lg font-bold text-white">Go<span className="text-blue-400">Play</span></span>
-            <p className="text-xs text-slate-500">Ground Worker Portal</p>
+            <p className="text-xs text-slate-500">{t("Ground Worker Portal")}</p>
           </div>
         </Link>
         {onClose && (
@@ -52,7 +56,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" />
-              {label}
+              {t(label)}
             </Link>
           );
         })}
@@ -60,13 +64,17 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 
       {/* Footer */}
       <div className="px-3 py-4 border-t border-slate-800">
+        <div className="flex items-center justify-between px-3 pb-3">
+          <span className="text-xs text-slate-500">{t("Language")}</span>
+          <LanguageSwitch tone="dark" />
+        </div>
         <Link
           href="/worker/profile"
           onClick={onClose}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-sm transition-colors mb-1"
         >
           <User className="w-4 h-4 shrink-0" />
-          Profile
+          {t("Profile")}
         </Link>
         <div className="flex items-center gap-3 px-3 py-2 mb-2">
           <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0">
@@ -82,7 +90,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-slate-400 hover:text-red-400 hover:bg-slate-800 text-sm transition-colors"
         >
           <LogOut className="w-4 h-4 shrink-0" />
-          Sign out
+          {t("Sign out")}
         </button>
       </div>
     </div>
@@ -91,6 +99,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 
 export default function WorkerSidebar() {
   const [open, setOpen] = useState(false);
+  const { t } = useT();
 
   return (
     <>
@@ -101,13 +110,14 @@ export default function WorkerSidebar() {
 
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-slate-900 border-b border-slate-800 h-14 flex items-center px-4 gap-3">
-        <button onClick={() => setOpen(true)} className="text-slate-400 hover:text-white">
+        <button onClick={() => setOpen(true)} className="text-slate-400 hover:text-white" aria-label={t("Open menu")}>
           <Menu className="w-5 h-5" />
         </button>
         <Link href="/" className="flex items-center gap-2">
           <Image src="/logo.jpeg" alt="GoPlay" width={28} height={28} className="rounded-md object-contain bg-white" />
           <span className="text-base font-bold text-white">Go<span className="text-blue-400">Play</span></span>
         </Link>
+        <LanguageSwitch tone="dark" className="ml-auto" />
       </div>
 
       {/* Mobile drawer overlay */}

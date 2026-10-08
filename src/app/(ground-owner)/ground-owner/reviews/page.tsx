@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Star, MessageSquare, TrendingUp, Flag, Loader2, AlertTriangle } from "lucide-react";
+import { useT } from "@/i18n/I18nProvider";
+import { formatDay } from "@/i18n/core";
 
 interface Stats {
   avgRating:    number | null;
@@ -33,6 +35,7 @@ function StarRow({ rating }: { rating: number }) {
 }
 
 export default function ReviewsPage() {
+  const { t, locale } = useT();
   const [stats,         setStats]         = useState<Stats | null>(null);
   const [reviews,       setReviews]       = useState<Review[]>([]);
   const [loading,       setLoading]       = useState(true);
@@ -101,7 +104,7 @@ export default function ReviewsPage() {
         setReportingId(null);
       } else {
         const data = await res.json();
-        setReportError(data.error ?? "Failed to report.");
+        setReportError(data.error ?? t("Failed to report."));
       }
     } finally {
       setSubmittingReport(false);
@@ -112,7 +115,7 @@ export default function ReviewsPage() {
     return (
       <div className="flex items-center justify-center h-96 text-slate-400 gap-3">
         <Loader2 className="w-6 h-6 animate-spin" />
-        <span className="text-sm">Loading reviews…</span>
+        <span className="text-sm">{t("Loading reviews…")}</span>
       </div>
     );
   }
@@ -123,17 +126,16 @@ export default function ReviewsPage() {
     <div className="flex flex-col gap-7">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Reviews</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Customer feedback about your facilities</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t("Reviews")}</h1>
       </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Average Rating", value: stats?.avgRating ? `${stats.avgRating} / 5` : "—", icon: Star,          color: "bg-amber-50 text-amber-500" },
-          { label: "Total Reviews",  value: stats?.total ?? 0,                                  icon: MessageSquare, color: "bg-blue-50 text-blue-500"   },
-          { label: "Reported",       value: stats?.reported ?? 0,                               icon: Flag,          color: "bg-red-50 text-red-500"     },
-          { label: "This Week",      value: stats?.thisWeek ?? 0,                               icon: TrendingUp,    color: "bg-green-50 text-green-500" },
+          { label: t("Average Rating"), value: stats?.avgRating ? `${stats.avgRating} / 5` : "—", icon: Star,          color: "bg-amber-50 text-amber-500" },
+          { label: t("Total Reviews"),  value: stats?.total ?? 0,                                  icon: MessageSquare, color: "bg-blue-50 text-blue-500"   },
+          { label: t("Reported"),       value: stats?.reported ?? 0,                               icon: Flag,          color: "bg-red-50 text-red-500"     },
+          { label: t("This Week"),      value: stats?.thisWeek ?? 0,                               icon: TrendingUp,    color: "bg-green-50 text-green-500" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${color}`}>
@@ -148,7 +150,7 @@ export default function ReviewsPage() {
       {/* Distribution + Filters */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl border border-slate-100 p-5 lg:col-span-1">
-          <h2 className="text-sm font-semibold text-slate-900 mb-4">Rating Distribution</h2>
+          <h2 className="text-sm font-semibold text-slate-900 mb-4">{t("Rating Distribution")}</h2>
           <div className="flex flex-col gap-2.5">
             {(stats?.distribution ?? []).map(({ star, count }) => (
               <div key={star} className="flex items-center gap-2.5">
@@ -164,30 +166,30 @@ export default function ReviewsPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-100 p-5 lg:col-span-2 flex flex-col justify-between">
-          <h2 className="text-sm font-semibold text-slate-900 mb-4">Filter Reviews</h2>
+          <h2 className="text-sm font-semibold text-slate-900 mb-4">{t("Filter Reviews")}</h2>
           <div className="flex flex-wrap gap-3">
             <select value={filterRating} onChange={(e) => setFilterRating(e.target.value)}
               className="text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-600 outline-none focus:ring-2 focus:ring-green-500 bg-white">
-              <option value="">All Ratings</option>
+              <option value="">{t("All Ratings")}</option>
               {[5, 4, 3, 2, 1].map((r) => (
                 <option key={r} value={r}>{r} Star{r !== 1 ? "s" : ""}</option>
               ))}
             </select>
             <select value={filterReport} onChange={(e) => setFilterReport(e.target.value)}
               className="text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-600 outline-none focus:ring-2 focus:ring-green-500 bg-white">
-              <option value="">All Reviews</option>
-              <option value="yes">Reported Only</option>
-              <option value="no">Not Reported</option>
+              <option value="">{t("All Reviews")}</option>
+              <option value="yes">{t("Reported Only")}</option>
+              <option value="no">{t("Not Reported")}</option>
             </select>
             <select value={sort} onChange={(e) => setSort(e.target.value)}
               className="text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-600 outline-none focus:ring-2 focus:ring-green-500 bg-white">
-              <option value="newest">Newest First</option>
-              <option value="highest">Highest Rated</option>
-              <option value="lowest">Lowest Rated</option>
+              <option value="newest">{t("Newest First")}</option>
+              <option value="highest">{t("Highest Rated")}</option>
+              <option value="lowest">{t("Lowest Rated")}</option>
             </select>
             <button onClick={applyFilters}
               className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
-              Apply
+              {t("Apply")}
             </button>
           </div>
         </div>
@@ -197,9 +199,9 @@ export default function ReviewsPage() {
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-50">
           <h2 className="text-base font-semibold text-slate-900">
-            Reviews{" "}
+            {t("Reviews")}{" "}
             <span className="text-slate-400 font-normal text-sm">
-              ({reviews.length}{filteredTotal > reviews.length ? ` of ${filteredTotal}` : ""})
+              ({filteredTotal > reviews.length ? t("{shown} of {total}", { shown: reviews.length, total: filteredTotal }) : reviews.length})
             </span>
           </h2>
         </div>
@@ -207,7 +209,7 @@ export default function ReviewsPage() {
         {reviews.length === 0 ? (
           <div className="px-6 py-16 text-center">
             <Star className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No reviews match the current filters</p>
+            <p className="text-sm text-slate-400">{t("No reviews match the current filters")}</p>
           </div>
         ) : (
           <>
@@ -228,7 +230,7 @@ export default function ReviewsPage() {
                         <div className="flex items-center gap-2 mt-1">
                           <StarRow rating={rv.rating} />
                           <span className="text-xs text-slate-400">
-                            {new Date(rv.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                            {formatDay(new Date(rv.createdAt), locale, { month: "short", day: "numeric", year: "numeric" })}
                           </span>
                         </div>
                         {rv.reviewText && (
@@ -246,14 +248,14 @@ export default function ReviewsPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       {rv.reported ? (
                         <span className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-600 border border-red-100 px-2.5 py-1 rounded-full font-medium">
-                          <Flag className="w-3 h-3" />Reported
+                          <Flag className="w-3 h-3" />{t("Reported")}
                         </span>
                       ) : (
                         <button
                           onClick={() => openReport(rv.id)}
                           className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-red-500 border border-slate-200 hover:border-red-200 px-2.5 py-1 rounded-full transition-colors"
                         >
-                          <Flag className="w-3 h-3" />Report
+                          <Flag className="w-3 h-3" />{t("Report")}
                         </button>
                       )}
                     </div>
@@ -271,7 +273,7 @@ export default function ReviewsPage() {
                   className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-colors"
                 >
                   {loadingMore && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Load More Reviews
+                  {t("Load More Reviews")}
                 </button>
                 <p className="text-xs text-slate-400">
                   Showing {reviews.length} of {filteredTotal} reviews
@@ -290,14 +292,14 @@ export default function ReviewsPage() {
               <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center mb-3">
                 <AlertTriangle className="w-5 h-5 text-red-500" />
               </div>
-              <h3 className="text-base font-semibold text-slate-900 mb-1">Report Review</h3>
+              <h3 className="text-base font-semibold text-slate-900 mb-1">{t("Report Review")}</h3>
               <p className="text-sm text-slate-500 mb-4">
-                This review will be flagged for admin review. Please provide a brief reason.
+                {t("This review will be flagged for admin review. Please provide a brief reason.")}
               </p>
               <textarea
                 value={reportReason}
                 onChange={(e) => setReportReason(e.target.value)}
-                placeholder="Reason for reporting (e.g. inappropriate content, spam)…"
+                placeholder={t("Reason for reporting (e.g. inappropriate content, spam)…")}
                 rows={3}
                 className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-red-400 placeholder:text-slate-400 resize-none"
               />
@@ -307,12 +309,12 @@ export default function ReviewsPage() {
               <div className="flex gap-3 mt-4">
                 <button onClick={() => setReportingId(null)}
                   className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button onClick={submitReport} disabled={submittingReport}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 disabled:bg-slate-100 disabled:text-slate-400 rounded-xl transition-colors">
                   {submittingReport && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  Submit Report
+                  {t("Submit Report")}
                 </button>
               </div>
             </div>

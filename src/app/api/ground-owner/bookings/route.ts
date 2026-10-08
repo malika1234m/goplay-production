@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
+import { activeBookingWindow } from "@/lib/booking-window";
 import { BookingStatus } from "@prisma/client";
 
 const VALID_BOOKING_STATUSES = new Set<string>(Object.values(BookingStatus));
@@ -34,8 +35,7 @@ export async function GET(req: NextRequest) {
       if (from) dateFilter.gte = new Date(from);
       if (to)   { const t = new Date(to); t.setHours(23,59,59,999); dateFilter.lte = t; }
     } else {
-      const since = new Date(); since.setDate(since.getDate() - 30); since.setHours(0,0,0,0);
-      dateFilter = { gte: since };
+      dateFilter = activeBookingWindow().bookingDate;
     }
 
     const where = {

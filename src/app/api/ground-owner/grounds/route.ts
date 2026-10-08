@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
+import { parsePaymentOptions } from "@/lib/payment-options";
 
 export async function GET(req: NextRequest) {
   try {
@@ -76,7 +77,10 @@ export async function POST(req: NextRequest) {
     });
     if (!profile) return Response.json({ error: "Profile not found" }, { status: 404 });
 
-    const { name, description, address, city, hourlyRate, capacity, amenities, categoryIds, images } = await req.json();
+    const { name, description, address, city, hourlyRate, capacity, amenities, categoryIds, images, paymentOptions } = await req.json();
+    // Older app versions don't send this — the setup guide asks for it later
+    const payOpts = parsePaymentOptions(paymentOptions);
+    if (payOpts === "invalid") return Response.json({ error: "Choose how players pay: at the ground, online, or both." }, { status: 400 });
 
     const trimmedName    = (name    ?? "").trim();
     const trimmedAddress = (address ?? "").trim();
@@ -107,6 +111,7 @@ export async function POST(req: NextRequest) {
         capacity:    capacity ? Number(capacity) : null,
         amenities:   amenities || [],
         images:      Array.isArray(images) ? images : [],
+        paymentOptions: payOpts,
         status:      "PENDING",
         categories:  { connect: (categoryIds as string[]).map((id) => ({ id })) },
         ownerId:     profile.id,

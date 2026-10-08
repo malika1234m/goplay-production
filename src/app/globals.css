@@ -8,9 +8,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-inter), var(--font-sinhala), sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-scoreboard: var(--font-barlow), var(--font-inter), sans-serif;
+  --font-scoreboard: var(--font-barlow), var(--font-inter), var(--font-sinhala), sans-serif;
 
   /* Payments: pitch green, deep pitch ink, slip paper, rule, deadline amber */
   --color-pitch: #15803d;
@@ -23,7 +23,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), var(--font-sinhala), Arial, Helvetica, sans-serif;
 }
 
 * {
@@ -33,3 +33,6 @@ body {
 html {
   scroll-behavior: smooth;
 }
+
+/* Sinhala letters sit taller than Latin ones; give wrapped lines a little more room */
+:lang(si) body { line-height: 1.6; }

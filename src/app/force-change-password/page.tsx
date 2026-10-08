@@ -5,14 +5,17 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { Eye, EyeOff, Loader2, ShieldCheck, Lock, CheckCircle } from "lucide-react";
+import { useT } from "@/i18n/I18nProvider";
+import { tk } from "@/i18n/core";
 
 const REQUIREMENTS = [
-  { label: "At least 8 characters",     test: (p: string) => p.length >= 8 },
-  { label: "At least one letter",       test: (p: string) => /[a-zA-Z]/.test(p) },
-  { label: "At least one number",       test: (p: string) => /\d/.test(p) },
+  { label: tk("At least 8 characters"),     test: (p: string) => p.length >= 8 },
+  { label: tk("At least one letter"),       test: (p: string) => /[a-zA-Z]/.test(p) },
+  { label: tk("At least one number"),       test: (p: string) => /\d/.test(p) },
 ];
 
 export default function ForceChangePasswordPage() {
+  const { t } = useT();
   const router = useRouter();
   const { data: session } = useSession();
 
@@ -30,8 +33,8 @@ export default function ForceChangePasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!allMet)          { setError("Please meet all password requirements."); return; }
-    if (!passwordsMatch)  { setError("Passwords do not match."); return; }
+    if (!allMet)          { setError(t("Please meet all password requirements.")); return; }
+    if (!passwordsMatch)  { setError(t("Passwords do not match.")); return; }
 
     setLoading(true);
     setError("");
@@ -45,7 +48,7 @@ export default function ForceChangePasswordPage() {
     setLoading(false);
 
     if (!res.ok) {
-      setError(data.error ?? "Failed to update password.");
+      setError(data.error ?? t("Failed to update password."));
       return;
     }
 
@@ -55,7 +58,7 @@ export default function ForceChangePasswordPage() {
       ? "/admin/dashboard"
       : role === "GROUND_WORKER"
       ? "/worker/dashboard"
-      : "/ground-owner/dashboard";
+      : "/ground-owner/setup";   // newly approved owners land on the setup guide
     setTimeout(() => router.push(dest), 2500);
   };
 
@@ -66,9 +69,9 @@ export default function ForceChangePasswordPage() {
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Password Updated!</h2>
-          <p className="text-slate-500 text-sm mb-1">Your account is now secured.</p>
-          <p className="text-xs text-slate-400">Redirecting to your dashboard...</p>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">{t("Password Updated!")}</h2>
+          <p className="text-slate-500 text-sm mb-1">{t("Your account is now secured.")}</p>
+          <p className="text-xs text-slate-400">{t("Redirecting to your dashboard...")}</p>
           <div className="mt-4 w-full bg-slate-100 rounded-full h-1">
             <div className="bg-green-500 h-1 rounded-full animate-[grow_2.5s_linear_forwards]" />
           </div>
@@ -93,13 +96,13 @@ export default function ForceChangePasswordPage() {
                 <ShieldCheck className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-white font-bold text-lg leading-tight">Security Update Required</h1>
+                <h1 className="text-white font-bold text-lg leading-tight">{t("Security Update Required")}</h1>
                 <p className="text-green-100 text-sm mt-1 leading-relaxed">
                   {session?.user?.role === "GROUND_WORKER"
-                    ? "You've been added as a Ground Worker. Please set a new password to secure your account before continuing."
+                    ? t("You've been added as a Ground Worker. Please set a new password to secure your account before continuing.")
                     : session?.user?.role === "ADMIN"
-                    ? "Please set a new password to secure your admin account before continuing."
-                    : "Congratulations on becoming a Ground Owner! Please set a new password to secure your upgraded account before continuing."}
+                    ? t("Please set a new password to secure your admin account before continuing.")
+                    : t("Congratulations on becoming a Ground Owner! Please set a new password to secure your upgraded account before continuing.")}
                 </p>
               </div>
             </div>
@@ -112,7 +115,7 @@ export default function ForceChangePasswordPage() {
               {/* Current password */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                  Current Password <span className="text-red-500">*</span>
+                  {t("Current Password")} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -121,7 +124,7 @@ export default function ForceChangePasswordPage() {
                     required
                     value={form.currentPassword}
                     onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
-                    placeholder="Your registration password"
+                    placeholder={t("Your registration password")}
                     className="w-full pl-9 pr-10 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 placeholder:text-slate-400"
                   />
                   <button
@@ -137,7 +140,7 @@ export default function ForceChangePasswordPage() {
               {/* New password */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                  New Password <span className="text-red-500">*</span>
+                  {t("New Password")} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -146,7 +149,7 @@ export default function ForceChangePasswordPage() {
                     required
                     value={form.newPassword}
                     onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
-                    placeholder="Choose a strong password"
+                    placeholder={t("Choose a strong password")}
                     className="w-full pl-9 pr-10 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 placeholder:text-slate-400"
                   />
                   <button
@@ -164,7 +167,7 @@ export default function ForceChangePasswordPage() {
                     {req.map((r) => (
                       <li key={r.label} className={`flex items-center gap-1.5 text-xs ${r.met ? "text-green-600" : "text-slate-400"}`}>
                         <CheckCircle className={`w-3.5 h-3.5 ${r.met ? "text-green-500" : "text-slate-300"}`} />
-                        {r.label}
+                        {t(r.label)}
                       </li>
                     ))}
                   </ul>
@@ -174,7 +177,7 @@ export default function ForceChangePasswordPage() {
               {/* Confirm password */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                  Confirm New Password <span className="text-red-500">*</span>
+                  {t("Confirm New Password")} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -183,7 +186,7 @@ export default function ForceChangePasswordPage() {
                     required
                     value={form.confirmPassword}
                     onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                    placeholder="Re-enter new password"
+                    placeholder={t("Re-enter new password")}
                     className={`w-full pl-9 pr-10 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 placeholder:text-slate-400 ${
                       form.confirmPassword
                         ? passwordsMatch
@@ -201,13 +204,13 @@ export default function ForceChangePasswordPage() {
                   </button>
                 </div>
                 {form.confirmPassword && !passwordsMatch && (
-                  <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+                  <p className="text-xs text-red-500 mt-1">{t("Passwords do not match")}</p>
                 )}
               </div>
 
               {error && (
                 <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
-                  {error}
+                  {t(error)}
                 </div>
               )}
 
@@ -217,13 +220,13 @@ export default function ForceChangePasswordPage() {
                 className="w-full bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-1"
               >
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                {loading ? "Updating Password..." : "Update Password & Continue"}
+                {loading ? t("Updating Password...") : t("Update Password & Continue")}
               </button>
             </form>
 
             <p className="text-center text-xs text-slate-400 mt-5">
-              This step is required to access your dashboard.
-              <br />You cannot skip this step.
+              {t("This step is required to access your dashboard.")}
+              <br />{t("You cannot skip this step.")}
             </p>
           </div>
         </div>

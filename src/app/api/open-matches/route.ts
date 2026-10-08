@@ -107,6 +107,9 @@ export async function POST(req: NextRequest) {
   if (!category) return Response.json({ error: "Sport category not found." }, { status: 404 });
 
   const paymentDetails = resolvePaymentDetails(facility);
+  if (facility.paymentOptions === "ON_ARRIVAL_ONLY") {
+    return Response.json({ error: "This ground only takes payment at the ground, so open matches aren't available here." }, { status: 400 });
+  }
   if (!paymentDetails) {
     return Response.json({ error: "This ground has not set up online payments yet, so open matches can't be created here." }, { status: 400 });
   }

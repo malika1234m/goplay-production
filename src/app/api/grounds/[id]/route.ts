@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
+import { bookablePaymentMethods } from "@/lib/payment-options";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -25,7 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           take: 10,
         },
         owner: {
-          select: { user: { select: { name: true } } },
+          select: { user: { select: { name: true } }, ...paymentDetailsSelect.owner.select },
         },
       },
     });
@@ -63,6 +65,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         avgRating:    avgRating ? Math.round(avgRating * 10) / 10 : null,
         totalReviews: ground.reviews.length,
         ownerName:    ground.owner.user.name,
+        // Which payment methods a player can pick for this ground right now
+        paymentMethods: bookablePaymentMethods(ground.paymentOptions, resolvePaymentDetails(ground) !== null),
       },
     }, {
       headers: {

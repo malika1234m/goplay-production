@@ -3,13 +3,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import {
-  Calendar, Clock, MapPin, Search, Loader2, CheckCircle, XCircle,
-  Check, CreditCard, Banknote, AlertTriangle, ChevronDown, Bell, UserPlus, X,
-  User, Phone, StickyNote, Clock3, BadgeInfo, CheckCircle2, PhoneCall, History,
-  UserX, ShieldAlert, Zap,
+  Calendar, Clock, MapPin, Search, Loader2, CheckCircle, XCircle, Check, CreditCard, Banknote, AlertTriangle, UserPlus, X, User, Phone, StickyNote, Clock3, BadgeInfo, CheckCircle2, History, UserX, ShieldAlert,
 } from "lucide-react";
 import { TimeRangePicker } from "@/components/booking/TimeRangePicker";
-import ActionInbox from "@/components/payments/ActionInbox";
+import ActionInbox, { type InboxCounts } from "@/components/payments/ActionInbox";
+import { tk, type T, formatDay } from "@/i18n/core";
+import { RowAmount, RowGroup, RowTag, RowWhen, RowWho, TypeBadge, TypeLegend, bookingType, primaryBtn, quietBtn, typedRow } from "@/components/payments/BookingRow";
+import { useT } from "@/i18n/I18nProvider";
 
 function timeToMins(t: string) {
   const [h, m] = t.split(":").map(Number);
@@ -20,8 +20,8 @@ function isoDateStr(d: Date) { return d.toISOString().split("T")[0]; }
 
 function dateOnly(dateStr: string) { return dateStr.slice(0, 10); }
 
-function fmtShort(dateStr: string) {
-  return new Date(dateOnly(dateStr) + "T00:00:00").toLocaleDateString("en-US", {
+function fmtShort(dateStr: string, locale: string) {
+  return formatDay(new Date(dateOnly(dateStr) + "T00:00:00"), locale, {
     weekday: "short", month: "short", day: "numeric", year: "numeric",
   });
 }
@@ -51,11 +51,11 @@ interface Booking {
 }
 
 /* Resolve the display name regardless of booking type */
-function getDisplayName(b: Booking): string {
+function getDisplayName(b: Booking, t: T): string {
   if (b.isOpenMatch) return "GoPlay Connect";
   const isWalkIn = b.specialRequests?.startsWith("[Walk-in]");
   if (isWalkIn) {
-    return b.specialRequests!.replace("[Walk-in]", "").trim().split(" — ")[0].trim() || "Phone Booking";
+    return b.specialRequests!.replace("[Walk-in]", "").trim().split(" — ")[0].trim() || t("Phone Booking");
   }
   return b.user.name;
 }
@@ -73,31 +73,13 @@ function isPastDue(b: Booking): boolean {
   return b.status === "CONFIRMED" && isSessionOver(b);
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+function formatDate(dateStr: string, locale: string) {
+  return formatDay(new Date(dateStr), locale, {
     weekday: "short", month: "short", day: "numeric", year: "numeric",
   });
 }
 
-function PaymentBadge({ method, pStatus }: { method: string; pStatus: string }) {
-  if (method === "ONLINE") {
-    if (pStatus === "PAID")     return <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Transfer Confirmed</span>;
-    if (pStatus === "RECEIPT_SUBMITTED") return <Link href="/ground-owner/bookings" className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-semibold hover:bg-amber-200"><CreditCard className="w-3 h-3" />Receipt to review →</Link>;
-    if (pStatus === "REJECTED") return <span className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Receipt Rejected</span>;
-    if (pStatus === "FAILED")   return <span className="inline-flex items-center gap-1 text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Payment Failed</span>;
-    if (pStatus === "REFUNDED") return <span className="inline-flex items-center gap-1 text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Refunded</span>;
-    return <span className="inline-flex items-center gap-1 text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium"><CreditCard className="w-3 h-3" />Awaiting Transfer Receipt</span>;
-  }
-  return <span className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium"><Banknote className="w-3 h-3" />Cash on Arrival</span>;
-}
 
-const statusStyles: Record<string, string> = {
-  PENDING:   "bg-amber-50 text-amber-700 border-amber-100",
-  CONFIRMED: "bg-green-50 text-green-700 border-green-100",
-  COMPLETED: "bg-slate-100 text-slate-600 border-slate-200",
-  CANCELLED: "bg-red-50 text-red-600 border-red-100",
-  NO_SHOW:   "bg-purple-50 text-purple-600 border-purple-100",
-};
 
 /* ── Owner cancel warning modal ── */
 interface CancelWarningModalProps {
@@ -108,6 +90,7 @@ interface CancelWarningModalProps {
 }
 
 function CancelWarningModal({ booking, onClose, onConfirm, loading }: CancelWarningModalProps) {
+  const { t, locale } = useT();
   const isOnlinePaid = booking.paymentMethod === "ONLINE" && booking.paymentStatus === "PAID";
 
   return (
@@ -118,50 +101,49 @@ function CancelWarningModal({ booking, onClose, onConfirm, loading }: CancelWarn
             <ShieldAlert className="w-5 h-5 text-red-600" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 text-base">Cancel Booking</h3>
-            <p className="text-xs text-slate-400">Review the impact before confirming</p>
+            <h3 className="font-bold text-slate-900 text-base">{t("Cancel Booking")}</h3>
           </div>
         </div>
 
         <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-slate-500">Player</span>
+            <span className="text-slate-500">{t("Player")}</span>
             <span className="font-medium">{booking.user.name}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Date</span>
-            <span className="font-medium">{formatDate(booking.bookingDate)}</span>
+            <span className="text-slate-500">{t("Date")}</span>
+            <span className="font-medium">{formatDate(booking.bookingDate, locale)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Amount</span>
-            <span className="font-bold text-slate-900">Rs. {booking.totalAmount.toLocaleString()}</span>
+            <span className="text-slate-500">{t("Amount")}</span>
+            <span className="font-bold text-slate-900">{t("Rs.")} {booking.totalAmount.toLocaleString()}</span>
           </div>
         </div>
 
         {isOnlinePaid && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 space-y-1">
             <p className="font-semibold flex items-center gap-1.5">
-              <CreditCard className="w-3.5 h-3.5" /> Full Refund Will Be Issued
+              <CreditCard className="w-3.5 h-3.5" /> {t("Full Refund Will Be Issued")}
             </p>
-            <p>The player paid online. Cancelling will flag this for a <strong>100% refund (Rs. {booking.totalAmount.toLocaleString()})</strong>. Our admin team will process it.</p>
+            <p>{t("You'll owe a full refund of Rs. {amount}.", { amount: booking.totalAmount.toLocaleString() })}</p>
           </div>
         )}
 
         <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-800 space-y-1">
           <p className="font-semibold flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5" /> Strike Warning
+            <AlertTriangle className="w-3.5 h-3.5" /> {t("Strike Warning")}
           </p>
-          <p>Owner cancellations add a <strong>strike</strong> to your facility. At <strong>3 strikes in 90 days</strong>, your listing may be automatically suspended. Please only cancel if absolutely necessary.</p>
+          <p>{t("Adds a strike. 3 strikes in 90 days can suspend your listing.")}</p>
         </div>
 
         <div className="flex gap-3">
           <button onClick={onClose} disabled={loading} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
-            Keep Booking
+            {t("Keep Booking")}
           </button>
           <button onClick={onConfirm} disabled={loading}
             className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
-            Confirm Cancel
+            {t("Confirm Cancel")}
           </button>
         </div>
       </div>
@@ -178,6 +160,7 @@ interface NoShowModalProps {
 }
 
 function NoShowModal({ booking, onClose, onConfirm, loading }: NoShowModalProps) {
+  const { t, locale } = useT();
   const isOnline = booking.paymentMethod === "ONLINE";
 
   return (
@@ -188,54 +171,53 @@ function NoShowModal({ booking, onClose, onConfirm, loading }: NoShowModalProps)
             <UserX className="w-5 h-5 text-purple-600" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 text-base">Mark as No-Show</h3>
-            <p className="text-xs text-slate-400">Player did not arrive for their booking</p>
+            <h3 className="font-bold text-slate-900 text-base">{t("Mark as No-Show")}</h3>
           </div>
         </div>
 
         <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-slate-500">Player</span>
-            <span className="font-medium">{getDisplayName(booking)}</span>
+            <span className="text-slate-500">{t("Player")}</span>
+            <span className="font-medium">{getDisplayName(booking, t)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Date</span>
-            <span className="font-medium">{formatDate(booking.bookingDate)}</span>
+            <span className="text-slate-500">{t("Date")}</span>
+            <span className="font-medium">{formatDate(booking.bookingDate, locale)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Time</span>
+            <span className="text-slate-500">{t("Time")}</span>
             <span className="font-medium">{booking.startTime} – {booking.endTime}</span>
           </div>
           <div className="flex justify-between border-t border-slate-100 pt-2">
-            <span className="text-slate-500">Amount</span>
-            <span className="font-bold text-slate-900">Rs. {booking.totalAmount.toLocaleString()}</span>
+            <span className="text-slate-500">{t("Amount")}</span>
+            <span className="font-bold text-slate-900">{t("Rs.")} {booking.totalAmount.toLocaleString()}</span>
           </div>
         </div>
 
         {isOnline ? (
           <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-800">
-            <p className="font-semibold">You Keep the Payment</p>
-            <p className="mt-0.5">Player paid online but did not arrive. The payment is yours — no refund will be issued for no-shows.</p>
+            <p className="font-semibold">{t("You Keep the Payment")}</p>
+            <p className="mt-0.5">{t("No refund for no-shows.")}</p>
           </div>
         ) : (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
-            <p className="font-semibold">Cash Booking — No Payment Collected</p>
-            <p className="mt-0.5">No cash was collected. The slot was blocked but no revenue was lost on the platform side.</p>
+            <p className="font-semibold">{t("Cash Booking — No Payment Collected")}</p>
+            <p className="mt-0.5">{t("No cash was collected.")}</p>
           </div>
         )}
 
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-800">
-          The player&apos;s no-show count will be recorded. Repeated no-shows may restrict their booking privileges.
+          {t("This counts against the player.")}
         </div>
 
         <div className="flex gap-3">
           <button onClick={onClose} disabled={loading} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50">
-            Cancel
+            {t("Cancel")}
           </button>
           <button onClick={onConfirm} disabled={loading}
             className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
-            Mark No-Show
+            {t("Mark No-Show")}
           </button>
         </div>
       </div>
@@ -252,6 +234,7 @@ interface CompleteModalProps {
 }
 
 function CompleteModal({ booking, onClose, onConfirm, loading }: CompleteModalProps) {
+  const { t, locale } = useT();
   const isCash = booking.paymentMethod === "ON_ARRIVAL";
   const [cashReceived, setCashReceived] = useState<boolean | null>(isCash ? null : true);
 
@@ -269,32 +252,31 @@ function CompleteModal({ booking, onClose, onConfirm, loading }: CompleteModalPr
             <CheckCircle className="w-5 h-5 text-green-600" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 text-base">Mark Session Complete</h3>
-            <p className="text-xs text-slate-400">Confirm the session has finished</p>
+            <h3 className="font-bold text-slate-900 text-base">{t("Mark Session Complete")}</h3>
           </div>
         </div>
 
         {/* Booking summary */}
         <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-slate-500">Player</span>
-            <span className="font-medium text-slate-800">{getDisplayName(booking)}</span>
+            <span className="text-slate-500">{t("Player")}</span>
+            <span className="font-medium text-slate-800">{getDisplayName(booking, t)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Date</span>
-            <span className="font-medium text-slate-800">{formatDate(booking.bookingDate)}</span>
+            <span className="text-slate-500">{t("Date")}</span>
+            <span className="font-medium text-slate-800">{formatDate(booking.bookingDate, locale)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Time</span>
+            <span className="text-slate-500">{t("Time")}</span>
             <span className="font-medium text-slate-800">{booking.startTime} – {booking.endTime}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Ground</span>
+            <span className="text-slate-500">{t("Ground")}</span>
             <span className="font-medium text-slate-800">{booking.facility.name}</span>
           </div>
           <div className="border-t border-slate-200 pt-2 flex justify-between">
-            <span className="text-slate-500">Amount</span>
-            <span className="font-bold text-slate-900">Rs. {booking.totalAmount.toLocaleString()}</span>
+            <span className="text-slate-500">{t("Amount")}</span>
+            <span className="font-bold text-slate-900">{t("Rs.")} {booking.totalAmount.toLocaleString()}</span>
           </div>
         </div>
 
@@ -303,7 +285,7 @@ function CompleteModal({ booking, onClose, onConfirm, loading }: CompleteModalPr
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Banknote className="w-4 h-4 text-emerald-600" />
-              Did you receive the cash payment?
+              {t("Did you receive the cash payment?")}
             </div>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -315,7 +297,7 @@ function CompleteModal({ booking, onClose, onConfirm, loading }: CompleteModalPr
                 }`}
               >
                 <Check className="w-4 h-4" />
-                Yes, received
+                {t("Yes, received")}
               </button>
               <button
                 onClick={() => setCashReceived(false)}
@@ -326,12 +308,12 @@ function CompleteModal({ booking, onClose, onConfirm, loading }: CompleteModalPr
                 }`}
               >
                 <XCircle className="w-4 h-4" />
-                Not yet
+                {t("Not yet")}
               </button>
             </div>
             {cashReceived === false && (
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                Booking will be marked complete but payment will remain as pending. You can follow up with the player directly.
+                {t("Payment stays as pending.")}
               </p>
             )}
           </div>
@@ -343,7 +325,7 @@ function CompleteModal({ booking, onClose, onConfirm, loading }: CompleteModalPr
             onClick={onClose}
             className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:border-slate-300 transition-colors"
           >
-            Cancel
+            {t("Cancel")}
           </button>
           <button
             onClick={() => canConfirm && onConfirm(cashReceived!)}
@@ -351,7 +333,7 @@ function CompleteModal({ booking, onClose, onConfirm, loading }: CompleteModalPr
             className="flex-1 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-            Confirm
+            {t("Confirm")}
           </button>
         </div>
       </div>
@@ -372,209 +354,80 @@ interface BookingCardProps {
 }
 
 function BookingCard({ booking: b, pastDue, sessionOver, updating, onConfirmBooking, onCancelBooking, onMarkComplete, onMarkNoShow }: BookingCardProps) {
+  const { t, tn } = useT();
+  const isWalkIn = !b.isOpenMatch && (b.specialRequests?.startsWith("[Walk-in]") ?? false);
+  const name     = getDisplayName(b, t);
+  const phone    = b.isOpenMatch ? null : b.contactNumber ?? (!isWalkIn ? b.user.phone : null);
+  const note     = b.isOpenMatch || !b.specialRequests ? null
+    : isWalkIn ? b.specialRequests.replace("[Walk-in] ", "").split(" — ")[1] ?? null : b.specialRequests;
+  const place    = [b.facility.name, b.court?.name].filter(Boolean).join(", ");
+  const awaitingTransfer = b.status === "PENDING" && b.paymentMethod === "ONLINE" && b.paymentStatus !== "PAID";
+
+  const statusTag: Record<string, [string, "neutral" | "pitch" | "amber" | "red" | "blue"]> = {
+    PENDING:   [t("Request"), "amber"],
+    CONFIRMED: [t("Confirmed"), "pitch"],
+    COMPLETED: [t("Played"), "neutral"],
+    CANCELLED: [t("Cancelled"), "red"],
+    NO_SHOW:   [t("No-show"), "red"],
+  };
+  const type = bookingType(b);
+  // Only online bookings carry a separate payment state; cash is settled when the session is closed
+  const payTag: [string, "neutral" | "pitch" | "amber" | "red" | "blue"] | null =
+    b.paymentMethod === "ON_ARRIVAL" ? null
+    : b.paymentStatus === "PAID" ? [t("Transfer confirmed"), "pitch"]
+    : b.paymentStatus === "RECEIPT_SUBMITTED" ? [t("Receipt to check"), "amber"]
+    : b.paymentStatus === "REJECTED" ? [t("Receipt sent back"), "red"]
+    : b.paymentStatus === "REFUNDED" ? [t("Refunded"), "neutral"]
+    : [t("Waiting for transfer"), "blue"];
+
   return (
-    <div className={`bg-white rounded-2xl border p-5 transition-all ${
-      pastDue ? "border-amber-200 ring-1 ring-amber-100" : b.isOpenMatch ? "border-teal-100" : "border-slate-100"
-    }`}>
-      {/* Past-due warning strip */}
-      {pastDue && (
-        <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-4">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          Session date has passed — please mark this booking as complete
-        </div>
-      )}
-
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex-1 min-w-0">
-          {/* Player / Open Match header */}
-          {b.isOpenMatch && b.openMatch ? (
-            <div className="mb-3">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <div className="w-8 h-8 rounded-full bg-teal-600 flex items-center justify-center shrink-0">
-                  <Zap className="w-4 h-4 text-white" />
-                </div>
-                <span className="font-semibold text-slate-900">GoPlay Connect</span>
-                <span className="text-[10px] font-semibold bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">Open Match</span>
-                <span className="text-xs text-slate-500">{b.openMatch.category.name}</span>
-                <Link
-                  href={`/open-matches/${b.openMatch.id}`}
-                  target="_blank"
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-2 py-0.5 rounded-lg transition-colors"
-                >
-                  <Zap className="w-3 h-3" /> View Lobby
-                </Link>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {b.openMatch.spots.map((s, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
-                    <User className="w-3 h-3 text-slate-400" />
-                    {s.user.name}{s.groupSize > 1 ? ` ×${s.groupSize}` : ""}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : (() => {
-            const isWalkIn = b.specialRequests?.startsWith("[Walk-in]");
-            const walkInName = isWalkIn
-              ? b.specialRequests!.replace("[Walk-in] ", "").split(" — ")[0]
-              : null;
-            const displayName  = walkInName ?? b.user.name;
-            const displayEmail = isWalkIn ? "Phone booking" : b.user.email;
-            return (
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
-                  isWalkIn ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
-                }`}>
-                  {displayName[0].toUpperCase()}
-                </div>
-                <span className="font-semibold text-slate-900">{displayName}</span>
-                {isWalkIn && (
-                  <span className="text-[10px] font-medium bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">Phone</span>
-                )}
-                <span className="text-slate-300">·</span>
-                <span className="text-sm text-slate-500">{displayEmail}</span>
-              </div>
-            );
-          })()}
-
-          <div className="flex items-center gap-1 text-slate-400 text-sm mb-2 flex-wrap">
-            <MapPin className="w-3.5 h-3.5 shrink-0" />
-            {b.facility.name}, {b.facility.city}
-            {b.court && (
-              <span className="inline-flex items-center gap-1 text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full ml-1">
-                {b.court.name}
-              </span>
-            )}
+    <li className={typedRow(type)}>
+      <RowWhen date={b.bookingDate} startTime={b.startTime} endTime={b.endTime} />
+      <div className="flex-1 min-w-0">
+        <RowWho name={name} place={b.isOpenMatch && b.openMatch ? `${place} — ${t("{sport} open match", { sport: t(b.openMatch.category.name) })}` : place} phone={phone}>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <RowTag tone={statusTag[b.status]?.[1] ?? "neutral"}>{statusTag[b.status]?.[0] ?? b.status}</RowTag>
+            <TypeBadge type={type} />
+            {payTag && <RowTag tone={payTag[1]}>{payTag[0]}</RowTag>}
+            {pastDue && <RowTag tone="amber">{t("Session ended — close it")}</RowTag>}
+            {b.status === "PENDING" && sessionOver && <RowTag tone="amber">{t("Date passed")}</RowTag>}
           </div>
-
-          <div className="mb-3">
-            <PaymentBadge method={b.paymentMethod} pStatus={b.paymentStatus} />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
-            <div className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              {formatDate(b.bookingDate)}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              {b.startTime} – {b.endTime}
-              <span className="text-slate-400 text-xs">
-                ({b.totalHours} {b.totalHours === 1 ? "hr" : "hrs"})
-              </span>
-            </div>
-            <span className="font-semibold text-slate-900">Rs. {b.totalAmount.toLocaleString()}</span>
-          </div>
-
-          {b.specialRequests && !b.isOpenMatch && (() => {
-            const isWalkIn = b.specialRequests.startsWith("[Walk-in]");
-            const note = isWalkIn
-              ? b.specialRequests.replace("[Walk-in] ", "").split(" — ")[1]
-              : b.specialRequests;
-            return note
-              ? <p className="mt-2 text-xs text-slate-500 italic">&ldquo;{note}&rdquo;</p>
-              : null;
-          })()}
-
-          {(() => {
-            if (b.isOpenMatch) return null;
-            const isWalkIn = b.specialRequests?.startsWith("[Walk-in]");
-            const phone = b.contactNumber ?? (!isWalkIn ? b.user.phone : null);
-            return phone ? (
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-xs text-slate-500 flex items-center gap-1.5">
-                  <PhoneCall className="w-3 h-3 text-slate-400" />
-                  {phone}
-                </span>
-                <a
-                  href={`tel:${phone}`}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-green-500 hover:bg-green-600 px-2.5 py-1 rounded-lg transition-colors"
-                >
-                  <PhoneCall className="w-3 h-3" />
-                  Call
-                </a>
-              </div>
-            ) : null;
-          })()}
-        </div>
-
-        {/* Status + actions */}
-        <div className="flex flex-col items-end gap-3 shrink-0">
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${statusStyles[b.status]}`}>
-            {b.status.charAt(0) + b.status.slice(1).toLowerCase()}
-          </span>
-
-          {b.status === "PENDING" && (
-            <div className="flex gap-2">
-              {b.paymentMethod === "ONLINE" && b.paymentStatus !== "PAID" ? (
-                <Link
-                  href="/ground-owner/bookings"
-                  className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  <CreditCard className="w-3 h-3" />
-                  {b.paymentStatus === "RECEIPT_SUBMITTED" ? "Review receipt" : "Awaiting receipt"}
-                </Link>
-              ) : (
-              <button
-                onClick={onConfirmBooking}
-                disabled={updating}
-                className="flex items-center gap-1.5 text-xs bg-green-600 hover:bg-green-700 text-white font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {updating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                Confirm
-              </button>
-              )}
-              {!b.isOpenMatch && (
-                <button
-                  onClick={onCancelBooking}
-                  disabled={updating}
-                  className="flex items-center gap-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-600 font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <XCircle className="w-3 h-3" />
-                  Cancel
-                </button>
-              )}
-            </div>
+          {b.isOpenMatch && b.openMatch && (
+            <p className="mt-1.5 text-sm text-slate-500">
+              {b.openMatch.spots.map((sp) => `${sp.user.name}${sp.groupSize > 1 ? ` ×${sp.groupSize}` : ""}`).join(", ")}{" "}
+              <Link href={`/open-matches/${b.openMatch.id}`} target="_blank" className="text-pitch hover:underline">{t("View lobby")}</Link>
+            </p>
           )}
-
-          {b.status === "CONFIRMED" && (
-            <div className="flex flex-col gap-2 items-end">
-              <div className="relative group">
-                <button
-                  onClick={sessionOver ? onMarkComplete : undefined}
-                  disabled={updating || !sessionOver}
-                  className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                    !sessionOver
-                      ? "bg-slate-50 text-slate-300 cursor-not-allowed"
-                      : pastDue
-                      ? "bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50"
-                      : "bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-50"
-                  }`}
-                >
-                  {updating ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
-                  Mark Complete
-                </button>
-                {!sessionOver && (
-                  <div className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block z-10 whitespace-nowrap bg-slate-800 text-white text-xs rounded-lg px-2.5 py-1.5 pointer-events-none">
-                    Session hasn&apos;t ended yet
-                  </div>
-                )}
-              </div>
-              {sessionOver && !b.isOpenMatch && (
-                <button
-                  onClick={onMarkNoShow}
-                  disabled={updating}
-                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors bg-purple-50 hover:bg-purple-100 text-purple-700 disabled:opacity-50"
-                >
-                  <UserX className="w-3 h-3" />
-                  No-Show
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+          {note && <p className="mt-1.5 text-sm text-slate-500">&ldquo;{note}&rdquo;</p>}
+        </RowWho>
       </div>
-    </div>
+      <RowAmount amount={b.totalAmount} note={tn(b.totalHours, "{n} hour", "{n} hours")} />
+      <div className="flex sm:flex-col gap-2 sm:w-44 shrink-0">
+        {b.status === "PENDING" && (awaitingTransfer ? (
+          <Link href="/ground-owner/bookings" className={`flex-1 ${quietBtn}`}>
+            {b.paymentStatus === "RECEIPT_SUBMITTED" ? t("Check receipt") : t("Waiting for transfer")}
+          </Link>
+        ) : (
+          <button onClick={onConfirmBooking} disabled={updating} className={`flex-1 ${primaryBtn}`}>
+            {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {t("Confirm booking")}
+          </button>
+        ))}
+        {b.status === "PENDING" && !b.isOpenMatch && (
+          <button onClick={onCancelBooking} disabled={updating} className={`flex-1 ${quietBtn} hover:border-red-300 hover:text-red-700`}>{t("Cancel")}</button>
+        )}
+        {b.status === "CONFIRMED" && sessionOver && (
+          <button onClick={onMarkComplete} disabled={updating} className={`flex-1 ${primaryBtn}`}>
+            {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} {t("Mark played")}
+          </button>
+        )}
+        {b.status === "CONFIRMED" && sessionOver && !b.isOpenMatch && (
+          <button onClick={onMarkNoShow} disabled={updating} className={`flex-1 ${quietBtn}`}><UserX className="w-4 h-4" /> {t("No-show")}</button>
+        )}
+        {b.status === "CONFIRMED" && !sessionOver && !b.isOpenMatch && (
+          <button onClick={onCancelBooking} disabled={updating} className={`flex-1 ${quietBtn} hover:border-red-300 hover:text-red-700`}>{t("Cancel")}</button>
+        )}
+      </div>
+    </li>
   );
 }
 
@@ -588,6 +441,7 @@ interface WalkInModalProps {
 }
 
 function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
+  const { t, tn, locale } = useT();
   const activeFacilities = facilities.filter((f) => f.status === "ACTIVE");
   const today = isoDateStr(new Date());
 
@@ -654,16 +508,16 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
   const handleSubmit = async () => {
     setError("");
     if (!facilityId || !bookingDate || !startTime || !endTime || !playerName.trim()) {
-      setError("Please fill in all required fields.");
+      setError(t("Please fill in all required fields."));
       return;
     }
-    if (playerName.trim().length < 2) { setError("Player name must be at least 2 characters."); return; }
-    if (courts.length > 0 && !courtId) { setError("Please select a court."); return; }
-    if (startTime >= endTime)         { setError("Start time must be before end time."); return; }
+    if (playerName.trim().length < 2) { setError(t("Player name must be at least 2 characters.")); return; }
+    if (courts.length > 0 && !courtId) { setError(t("Please select a court.")); return; }
+    if (startTime >= endTime)         { setError(t("Start time must be before end time.")); return; }
     if (contactNumber.trim()) {
       const cleaned = contactNumber.replace(/[\s\-().]/g, "");
       if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned)) {
-        setError("Enter a valid Sri Lankan mobile number (e.g. 077 123 4567).");
+        setError(t("Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)."));
         return;
       }
     }
@@ -676,12 +530,12 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to create phone booking.");
+        setError(data.error ?? t("Failed to create phone booking."));
       } else {
         onCreated(data.booking);
       }
     } catch {
-      setError("Network error. Please check your connection and try again.");
+      setError(t("Network error. Check your connection and try again."));
     } finally {
       setSaving(false);
     }
@@ -700,8 +554,8 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
               <UserPlus className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-lg">Add Phone Booking</h3>
-              <p className="text-sm text-slate-400">Cash on arrival · no platform commission</p>
+              <h3 className="font-bold text-slate-900 text-lg">{t("Add Phone Booking")}</h3>
+              <p className="text-sm text-slate-400">{t("Cash on arrival")}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1.5">
@@ -713,7 +567,7 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
 
           {/* ── Section 1: Ground ── */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Ground</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">{t("Ground")}</p>
             {activeFacilities.length > 1 ? (
               <select
                 value={facilityId}
@@ -733,7 +587,7 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
             )}
             {selectedFacility && (
               <p className="text-sm text-slate-400 mt-2 ml-0.5">
-                Rate: Rs. {selectedFacility.hourlyRate.toLocaleString()} / hr
+                {t("Rate: Rs. {amount} / hour", { amount: selectedFacility.hourlyRate.toLocaleString() })}
               </p>
             )}
           </div>
@@ -743,7 +597,7 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
             <>
               <div className="border-t border-slate-100" />
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Court / Field</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">{t("Court / Field")}</p>
                 <div className="grid grid-cols-2 gap-3">
                   {courts.map((c) => (
                     <button
@@ -766,7 +620,7 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
                   ))}
                 </div>
                 {courts.length > 0 && !courtId && (
-                  <p className="text-sm text-amber-600 mt-2 ml-0.5">Select a court to continue</p>
+                  <p className="text-sm text-amber-600 mt-2 ml-0.5">{t("Select a court to continue")}</p>
                 )}
               </div>
             </>
@@ -776,14 +630,14 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
 
           {/* ── Section 2: Booking Time ── */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Booking Time</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">{t("Booking Time")}</p>
             <div className="space-y-4">
 
               {/* Date */}
               <div>
                 <label className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
                   <Calendar className="w-4 h-4 text-green-500" />
-                  Date *
+                  {t("Date *")}
                 </label>
                 <div className="relative">
                   <input
@@ -795,22 +649,22 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
                   />
                   {(isToday || isTomorrow) && (
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full pointer-events-none">
-                      {isToday ? "Today" : "Tomorrow"}
+                      {isToday ? t("Today") : t("Tomorrow")}
                     </span>
                   )}
                 </div>
                 {bookingDate && (
-                  <p className="text-sm text-slate-400 mt-1.5 ml-0.5">{fmtShort(bookingDate)}</p>
+                  <p className="text-sm text-slate-400 mt-1.5 ml-0.5">{fmtShort(bookingDate, locale)}</p>
                 )}
                 {daySchedule?.closed && (
                   <p className="text-sm text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-4 py-2.5 mt-2 flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
-                    Facility is normally closed on this day. You can still add a booking if an exception applies.
+                    {t("Facility is normally closed on this day. You can still add a booking if an exception applies.")}
                   </p>
                 )}
                 {daySchedule && !daySchedule.closed && (
                   <p className="text-sm text-slate-400 mt-1.5 ml-0.5">
-                    Operating hours: {daySchedule.openTime} – {daySchedule.closeTime}
+                    {t("Opening hours: {open} – {close}", { open: daySchedule.openTime, close: daySchedule.closeTime })}
                   </p>
                 )}
               </div>
@@ -831,16 +685,12 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
                   <div className="flex items-center gap-2 text-sm text-green-700">
                     <Clock3 className="w-4 h-4 shrink-0" />
                     <span className="font-semibold">
-                      {durationMins < 60
-                        ? `${durationMins} min`
-                        : durationHrs % 1 === 0
-                        ? `${durationHrs} hr${durationHrs !== 1 ? "s" : ""}`
-                        : `${durationHrs.toFixed(1)} hrs`}
+                      {durationMins < 60 ? t("{n} min", { n: durationMins }) : tn(durationHrs, "{n} hour", "{n} hours")}
                     </span>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs text-green-400">Estimated</p>
-                    <p className="text-sm font-bold text-green-700">Rs. {estimatedAmt.toLocaleString()}</p>
+                    <p className="text-xs text-green-400">{t("Estimated")}</p>
+                    <p className="text-sm font-bold text-green-700">{t("Rs.")} {estimatedAmt.toLocaleString()}</p>
                   </div>
                 </div>
               )}
@@ -851,43 +701,43 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
 
           {/* ── Section 3: Player Details ── */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Player Details</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">{t("Player Details")}</p>
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
                   <User className="w-4 h-4 text-green-500" />
-                  Player Name *
+                  {t("Player Name *")}
                 </label>
                 <input
                   type="text"
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="e.g. Ashan Fernando"
+                  placeholder={t("e.g. Ashan Fernando")}
                   className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-300"
                 />
               </div>
               <div>
                 <label className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
                   <Phone className="w-4 h-4 text-green-500" />
-                  Contact Number
+                  {t("Contact Number")}
                 </label>
                 <input
                   type="tel"
                   value={contactNumber}
                   onChange={(e) => setContactNumber(e.target.value)}
-                  placeholder="07X XXX XXXX"
+                  placeholder={t("07X XXX XXXX")}
                   className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-300"
                 />
               </div>
               <div>
                 <label className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
                   <StickyNote className="w-4 h-4 text-green-500" />
-                  Notes
+                  {t("Notes")}
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Any special requests or notes from the caller…"
+                  placeholder={t("Any special requests or notes from the caller…")}
                   rows={3}
                   className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent placeholder:text-slate-300 resize-none"
                 />
@@ -900,16 +750,16 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
             <>
               <div className="border-t border-slate-100" />
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Booking Summary</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">{t("Booking Summary")}</p>
                 <div className="bg-slate-50 rounded-xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">
                   {[
-                    { icon: MapPin,    label: "Ground",   value: selectedFacility ? `${selectedFacility.name}, ${selectedFacility.city}` : "—" },
-                    ...(courtId ? [{ icon: BadgeInfo, label: "Court", value: courts.find((c) => c.id === courtId)?.name ?? courtId }] : []),
-                    { icon: User,      label: "Player",   value: playerName.trim() },
-                    { icon: Calendar,  label: "Date",     value: bookingDate ? fmtShort(bookingDate) : "—" },
-                    { icon: Clock,     label: "Time",     value: `${startTime} – ${endTime}` },
-                    { icon: Clock3,    label: "Duration", value: durationHrs % 1 === 0 ? `${durationHrs} hr${durationHrs !== 1 ? "s" : ""}` : `${durationHrs.toFixed(1)} hrs` },
-                    { icon: BadgeInfo, label: "Amount",   value: selectedFacility ? `Rs. ${estimatedAmt.toLocaleString()} (cash on arrival)` : "—" },
+                    { icon: MapPin,    label: t("Ground"),   value: selectedFacility ? `${selectedFacility.name}, ${selectedFacility.city}` : "—" },
+                    ...(courtId ? [{ icon: BadgeInfo, label: t("Court"), value: courts.find((c) => c.id === courtId)?.name ?? courtId }] : []),
+                    { icon: User,      label: t("Player"),   value: playerName.trim() },
+                    { icon: Calendar,  label: t("Date"),     value: bookingDate ? fmtShort(bookingDate, locale) : "—" },
+                    { icon: Clock,     label: t("Time"),     value: `${startTime} – ${endTime}` },
+                    { icon: Clock3,    label: t("Duration"), value: tn(durationHrs, "{n} hour", "{n} hours") },
+                    { icon: BadgeInfo, label: t("Amount"),   value: selectedFacility ? t("Rs. {amount} (cash on arrival)", { amount: estimatedAmt.toLocaleString() }) : "—" },
                   ].map(({ icon: Icon, label, value }) => (
                     <div key={label} className="flex items-center gap-3 px-5 py-3">
                       <Icon className="w-4 h-4 text-slate-400 shrink-0" />
@@ -926,7 +776,7 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
-              {error}
+              {t(error)}
             </p>
           )}
 
@@ -936,7 +786,7 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
               onClick={onClose}
               className="flex-1 py-3.5 border border-slate-200 rounded-xl text-base font-medium text-slate-600 hover:border-slate-300 transition-colors"
             >
-              Cancel
+              {t("Cancel")}
             </button>
             <button
               onClick={handleSubmit}
@@ -944,7 +794,7 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
               className="flex-1 py-3.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-base font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
             >
               {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-              Confirm Booking
+              {t("Confirm Booking")}
             </button>
           </div>
         </div>
@@ -955,6 +805,7 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
 
 /* ── Main page ── */
 export default function GroundOwnerBookingsPage() {
+  const { t } = useT();
   const [bookings,        setBookings]        = useState<Booking[]>([]);
   const [loading,         setLoading]         = useState(true);
   const [loadingMore,     setLoadingMore]     = useState(false);
@@ -972,8 +823,8 @@ export default function GroundOwnerBookingsPage() {
   const [facilities,      setFacilities]      = useState<FacilityOption[]>([]);
   const needsActionRef    = useRef<HTMLDivElement>(null);
   // One screen: the action inbox (receipts, cash requests, refunds) and the full booking list
-  const [view,            setView]            = useState<"inbox" | "all">("inbox");
-  const [inboxCount,      setInboxCount]      = useState<number | null>(null);
+  const [view,   setView]   = useState<"requests" | "receipts" | "complete" | "all">("requests");
+  const [counts, setCounts] = useState<InboxCounts | null>(null);
 
   // Load facilities once for the walk-in modal
   useEffect(() => {
@@ -1000,7 +851,7 @@ export default function GroundOwnerBookingsPage() {
       setHasMore(data.hasMore ?? false);
       setCurrentPage(pageNum);
     } catch {
-      setError("Network error. Please check your connection and try again.");
+      setError(t("Network error. Check your connection and try again."));
     } finally {
       if (pageNum === 1) setLoading(false);
       else setLoadingMore(false);
@@ -1021,12 +872,12 @@ export default function GroundOwnerBookingsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to update status.");
+        setError(data.error ?? t("Failed to update status."));
       } else {
         setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status } : b));
       }
     } catch {
-      setError("Network error. Please check your connection and try again.");
+      setError(t("Network error. Check your connection and try again."));
     } finally {
       setUpdating(null);
     }
@@ -1045,12 +896,12 @@ export default function GroundOwnerBookingsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to cancel booking.");
+        setError(data.error ?? t("Failed to cancel booking."));
       } else {
         setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "CANCELLED" } : b));
       }
     } catch {
-      setError("Network error. Please check your connection and try again.");
+      setError(t("Network error. Check your connection and try again."));
     } finally {
       setUpdating(null);
       setCancelTarget(null);
@@ -1067,12 +918,12 @@ export default function GroundOwnerBookingsPage() {
       const res  = await fetch(`/api/ground-owner/bookings/${id}/noshow`, { method: "PUT" });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to mark no-show.");
+        setError(data.error ?? t("Failed to mark no-show."));
       } else {
         setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "NO_SHOW" } : b));
       }
     } catch {
-      setError("Network error. Please check your connection and try again.");
+      setError(t("Network error. Check your connection and try again."));
     } finally {
       setUpdating(null);
       setNoShowTarget(null);
@@ -1094,7 +945,7 @@ export default function GroundOwnerBookingsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to update status.");
+        setError(data.error ?? t("Failed to update status."));
       } else {
         const newPaymentStatus = target.paymentMethod === "ON_ARRIVAL"
           ? (cashReceived ? "PAID" : "PENDING")
@@ -1106,7 +957,7 @@ export default function GroundOwnerBookingsPage() {
         );
       }
     } catch {
-      setError("Network error. Please check your connection and try again.");
+      setError(t("Network error. Check your connection and try again."));
     } finally {
       setUpdating(null);
       setCompleteTarget(null);
@@ -1115,7 +966,7 @@ export default function GroundOwnerBookingsPage() {
 
   const filtered = bookings.filter((b) => {
     const term = search.toLowerCase();
-    return getDisplayName(b).toLowerCase().includes(term) || b.facility.name.toLowerCase().includes(term);
+    return getDisplayName(b, t).toLowerCase().includes(term) || b.facility.name.toLowerCase().includes(term);
   });
 
   const byDateAsc  = (a: Booking, b: Booking) => a.bookingDate.localeCompare(b.bookingDate) || a.startTime.localeCompare(b.startTime);
@@ -1128,17 +979,13 @@ export default function GroundOwnerBookingsPage() {
   const cancelledGroup    = filtered.filter((b) => b.status === "CANCELLED").sort(byDateDesc);
   const noShowGroup       = filtered.filter((b) => b.status === "NO_SHOW").sort(byDateDesc);
 
-  const pastDueCount  = bookings.filter(isPastDue).length;
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Bookings</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            Manage all bookings for your grounds
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900">{t("Bookings")}</h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Link
@@ -1146,7 +993,7 @@ export default function GroundOwnerBookingsPage() {
             className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
           >
             <History className="w-4 h-4" />
-            View History
+            {t("View History")}
           </Link>
           {facilities.some((f) => f.status === "ACTIVE") && (
             <button
@@ -1154,48 +1001,26 @@ export default function GroundOwnerBookingsPage() {
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
             >
               <UserPlus className="w-4 h-4" />
-              Add Phone Booking
+              {t("Add Phone Booking")}
             </button>
           )}
         </div>
       </div>
 
-      <div role="tablist" className="flex gap-6 border-b border-rule">
-        {([["inbox", "Needs action"], ["all", "All bookings"]] as const).map(([key, label]) => (
-          <button key={key} role="tab" aria-selected={view === key} onClick={() => setView(key)}
-            className={`-mb-px border-b-2 pb-2.5 text-[15px] font-medium ${view === key ? "border-pitch text-pitch-deep" : "border-transparent text-slate-500 hover:text-pitch-deep"}`}>
-            {label}{key === "inbox" && inboxCount ? <span className="ml-1.5 tabular-nums text-pitch">{inboxCount}</span> : null}
-          </button>
-        ))}
+      <div role="tablist" className="flex gap-6 border-b border-rule overflow-x-auto">
+        {([["requests", tk("Requests")], ["receipts", tk("Receipts")], ["complete", tk("To complete")], ["all", tk("All bookings")]] as const).map(([key, label]) => {
+          const n = key === "all" ? null : counts?.[key];
+          return (
+            <button key={key} role="tab" aria-selected={view === key} onClick={() => setView(key)}
+              className={`-mb-px shrink-0 border-b-2 pb-2.5 text-[15px] font-medium ${view === key ? "border-pitch text-pitch-deep" : "border-transparent text-slate-500 hover:text-pitch-deep"}`}>
+              {t(label)}{n ? <span className="ml-1.5 rounded-full bg-pitch/10 px-1.5 py-0.5 text-xs tabular-nums text-pitch">{n}</span> : null}
+            </button>
+          );
+        })}
       </div>
 
-      {view === "inbox" ? <ActionInbox role="owner" onCount={setInboxCount} /> : (<>
-      {/* Needs Action Banner */}
-      {pastDueCount > 0 && !statusFilter && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
-              <Bell className="w-4 h-4 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-amber-900">
-                {pastDueCount} booking{pastDueCount > 1 ? "s" : ""} need{pastDueCount === 1 ? "s" : ""} to be marked complete
-              </p>
-              <p className="text-xs text-amber-700 mt-0.5">
-                These sessions have already taken place. Please confirm completion and verify any cash payments.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => needsActionRef.current?.scrollIntoView({ behavior: "smooth" })}
-            className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-lg shrink-0 transition-colors"
-          >
-            <ChevronDown className="w-3.5 h-3.5" />
-            View
-          </button>
-        </div>
-      )}
-
+      {view !== "all" ? <ActionInbox role="owner" view={view} onCounts={setCounts} /> : (<>
+      <TypeLegend />
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex items-center gap-2 flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2.5">
@@ -1204,7 +1029,7 @@ export default function GroundOwnerBookingsPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by player name or ground..."
+            placeholder={t("Search by player name or ground...")}
             className="bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none w-full"
           />
         </div>
@@ -1213,18 +1038,18 @@ export default function GroundOwnerBookingsPage() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-green-500"
         >
-          <option value="">All Status</option>
-          <option value="PENDING">Pending</option>
-          <option value="CONFIRMED">Confirmed</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="CANCELLED">Cancelled</option>
-          <option value="NO_SHOW">No-Show</option>
+          <option value="">{t("All Status")}</option>
+          <option value="PENDING">{t("Pending")}</option>
+          <option value="CONFIRMED">{t("Confirmed")}</option>
+          <option value="COMPLETED">{t("Completed")}</option>
+          <option value="CANCELLED">{t("Cancelled")}</option>
+          <option value="NO_SHOW">{t("No-Show")}</option>
         </select>
       </div>
 
       {error && (
         <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-xl">
-          {error}
+          {t(error)}
         </p>
       )}
 
@@ -1232,27 +1057,24 @@ export default function GroundOwnerBookingsPage() {
       {loading ? (
         <div className="flex items-center justify-center py-20 text-slate-400 gap-2">
           <Loader2 className="w-5 h-5 animate-spin" />
-          <span className="text-sm">Loading bookings...</span>
+          <span className="text-sm">{t("Loading bookings...")}</span>
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-100 px-6 py-20 text-center">
           <div className="text-6xl mb-4">📋</div>
-          <h3 className="text-base font-semibold text-slate-900 mb-1">No bookings found</h3>
+          <h3 className="text-base font-semibold text-slate-900 mb-1">{t("No bookings found")}</h3>
           <p className="text-sm text-slate-400 max-w-xs mx-auto">
             {search || statusFilter
-              ? "Try adjusting your search or filter."
-              : "Bookings from players will appear here once they book your grounds."}
+              ? t("Try adjusting your search or filter.")
+              : t("Bookings from players will appear here once they book your grounds.")}
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-6" ref={needsActionRef}>
+        <div className="flex flex-col" ref={needsActionRef}>
 
           {/* 1. Past-due — needs action */}
           {pastDueGroup.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-amber-600 px-1">
-                Needs Action — Mark Complete ({pastDueGroup.length})
-              </p>
+            <RowGroup title={t("Played — close the booking")} count={pastDueGroup.length}>
               {pastDueGroup.map((b) => (
                 <BookingCard key={b.id} booking={b} pastDue sessionOver={isSessionOver(b)}
                   updating={updating === b.id}
@@ -1261,15 +1083,12 @@ export default function GroundOwnerBookingsPage() {
                   onMarkComplete={() => setCompleteTarget(b)}
                   onMarkNoShow={() => setNoShowTarget(b)} />
               ))}
-            </div>
+            </RowGroup>
           )}
 
           {/* 2. Pending requests */}
           {pendingGroup.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-amber-500 px-1">
-                Pending Requests ({pendingGroup.length})
-              </p>
+            <RowGroup title={t("Booking requests")} count={pendingGroup.length}>
               {pendingGroup.map((b) => (
                 <BookingCard key={b.id} booking={b} pastDue={false} sessionOver={isSessionOver(b)}
                   updating={updating === b.id}
@@ -1278,15 +1097,12 @@ export default function GroundOwnerBookingsPage() {
                   onMarkComplete={() => setCompleteTarget(b)}
                   onMarkNoShow={() => setNoShowTarget(b)} />
               ))}
-            </div>
+            </RowGroup>
           )}
 
           {/* 3. Confirmed upcoming */}
           {confirmedGroup.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-green-600 px-1">
-                Confirmed Upcoming ({confirmedGroup.length})
-              </p>
+            <RowGroup title={t("Confirmed")} count={confirmedGroup.length}>
               {confirmedGroup.map((b) => (
                 <BookingCard key={b.id} booking={b} pastDue={false} sessionOver={isSessionOver(b)}
                   updating={updating === b.id}
@@ -1295,15 +1111,12 @@ export default function GroundOwnerBookingsPage() {
                   onMarkComplete={() => setCompleteTarget(b)}
                   onMarkNoShow={() => setNoShowTarget(b)} />
               ))}
-            </div>
+            </RowGroup>
           )}
 
           {/* 4. Completed */}
           {completedGroup.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 px-1">
-                Completed ({completedGroup.length})
-              </p>
+            <RowGroup title={t("Played")} count={completedGroup.length}>
               {completedGroup.map((b) => (
                 <BookingCard key={b.id} booking={b} pastDue={false} sessionOver={isSessionOver(b)}
                   updating={updating === b.id}
@@ -1312,15 +1125,12 @@ export default function GroundOwnerBookingsPage() {
                   onMarkComplete={() => setCompleteTarget(b)}
                   onMarkNoShow={() => setNoShowTarget(b)} />
               ))}
-            </div>
+            </RowGroup>
           )}
 
           {/* 5. Cancelled */}
           {cancelledGroup.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-300 px-1">
-                Cancelled ({cancelledGroup.length})
-              </p>
+            <RowGroup title={t("Cancelled")} count={cancelledGroup.length}>
               {cancelledGroup.map((b) => (
                 <BookingCard key={b.id} booking={b} pastDue={false} sessionOver={isSessionOver(b)}
                   updating={updating === b.id}
@@ -1329,15 +1139,12 @@ export default function GroundOwnerBookingsPage() {
                   onMarkComplete={() => setCompleteTarget(b)}
                   onMarkNoShow={() => setNoShowTarget(b)} />
               ))}
-            </div>
+            </RowGroup>
           )}
 
           {/* 6. No-Show */}
           {noShowGroup.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-purple-400 px-1">
-                No-Show ({noShowGroup.length})
-              </p>
+            <RowGroup title={t("No-shows")} count={noShowGroup.length}>
               {noShowGroup.map((b) => (
                 <BookingCard key={b.id} booking={b} pastDue={false} sessionOver={isSessionOver(b)}
                   updating={updating === b.id}
@@ -1346,13 +1153,13 @@ export default function GroundOwnerBookingsPage() {
                   onMarkComplete={() => setCompleteTarget(b)}
                   onMarkNoShow={() => setNoShowTarget(b)} />
               ))}
-            </div>
+            </RowGroup>
           )}
 
           {pastDueGroup.length + pendingGroup.length + confirmedGroup.length + completedGroup.length + cancelledGroup.length + noShowGroup.length === 0 && (
             <div className="bg-white rounded-2xl border border-slate-100 px-6 py-20 text-center">
               <div className="text-6xl mb-4">📋</div>
-              <p className="text-sm text-slate-400">No bookings match your search.</p>
+              <p className="text-sm text-slate-400">{t("No bookings match your search.")}</p>
             </div>
           )}
 
@@ -1365,16 +1172,16 @@ export default function GroundOwnerBookingsPage() {
                 className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 hover:border-green-500 hover:text-green-600 text-slate-600 text-sm font-medium rounded-xl transition-colors disabled:opacity-50"
               >
                 {loadingMore && <Loader2 className="w-4 h-4 animate-spin" />}
-                Load More
+                {t("Load More")}
               </button>
               <p className="text-xs text-slate-400">
-                Showing {bookings.length} of {total} bookings
+                {t("Showing {shown} of {total} bookings", { shown: bookings.length, total })}
               </p>
             </div>
           )}
           {!loading && !hasMore && total > 0 && !search && (
             <p className="text-center text-xs text-slate-400 pt-2">
-              All {total} bookings loaded
+              {t("All {total} bookings loaded", { total })}
             </p>
           )}
         </div>

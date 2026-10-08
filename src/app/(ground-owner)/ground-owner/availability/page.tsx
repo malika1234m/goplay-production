@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react";
 import { Clock, CheckCircle, XCircle, Loader2, Save } from "lucide-react";
 
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+import { tk } from "@/i18n/core";
+import { useT } from "@/i18n/I18nProvider";
+
+const DAYS = [tk("Sunday"), tk("Monday"), tk("Tuesday"), tk("Wednesday"), tk("Thursday"), tk("Friday"), tk("Saturday")];
 
 interface DaySchedule {
   dayOfWeek: number;
@@ -27,6 +30,7 @@ const DEFAULT_SCHEDULE: DaySchedule[] = DAYS.map((_, i) => ({
 }));
 
 export default function AvailabilityPage() {
+  const { t } = useT();
   const [facilities,   setFacilities]   = useState<Facility[]>([]);
   const [facilityId,   setFacilityId]   = useState("");
   const [schedule,     setSchedule]     = useState<DaySchedule[]>(DEFAULT_SCHEDULE);
@@ -106,7 +110,7 @@ export default function AvailabilityPage() {
     return (
       <div className="flex items-center justify-center h-96 text-slate-400 gap-3">
         <Loader2 className="w-6 h-6 animate-spin" />
-        <span className="text-sm">Loading…</span>
+        <span className="text-sm">{t("Loading…")}</span>
       </div>
     );
   }
@@ -116,8 +120,7 @@ export default function AvailabilityPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Availability</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Set your weekly opening hours per ground</p>
+          <h1 className="text-2xl font-bold text-slate-900">{t("Availability")}</h1>
         </div>
         <button
           onClick={saveSchedule}
@@ -125,20 +128,20 @@ export default function AvailabilityPage() {
           className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-100 disabled:text-slate-400 text-white text-sm font-medium rounded-xl transition-colors"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {saved ? "Saved!" : "Save Schedule"}
+          {saved ? t("Saved!") : t("Save Schedule")}
         </button>
       </div>
 
       {facilities.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-100 px-6 py-16 text-center">
           <Clock className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-          <p className="text-sm text-slate-400">No grounds found. Add a ground first.</p>
+          <p className="text-sm text-slate-400">{t("No grounds found. Add a ground first.")}</p>
         </div>
       ) : (
         <>
           {/* Ground selector */}
           <div className="bg-white rounded-2xl border border-slate-100 p-5">
-            <label className="block text-sm font-medium text-slate-700 mb-2">Select Ground</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">{t("Select Ground")}</label>
             <select
               value={facilityId}
               onChange={(e) => setFacilityId(e.target.value)}
@@ -159,14 +162,14 @@ export default function AvailabilityPage() {
                 <CheckCircle className="w-5 h-5" />
               </div>
               <p className="text-2xl font-bold text-slate-900">{openDays}</p>
-              <p className="text-xs text-slate-500 mt-1">Open Days / Week</p>
+              <p className="text-xs text-slate-500 mt-1">{t("Open Days / Week")}</p>
             </div>
             <div className="bg-white rounded-2xl border border-slate-100 p-5">
               <div className="w-10 h-10 bg-red-50 text-red-500 rounded-xl flex items-center justify-center mb-3">
                 <XCircle className="w-5 h-5" />
               </div>
               <p className="text-2xl font-bold text-slate-900">{closedDays}</p>
-              <p className="text-xs text-slate-500 mt-1">Closed Days / Week</p>
+              <p className="text-xs text-slate-500 mt-1">{t("Closed Days / Week")}</p>
             </div>
             <div className="bg-white rounded-2xl border border-slate-100 p-5">
               <div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center mb-3">
@@ -179,24 +182,24 @@ export default function AvailabilityPage() {
                       const avg  = open.reduce((s, d) => {
                         return s + toMins(d.closeTime) - toMins(d.openTime);
                       }, 0) / open.length;
-                      return `${Math.floor(avg / 60)}h`;
+                      return t("{n} h", { n: Math.floor(avg / 60) });
                     })()
                   : "—"}
               </p>
-              <p className="text-xs text-slate-500 mt-1">Avg Hours / Open Day</p>
+              <p className="text-xs text-slate-500 mt-1">{t("Avg Hours / Open Day")}</p>
             </div>
           </div>
 
           {/* Weekly schedule editor */}
           <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-50">
-              <h2 className="text-base font-semibold text-slate-900">Weekly Schedule</h2>
+              <h2 className="text-base font-semibold text-slate-900">{t("Weekly Schedule")}</h2>
             </div>
 
             {loadingSched ? (
               <div className="flex items-center justify-center h-40 gap-3 text-slate-400">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="text-sm">Loading schedule…</span>
+                <span className="text-sm">{t("Loading schedule…")}</span>
               </div>
             ) : (
               <div className="divide-y divide-slate-50">
@@ -204,7 +207,7 @@ export default function AvailabilityPage() {
                   <div key={day.dayOfWeek} className="px-6 py-4 flex flex-wrap items-center gap-4">
                     {/* Day name */}
                     <div className="w-28 shrink-0">
-                      <p className="text-sm font-medium text-slate-900">{DAYS[day.dayOfWeek]}</p>
+                      <p className="text-sm font-medium text-slate-900">{t(DAYS[day.dayOfWeek])}</p>
                     </div>
 
                     {/* Toggle */}
@@ -221,14 +224,14 @@ export default function AvailabilityPage() {
                       />
                     </button>
                     <span className={`text-sm ${day.isOpen ? "text-green-600 font-medium" : "text-slate-400"}`}>
-                      {day.isOpen ? "Open" : "Closed"}
+                      {day.isOpen ? t("Open") : t("Closed")}
                     </span>
 
                     {/* Time pickers */}
                     {day.isOpen && (
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className="flex items-center gap-1.5">
-                          <label className="text-xs text-slate-500">From</label>
+                          <label className="text-xs text-slate-500">{t("From")}</label>
                           <input
                             type="time"
                             value={day.openTime}
@@ -237,7 +240,7 @@ export default function AvailabilityPage() {
                           />
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <label className="text-xs text-slate-500">To</label>
+                          <label className="text-xs text-slate-500">{t("To")}</label>
                           <input
                             type="time"
                             value={day.closeTime}
@@ -248,7 +251,7 @@ export default function AvailabilityPage() {
                         <span className="text-xs text-slate-400">
                           {(() => {
                             const mins = toMins(day.closeTime) - toMins(day.openTime);
-                            return mins > 0 ? `${Math.floor(mins / 60)}h ${mins % 60 > 0 ? `${mins % 60}m` : ""}`.trim() : "";
+                            return mins > 0 ? (mins % 60 > 0 ? t("{h} h {m} min", { h: Math.floor(mins / 60), m: mins % 60 }) : t("{n} h", { n: Math.floor(mins / 60) })) : "";
                           })()}
                         </span>
                       </div>

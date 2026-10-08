@@ -18,7 +18,7 @@ export default async function GroundOwnerLayout({ children }: { children: React.
   return (
     <div className="flex min-h-screen bg-slate-50">
       <GroundOwnerSidebar />
-      <main className="flex-1 min-w-0 overflow-auto pt-14 lg:pt-0">
+      <main className="flex-1 min-w-0 overflow-x-clip pt-14 lg:pt-0">
         <div className="p-4 lg:p-8">{children}</div>
       </main>
     </div>

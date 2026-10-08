@@ -7,6 +7,7 @@ import {
   ChevronLeft, Plus, Pencil, Trash2, Loader2, AlertTriangle,
   CheckCircle, XCircle, GripVertical, Eye, EyeOff,
 } from "lucide-react";
+import { useT } from "@/i18n/I18nProvider";
 
 interface Court {
   id:          string;
@@ -31,6 +32,7 @@ interface CourtModalProps {
 }
 
 function CourtModal({ court, onClose, onSaved, facilityId }: CourtModalProps) {
+  const { t } = useT();
   const isEdit = !!court;
   const [name,        setName]        = useState(court?.name ?? "");
   const [description, setDescription] = useState(court?.description ?? "");
@@ -40,8 +42,8 @@ function CourtModal({ court, onClose, onSaved, facilityId }: CourtModalProps) {
 
   const handleSave = async () => {
     setError("");
-    if (!name.trim()) { setError("Court name is required."); return; }
-    if (name.trim().length < 2) { setError("Court name must be at least 2 characters."); return; }
+    if (!name.trim()) { setError(t("Court name is required.")); return; }
+    if (name.trim().length < 2) { setError(t("Court name must be at least 2 characters.")); return; }
 
     setSaving(true);
     const url    = isEdit
@@ -58,7 +60,7 @@ function CourtModal({ court, onClose, onSaved, facilityId }: CourtModalProps) {
     setSaving(false);
 
     if (!res.ok) {
-      setError(data.error ?? "Failed to save court.");
+      setError(data.error ?? t("Failed to save court."));
     } else {
       onSaved(data.court);
     }
@@ -71,29 +73,29 @@ function CourtModal({ court, onClose, onSaved, facilityId }: CourtModalProps) {
         <div>
           <h3 className="text-base font-bold text-slate-900">{isEdit ? "Edit Court" : "Add Court"}</h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            {isEdit ? "Update court details below." : "Add a new court or field to this facility."}
+            {isEdit ? t("Update court details below.") : t("Add a new court or field to this facility.")}
           </p>
         </div>
 
         {/* Name */}
         <div>
-          <label className="text-xs font-semibold text-slate-600 block mb-1.5">Court Name *</label>
+          <label className="text-xs font-semibold text-slate-600 block mb-1.5">{t("Court Name *")}</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Court A, Main Field, Pitch 1"
+            placeholder={t("e.g. Court A, Main Field, Pitch 1")}
             className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-300"
           />
         </div>
 
         {/* Description */}
         <div>
-          <label className="text-xs font-semibold text-slate-600 block mb-1.5">Description <span className="font-normal text-slate-400">(optional)</span></label>
+          <label className="text-xs font-semibold text-slate-600 block mb-1.5">{t("Description")} <span className="font-normal text-slate-400">(optional)</span></label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="e.g. Grass surface, floodlit, seats 200…"
+            placeholder={t("e.g. Grass surface, floodlit, seats 200…")}
             rows={3}
             className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-slate-300 resize-none"
           />
@@ -102,7 +104,7 @@ function CourtModal({ court, onClose, onSaved, facilityId }: CourtModalProps) {
         {/* Active toggle */}
         <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
           <div>
-            <p className="text-sm font-medium text-slate-800">Active</p>
+            <p className="text-sm font-medium text-slate-800">{t("Active")}</p>
             <p className="text-xs text-slate-400">Inactive courts won&apos;t be shown for booking</p>
           </div>
           <button
@@ -116,14 +118,14 @@ function CourtModal({ court, onClose, onSaved, facilityId }: CourtModalProps) {
 
         {error && (
           <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 flex items-center gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />{t(error)}
           </p>
         )}
 
         {/* Actions */}
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:border-slate-300 transition-colors">
-            Cancel
+            {t("Cancel")}
           </button>
           <button
             onClick={handleSave}
@@ -131,7 +133,7 @@ function CourtModal({ court, onClose, onSaved, facilityId }: CourtModalProps) {
             className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-            {isEdit ? "Save Changes" : "Add Court"}
+            {isEdit ? t("Save Changes") : t("Add Court")}
           </button>
         </div>
       </div>
@@ -141,6 +143,7 @@ function CourtModal({ court, onClose, onSaved, facilityId }: CourtModalProps) {
 
 /* ── Main page ── */
 export default function CourtsManagementPage() {
+  const { t, tn } = useT();
   const params     = useParams<{ id: string }>();
   const facilityId = params.id;
 
@@ -184,12 +187,12 @@ export default function CourtsManagementPage() {
     if (res.ok) {
       setCourts((prev) => prev.map((c) => c.id === court.id ? data.court : c));
     } else {
-      setError(data.error ?? "Failed to update court.");
+      setError(data.error ?? t("Failed to update court."));
     }
   };
 
   const handleDelete = async (court: Court) => {
-    if (!confirm(`Delete "${court.name}"? This cannot be undone.`)) return;
+    if (!confirm(t("Delete “{name}”? This can't be undone.", { name: court.name }))) return;
     setDeleting(court.id);
     setError("");
     const res  = await fetch(`/api/ground-owner/grounds/${facilityId}/courts/${court.id}`, { method: "DELETE" });
@@ -198,7 +201,7 @@ export default function CourtsManagementPage() {
     if (res.ok) {
       setCourts((prev) => prev.filter((c) => c.id !== court.id));
     } else {
-      setError(data.error ?? "Failed to delete court.");
+      setError(data.error ?? t("Failed to delete court."));
     }
   };
 
@@ -222,11 +225,11 @@ export default function CourtsManagementPage() {
     <div className="flex flex-col gap-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-slate-500">
-        <Link href="/ground-owner/grounds" className="hover:text-slate-700 transition-colors">My Grounds</Link>
+        <Link href="/ground-owner/grounds" className="hover:text-slate-700 transition-colors">{t("My Grounds")}</Link>
         <span>/</span>
         <span className="text-slate-700 font-medium">{facility?.name ?? "…"}</span>
         <span>/</span>
-        <span className="text-slate-900 font-semibold">Courts & Fields</span>
+        <span className="text-slate-900 font-semibold">{t("Courts & Fields")}</span>
       </div>
 
       {/* Header */}
@@ -237,52 +240,52 @@ export default function CourtsManagementPage() {
               href="/ground-owner/grounds"
               className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
             >
-              <ChevronLeft className="w-3.5 h-3.5" /> Back
+              <ChevronLeft className="w-3.5 h-3.5" /> {t("Back")}
             </Link>
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Courts &amp; Fields</h1>
           <p className="text-slate-500 text-sm mt-1">
-            {facility ? `${facility.name}, ${facility.city}` : "Loading…"}
+            {facility ? `${facility.name}, ${facility.city}` : t("Loading…")}
             {" · "}
-            {courts.length} court{courts.length !== 1 ? "s" : ""} total
+            {tn(courts.length, "{n} court in total", "{n} courts in total")}
           </p>
         </div>
         <button
           onClick={() => setModal("add")}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shrink-0"
         >
-          <Plus className="w-4 h-4" /> Add Court
+          <Plus className="w-4 h-4" /> {t("Add Court")}
         </button>
       </div>
 
       {/* Info callout */}
       <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3 text-sm text-indigo-700">
-        Courts let players choose a specific field or court when booking. If you have only one playing area, you don&apos;t need to add courts — bookings will cover the whole facility.
+        {t("Only needed if players book courts separately.")}
       </div>
 
       {error && (
         <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-xl flex items-center gap-2">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />{t(error)}
         </p>
       )}
 
       {loading ? (
         <div className="flex items-center justify-center py-20 text-slate-400 gap-2">
           <Loader2 className="w-5 h-5 animate-spin" />
-          <span className="text-sm">Loading courts…</span>
+          <span className="text-sm">{t("Loading courts…")}</span>
         </div>
       ) : courts.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-100 px-6 py-16 text-center">
           <div className="text-5xl mb-4">🏟️</div>
-          <h3 className="text-base font-semibold text-slate-900 mb-1">No courts yet</h3>
+          <h3 className="text-base font-semibold text-slate-900 mb-1">{t("No courts yet")}</h3>
           <p className="text-sm text-slate-400 mb-5 max-w-xs mx-auto">
-            Add courts or fields so players can choose which one to book.
+            {t("Add courts or fields so players can choose which one to book.")}
           </p>
           <button
             onClick={() => setModal("add")}
             className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
           >
-            <Plus className="w-4 h-4" /> Add First Court
+            <Plus className="w-4 h-4" /> {t("Add First Court")}
           </button>
         </div>
       ) : (
@@ -292,7 +295,7 @@ export default function CourtsManagementPage() {
           {activeCourts.length > 0 && (
             <div>
               <p className="text-[11px] font-bold uppercase tracking-widest text-green-600 px-1 mb-3">
-                Active ({activeCourts.length})
+                {t("Active ({n})", { n: activeCourts.length })}
               </p>
               <div className="flex flex-col gap-3">
                 {activeCourts.map((court) => (
@@ -314,7 +317,7 @@ export default function CourtsManagementPage() {
           {inactiveCourts.length > 0 && (
             <div>
               <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 px-1 mb-3">
-                Inactive ({inactiveCourts.length})
+                {t("Inactive ({n})", { n: inactiveCourts.length })}
               </p>
               <div className="flex flex-col gap-3">
                 {inactiveCourts.map((court) => (
@@ -358,6 +361,7 @@ function CourtCard({
   onDelete: () => void;
   onToggle: () => void;
 }) {
+  const { t, tn } = useT();
   const hasActiveBookings = court._count.bookings > 0;
 
   return (
@@ -374,7 +378,7 @@ function CourtCard({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-slate-900">{court.name}</span>
               {!court.isActive && (
-                <span className="text-[10px] font-medium bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">Inactive</span>
+                <span className="text-[10px] font-medium bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">{t("Inactive")}</span>
               )}
             </div>
             {court.description && (
@@ -382,7 +386,7 @@ function CourtCard({
             )}
             {court._count.bookings > 0 && (
               <p className="text-xs text-slate-400 mt-1">
-                {court._count.bookings} active booking{court._count.bookings !== 1 ? "s" : ""}
+                {tn(court._count.bookings, "{n} active booking", "{n} active bookings")}
               </p>
             )}
           </div>
@@ -393,7 +397,7 @@ function CourtCard({
           <button
             onClick={onToggle}
             disabled={toggling}
-            title={court.isActive ? "Deactivate" : "Activate"}
+            title={court.isActive ? t("Deactivate") : t("Activate")}
             className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-50"
           >
             {toggling ? <Loader2 className="w-4 h-4 animate-spin" /> : court.isActive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -401,14 +405,14 @@ function CourtCard({
           <button
             onClick={onEdit}
             className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-            title="Edit"
+            title={t("Edit")}
           >
             <Pencil className="w-4 h-4" />
           </button>
           <button
             onClick={onDelete}
             disabled={deleting || hasActiveBookings}
-            title={hasActiveBookings ? "Has active bookings — deactivate instead" : "Delete"}
+            title={hasActiveBookings ? t("Has active bookings — deactivate instead") : t("Delete")}
             className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
@@ -419,14 +423,14 @@ function CourtCard({
       {hasActiveBookings && (
         <div className="mt-3 flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          Has active bookings — deactivate instead of deleting
+          {t("Has active bookings — deactivate instead of deleting")}
         </div>
       )}
 
       {!court.isActive && (
         <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2">
           <XCircle className="w-3.5 h-3.5 shrink-0" />
-          Not shown to players when booking
+          {t("Not shown to players when booking")}
         </div>
       )}
     </div>

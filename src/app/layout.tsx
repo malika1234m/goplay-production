@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Inter, Barlow_Condensed } from "next/font/google";
+import { Inter, Barlow_Condensed, Noto_Sans_Sinhala } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
+import { getLang } from "@/i18n/server";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -15,6 +16,14 @@ const scoreboard = Barlow_Condensed({
   weight: ["500", "600", "700"],
   display: "swap",
   variable: "--font-barlow",
+});
+
+// Sinhala script — Inter and Barlow have no Sinhala glyphs, so the browser falls back to this
+const sinhala = Noto_Sans_Sinhala({
+  subsets: ["sinhala"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-sinhala",
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://goplay.lk";
@@ -58,11 +67,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = await getLang();
   return (
-    <html lang="en" className={`h-full ${inter.variable} ${scoreboard.variable}`}>
+    <html lang={lang} className={`h-full ${inter.variable} ${scoreboard.variable} ${sinhala.variable}`}>
       <body className="min-h-full antialiased font-sans">
-        <Providers>{children}</Providers>
+        <Providers lang={lang}>{children}</Providers>
       </body>
     </html>
   );

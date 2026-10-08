@@ -6,6 +6,7 @@ import { getSession } from "@/lib/mobile-auth";
 import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
 import { staleUnpaidBookingWhere } from "@/lib/payment-review";
 import { getReceiptWindowMinutes } from "@/lib/settings";
+import { bookablePaymentMethods } from "@/lib/payment-options";
 import { sendSMS } from "@/lib/sms";
 import { sendBookingReceivedEmail, sendNewBookingAlertEmail } from "@/lib/email";
 import { isAllowed } from "@/lib/rateLimiter";
@@ -101,10 +102,18 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Facility not found or not available." }, { status: 404 });
     }
 
-    // "Pay online" is a bank transfer to the owner, so the ground must have somewhere to send it
+    // The ground decides how it takes payment; "Pay online" also needs a bank account to send to
     const paymentDetails = resolvePaymentDetails({ ...facility, owner: facility.owner });
-    if (paymentMethod === "ONLINE" && !paymentDetails) {
-      return Response.json({ error: "This ground has not set up online payments yet. Please choose Pay at Ground." }, { status: 400 });
+    const methods = bookablePaymentMethods(facility.paymentOptions, paymentDetails !== null);
+    if (paymentMethod === "ON_ARRIVAL" && !methods.cash) {
+      return Response.json({ error: "This ground only takes online payment. Choose Pay online." }, { status: 400 });
+    }
+    if (paymentMethod === "ONLINE" && !methods.online) {
+      return Response.json({
+        error: facility.paymentOptions === "ON_ARRIVAL_ONLY"
+          ? "This ground only takes payment at the ground."
+          : "This ground has not set up online payments yet. Please choose Pay at Ground.",
+      }, { status: 400 });
     }
 
     // Validate courtId when the facility has courts defined

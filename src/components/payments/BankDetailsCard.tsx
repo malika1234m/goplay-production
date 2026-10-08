@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { Building2, Check, Copy } from "lucide-react";
 import type { PaymentDetails } from "./types";
+import { useT } from "@/i18n/I18nProvider";
 
 function CopyRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  const { t } = useT();
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -22,7 +24,7 @@ function CopyRow({ label, value, mono }: { label: string; value: string; mono?: 
       <button
         type="button"
         onClick={copy}
-        aria-label={`Copy ${label}`}
+        aria-label={t("Copy {label}", { label })}
         className="shrink-0 p-2 rounded-lg text-pitch hover:bg-pitch/10 transition-colors"
       >
         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -41,18 +43,19 @@ export default function BankDetailsCard({
   amount?:    number;
   reference?: string;
 }) {
+  const { t } = useT();
   return (
     <div className="bg-slip border border-rule rounded-xl p-4">
       <div className="flex items-center gap-2 mb-2">
         <Building2 className="w-4 h-4 text-pitch" />
-        <p className="text-sm font-semibold text-pitch-deep">Transfer to the ground&apos;s bank account</p>
+        <p className="text-sm font-semibold text-pitch-deep">{t("Transfer to the ground's bank account")}</p>
       </div>
       <div>
-        <CopyRow label="Bank" value={details.bankBranch ? `${details.bankName} — ${details.bankBranch}` : details.bankName} />
-        <CopyRow label="Account name" value={details.accountName} />
-        <CopyRow label="Account number" value={details.accountNumber} mono />
-        {amount !== undefined && <CopyRow label="Amount (Rs.)" value={String(amount)} />}
-        {reference && <CopyRow label="Reference (add to your transfer)" value={reference} mono />}
+        <CopyRow label={t("Bank")} value={details.bankBranch ? `${details.bankName} — ${details.bankBranch}` : details.bankName} />
+        <CopyRow label={t("Account name")} value={details.accountName} />
+        <CopyRow label={t("Account number")} value={details.accountNumber} mono />
+        {amount !== undefined && <CopyRow label={t("Amount (Rs.)")} value={String(amount)} />}
+        {reference && <CopyRow label={t("Reference (add to your transfer)")} value={reference} mono />}
       </div>
       {details.instructions && (
         <p className="text-xs text-pitch-deep mt-3 whitespace-pre-line">{details.instructions}</p>

@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import PaymentCheckout from "@/components/payments/PaymentCheckout";
 import type { Complaint, PaymentDetails, PaymentStatus } from "@/components/payments/types";
+import { useT } from "@/i18n/I18nProvider";
 
 interface BookingPay {
   id:                   string;
@@ -29,29 +30,30 @@ export default function BookingPayPage({ params }: { params: Promise<{ id: strin
   const { id } = use(params);
   const [booking, setBooking] = useState<BookingPay | null>(null);
   const [error,   setError]   = useState("");
+  const { t } = useT();
 
   const load = useCallback(async () => {
     try {
       const res  = await fetch(`/api/user/bookings/${id}`, { cache: "no-store" });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "We couldn't find this booking."); return; }
+      if (!res.ok) { setError(data.error ?? t("We couldn't find this booking.")); return; }
       setError("");
       setBooking(data.booking);
     } catch {
-      setError("You're offline. Reconnect and refresh the page.");
+      setError(t("You're offline. Reconnect and refresh the page."));
     }
-  }, [id]);
+  }, [id, t]);
 
   useEffect(() => { load(); }, [load]);
 
-  if (error) return <p className="max-w-5xl mx-auto text-red-700">{error}</p>;
+  if (error) return <p className="max-w-5xl mx-auto text-red-700">{t(error)}</p>;
   if (!booking) return <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>;
 
   if (booking.paymentMethod !== "ONLINE" || booking.status === "CANCELLED") {
     return (
       <div className="max-w-xl mx-auto py-16 text-center">
-        <p className="text-lg font-semibold text-slate-900">{booking.status === "CANCELLED" ? "This booking was cancelled." : "This booking is paid at the ground."}</p>
-        <a href="/my-bookings" className="mt-4 inline-block text-pitch font-medium hover:underline">Back to my bookings</a>
+        <p className="text-lg font-semibold text-slate-900">{booking.status === "CANCELLED" ? t("This booking was cancelled.") : t("This booking is paid at the ground.")}</p>
+        <a href="/my-bookings" className="mt-4 inline-block text-pitch font-medium hover:underline">{t("Back to my bookings")}</a>
       </div>
     );
   }
@@ -65,14 +67,15 @@ export default function BookingPayPage({ params }: { params: Promise<{ id: strin
   return (
     <PaymentCheckout
       backHref="/my-bookings"
-      backLabel="Back to my bookings"
+      backLabel={t("Back to my bookings")}
+      doneLabel={t("Go to my bookings")}
       groundName={booking.facility.name}
       groundAddress={`${booking.facility.address}, ${booking.facility.city}`}
       image={booking.facility.image}
       date={booking.bookingDate}
       startTime={booking.startTime}
       endTime={booking.endTime}
-      detail={booking.court?.name ?? "Whole ground"}
+      detail={booking.court?.name ?? t("Whole ground")}
       amount={booking.totalAmount}
       reference={booking.id.slice(0, 8).toUpperCase()}
       paymentStatus={booking.paymentStatus}

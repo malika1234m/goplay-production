@@ -45,11 +45,14 @@ export default function BookingForm({
   hourlyRate,
   availability = [],
   courts = [],
+  paymentMethods = { cash: true, online: true },
 }: {
   facilityId:   string;
   hourlyRate:   number;
   availability?: DaySchedule[];
   courts?:       Court[];
+  /** Methods this ground allows (and online only when it has a bank account) */
+  paymentMethods?: { cash: boolean; online: boolean };
 }) {
   const { data: session } = useSession();
   const router = useRouter();
@@ -62,7 +65,7 @@ export default function BookingForm({
   const [contactNumber,   setContactNumber]   = useState("");
   const [specialRequests, setSpecialRequests] = useState("");
   const [selectedCourt,   setSelectedCourt]   = useState<string | null>(courts.length === 1 ? courts[0].id : null);
-  const [paymentMethod,   setPaymentMethod]   = useState<PaymentMethod>("ON_ARRIVAL");
+  const [paymentMethod,   setPaymentMethod]   = useState<PaymentMethod>(paymentMethods.cash ? "ON_ARRIVAL" : "ONLINE");
   const [slots,           setSlots]           = useState<Slot[]>([]);
   const [loadingSlots,    setLoadingSlots]    = useState(false);
   const [submitting,      setSubmitting]      = useState(false);
@@ -73,6 +76,12 @@ export default function BookingForm({
   // "Pay online" = bank transfer to the ground; details load when the player picks it
   const [bankDetails,     setBankDetails]     = useState<PaymentDetails | null>(null);
   const [bankState,       setBankState]       = useState<"idle" | "loading" | "ready" | "unavailable">("idle");
+
+  // Online-only grounds: show the bank details straight away
+  useEffect(() => {
+    if (!paymentMethods.cash && paymentMethods.online && session && bankState === "idle") void choosePayOnline();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
 
   const choosePayOnline = async () => {
     setPaymentMethod("ONLINE");
@@ -499,6 +508,16 @@ export default function BookingForm({
       {/* Payment method */}
       <div>
         <label className="block text-xs font-medium text-slate-600 mb-2">Payment Method</label>
+        {!paymentMethods.cash && !paymentMethods.online ? (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            This ground only takes online payment and hasn&apos;t finished setting it up. Check back soon.
+          </p>
+        ) : !(paymentMethods.cash && paymentMethods.online) ? (
+          <p className="flex items-center gap-2 rounded-xl border-2 border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
+            {paymentMethods.cash ? <Banknote className="w-4 h-4 shrink-0" /> : <CreditCard className="w-4 h-4 shrink-0" />}
+            {paymentMethods.cash ? "Pay on arrival — this ground takes cash at the ground" : "Pay online — this ground only takes bank transfer"}
+          </p>
+        ) : (
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
@@ -525,6 +544,7 @@ export default function BookingForm({
             Pay Online
           </button>
         </div>
+        )}
         {paymentMethod === "ONLINE" && (
           <div className="mt-3 flex flex-col gap-2">
             {!session ? (
@@ -588,7 +608,7 @@ export default function BookingForm({
 
       <button
         type="submit"
-        disabled={submitting || !selectedSlot || (paymentMethod === "ONLINE" && !!session && bankState !== "ready")}
+        disabled={submitting || !selectedSlot || (!paymentMethods.cash && !paymentMethods.online) || (paymentMethod === "ONLINE" && !!session && bankState !== "ready")}
         className={`w-full disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 ${
           paymentMethod === "ONLINE"
             ? "bg-blue-600 hover:bg-blue-700"

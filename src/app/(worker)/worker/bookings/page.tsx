@@ -3,13 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
-  CalendarCheck, Plus, Loader2, X, AlertTriangle,
-  CheckCircle2, Clock3, XCircle, User, Phone,
-  StickyNote, Calendar, Clock, MapPin, BadgeInfo, History,
-  UserX, ShieldAlert, Zap,
+  CalendarCheck, Plus, Loader2, X, AlertTriangle, CheckCircle2, Clock3, XCircle, User, Phone, StickyNote, Calendar, Clock, MapPin, BadgeInfo, History, UserX, ShieldAlert,
 } from "lucide-react";
 import { TimeRangePicker } from "@/components/booking/TimeRangePicker";
-import ActionInbox from "@/components/payments/ActionInbox";
+import ActionInbox, { type InboxCounts } from "@/components/payments/ActionInbox";
+import { RowAmount, RowGroup, RowTag, RowWhen, RowWho, TypeBadge, TypeLegend, bookingType, primaryBtn, quietBtn, typedRow } from "@/components/payments/BookingRow";
+import { tk, formatDay } from "@/i18n/core";
+import { useT } from "@/i18n/I18nProvider";
 
 interface Booking {
   id:              string;
@@ -57,29 +57,13 @@ function isSessionOver(b: Booking) {
 
 function isPastDue(b: Booking) { return b.status === "CONFIRMED" && isSessionOver(b); }
 
-function fmtDate(dateStr: string) {
-  const d   = new Date(dateOnly(dateStr) + "T00:00:00");
-  const tod = isoDate(new Date());
-  const tom = isoDate(addDays(new Date(), 1));
-  const key = isoDate(d);
-  if (key === tod) return "Today";
-  if (key === tom) return "Tomorrow";
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-}
 
-function fmtShort(dateStr: string) {
-  return new Date(dateOnly(dateStr) + "T00:00:00").toLocaleDateString("en-US", {
+function fmtShort(dateStr: string, locale: string) {
+  return formatDay(new Date(dateOnly(dateStr) + "T00:00:00"), locale, {
     weekday: "short", month: "short", day: "numeric", year: "numeric",
   });
 }
 
-const statusColor: Record<string, string> = {
-  CONFIRMED: "bg-green-100 text-green-700",
-  PENDING:   "bg-amber-100 text-amber-700",
-  COMPLETED: "bg-blue-100 text-blue-700",
-  CANCELLED: "bg-red-100 text-red-600",
-  NO_SHOW:   "bg-purple-100 text-purple-700",
-};
 
 /* ── Cancel warning modal ── */
 function CancelWarningModal({
@@ -90,6 +74,7 @@ function CancelWarningModal({
   onClose:   () => void;
   updating:  boolean;
 }) {
+  const { t, locale } = useT();
   const isOnline = booking.paymentMethod === "ONLINE";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -99,10 +84,10 @@ function CancelWarningModal({
             <XCircle className="w-5 h-5 text-red-600" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 text-base">Cancel Booking?</h3>
+            <h3 className="font-bold text-slate-900 text-base">{t("Cancel Booking?")}</h3>
             <p className="text-sm text-slate-500 mt-0.5">
               {booking.playerName}
-              {" · "}{new Date(dateOnly(booking.bookingDate) + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+              {" · "}{formatDay(new Date(dateOnly(booking.bookingDate) + "T00:00:00"), locale, { weekday: "short", month: "short", day: "numeric" })}
               {" · "}{booking.startTime}–{booking.endTime}
             </p>
           </div>
@@ -111,9 +96,9 @@ function CancelWarningModal({
         {/* Refund info */}
         <div className={`rounded-xl border p-4 text-sm ${isOnline ? "bg-blue-50 border-blue-100 text-blue-800" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
           {isOnline ? (
-            <p><span className="font-semibold">Full refund (100%)</span> — Rs. {booking.totalAmount.toLocaleString()} will be refunded to the player since you are cancelling on their behalf.</p>
+            <p>{t("The player paid online. Cancelling means the ground owes them a full refund of Rs. {amount}. The owner sends it back and marks it sent under Receipts.", { amount: booking.totalAmount.toLocaleString() })}</p>
           ) : (
-            <p>This is a cash booking — no payment was collected online.</p>
+            <p>{t("This is a cash booking — no payment was collected online.")}</p>
           )}
         </div>
 
@@ -121,19 +106,19 @@ function CancelWarningModal({
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 flex gap-3">
           <ShieldAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
           <div className="text-sm text-red-700 space-y-1">
-            <p className="font-semibold">This will add a strike to your facility.</p>
-            <p>3 strikes within 90 days automatically suspends the facility listing. The admin will be notified that you cancelled this booking.</p>
+            <p className="font-semibold">{t("This will add a strike to your facility.")}</p>
+            <p>{t("3 strikes within 90 days automatically suspends the facility listing. The admin will be notified that you cancelled this booking.")}</p>
           </div>
         </div>
 
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors font-medium">
-            Keep Booking
+            {t("Keep Booking")}
           </button>
           <button onClick={onConfirm} disabled={updating}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-xl transition-colors">
             {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
-            Yes, Cancel
+            {t("Yes, Cancel")}
           </button>
         </div>
       </div>
@@ -150,6 +135,7 @@ function NoShowModal({
   onClose:   () => void;
   updating:  boolean;
 }) {
+  const { t, locale } = useT();
   const isOnline = booking.paymentMethod === "ONLINE";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -159,10 +145,10 @@ function NoShowModal({
             <UserX className="w-5 h-5 text-purple-600" />
           </div>
           <div>
-            <h3 className="font-bold text-slate-900 text-base">Mark as No-Show?</h3>
+            <h3 className="font-bold text-slate-900 text-base">{t("Mark as No-Show?")}</h3>
             <p className="text-sm text-slate-500 mt-0.5">
               {booking.playerName}
-              {" · "}{new Date(dateOnly(booking.bookingDate) + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+              {" · "}{formatDay(new Date(dateOnly(booking.bookingDate) + "T00:00:00"), locale, { weekday: "short", month: "short", day: "numeric" })}
               {" · "}{booking.startTime}–{booking.endTime}
             </p>
           </div>
@@ -171,9 +157,9 @@ function NoShowModal({
         {/* Payment context */}
         <div className={`rounded-xl border p-4 text-sm ${isOnline ? "bg-blue-50 border-blue-100 text-blue-800" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
           {isOnline ? (
-            <p><span className="font-semibold">Online payment was collected.</span> The facility keeps the payment — no refund is issued for no-shows.</p>
+            <p><span className="font-semibold">{t("Online payment was collected.")}</span> {t("The facility keeps the payment — no refund is issued for no-shows.")}</p>
           ) : (
-            <p>This was a cash booking — no payment was collected. The slot was held and not used.</p>
+            <p>{t("This was a cash booking — no payment was collected. The slot was held and not used.")}</p>
           )}
         </div>
 
@@ -181,23 +167,23 @@ function NoShowModal({
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
           <div className="text-sm text-amber-700 space-y-1">
-            <p className="font-semibold">Consequences for the player:</p>
+            <p className="font-semibold">{t("Consequences for the player:")}</p>
             <ul className="list-disc list-inside space-y-0.5 text-amber-600">
-              <li>1st no-show — warning</li>
-              <li>2nd no-show — must pay online for all future bookings</li>
-              <li>3rd no-show — account suspended from booking</li>
+              <li>{t("1st no-show — warning")}</li>
+              <li>{t("2nd no-show — must pay online for all future bookings")}</li>
+              <li>{t("3rd no-show — account suspended from booking")}</li>
             </ul>
           </div>
         </div>
 
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors font-medium">
-            Cancel
+            {t("Cancel")}
           </button>
           <button onClick={onConfirm} disabled={updating}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-xl transition-colors">
             {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
-            Mark No-Show
+            {t("Mark No-Show")}
           </button>
         </div>
       </div>
@@ -206,14 +192,6 @@ function NoShowModal({
 }
 
 /* ── Section label ── */
-function SectionLabel({ label, count, accent }: { label: string; count: number; accent: string }) {
-  return (
-    <div className={`flex items-center gap-2 px-1 mb-1`}>
-      <span className={`text-[11px] font-bold uppercase tracking-widest ${accent}`}>{label}</span>
-      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500`}>{count}</span>
-    </div>
-  );
-}
 
 /* ── Booking row ── */
 function BookingRow({
@@ -227,143 +205,72 @@ function BookingRow({
   onCancel:   () => void;
   onNoShow:   () => void;
 }) {
+  const { t } = useT();
   const isOpenMatch = b.isOpenMatch ?? false;
-  const isWalkIn    = b.isPhoneBooking ?? false;
-  const displayName = b.playerName;
   const sessionOver = isSessionOver(b);
+  const phone = isOpenMatch ? null : b.contactNumber ?? b.playerPhone;
+  const awaitingTransfer = b.status === "PENDING" && b.paymentMethod === "ONLINE" && b.paymentStatus !== "PAID";
+  const statusTag: Record<string, [string, "neutral" | "pitch" | "amber" | "red" | "blue"]> = {
+    PENDING: [t("Request"), "amber"], CONFIRMED: [t("Confirmed"), "pitch"], COMPLETED: [t("Played"), "neutral"],
+    CANCELLED: [t("Cancelled"), "red"], NO_SHOW: [t("No-show"), "red"],
+  };
+  const type = bookingType(b);
+  // Only online bookings carry a separate payment state; cash is settled when the session is closed
+  const payTag: [string, "neutral" | "pitch" | "amber" | "red" | "blue"] | null =
+    b.paymentMethod === "ON_ARRIVAL" ? null
+    : b.paymentStatus === "PAID" ? [t("Transfer confirmed"), "pitch"]
+    : b.paymentStatus === "RECEIPT_SUBMITTED" ? [t("Receipt to check"), "amber"]
+    : b.paymentStatus === "REJECTED" ? [t("Receipt sent back"), "red"]
+    : b.paymentStatus === "REFUNDED" ? [t("Refunded"), "neutral"]
+    : [t("Waiting for transfer"), "blue"];
 
   return (
-    <div className={`bg-white rounded-2xl border p-4 transition-all ${pastDue ? "border-amber-200 ring-1 ring-amber-100" : isOpenMatch ? "border-teal-100" : "border-slate-100"}`}>
-      {pastDue && (
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5 mb-3">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          Session has ended — please mark complete
-        </div>
-      )}
-
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="min-w-0 flex-1">
-          {/* Player */}
-          <div className="flex items-center gap-2 flex-wrap mb-1.5">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isOpenMatch ? "bg-teal-100 text-teal-700" : isWalkIn ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>
-              {isOpenMatch ? <Zap className="w-3.5 h-3.5" /> : displayName[0]?.toUpperCase()}
-            </div>
-            <span className="font-semibold text-slate-900 text-sm">{displayName}</span>
-            {isOpenMatch && (
-              <span className="text-[10px] font-medium bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                <Zap className="w-2.5 h-2.5" /> Open Match
-              </span>
-            )}
-            {isWalkIn && <span className="text-[10px] font-medium bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">Phone</span>}
-            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${statusColor[b.status] ?? "bg-slate-100 text-slate-500"}`}>
-              {b.status.charAt(0) + b.status.slice(1).toLowerCase()}
-            </span>
+    <li className={typedRow(type)}>
+      <RowWhen date={b.bookingDate} startTime={b.startTime} endTime={b.endTime} />
+      <div className="flex-1 min-w-0">
+        <RowWho name={b.playerName} place={[b.courtName, isOpenMatch ? t("open match") : null].filter(Boolean).join(", ") || t("Whole ground")} phone={phone}>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <RowTag tone={statusTag[b.status]?.[1] ?? "neutral"}>{statusTag[b.status]?.[0] ?? b.status}</RowTag>
+            <TypeBadge type={type} />
+            {payTag && <RowTag tone={payTag[1]}>{payTag[0]}</RowTag>}
+            {pastDue && <RowTag tone="amber">{t("Session ended — close it")}</RowTag>}
+            {b.status === "PENDING" && sessionOver && <RowTag tone="amber">{t("Date passed")}</RowTag>}
           </div>
-
-          {/* Date + time */}
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-2">
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3 text-slate-400" />
-              <span className="font-medium text-slate-700">{fmtDate(b.bookingDate)}</span>
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3 text-slate-400" />
-              {b.startTime} – {b.endTime}
-            </span>
-            {b.courtName && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full">
-                {b.courtName}
-              </span>
-            )}
-            <span className="font-semibold text-slate-800">Rs. {b.totalAmount.toLocaleString()}</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${b.paymentMethod === "ONLINE" ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"}`}>
-              {b.paymentMethod === "ONLINE" ? (b.paymentStatus === "PAID" ? "Transfer ✓" : b.paymentStatus === "RECEIPT_SUBMITTED" ? "Receipt to review" : "Transfer pending") : "Cash"}
-            </span>
-          </div>
-
-          {/* Contact */}
-          {(() => {
-            const phone = isOpenMatch ? null : (b.contactNumber ?? b.playerPhone);
-            return phone ? (
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs text-slate-400 flex items-center gap-1">
-                  <Phone className="w-3 h-3" /> {phone}
-                </span>
-                <a
-                  href={`tel:${phone}`}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-blue-500 hover:bg-blue-600 px-2.5 py-1 rounded-lg transition-colors"
-                >
-                  <Phone className="w-3 h-3" /> Call
-                </a>
-              </div>
-            ) : null;
-          })()}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
-          {b.status === "PENDING" && b.paymentMethod === "ONLINE" && b.paymentStatus !== "PAID" && (
-            <Link href="/worker/bookings"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              {b.paymentStatus === "RECEIPT_SUBMITTED" ? "Review receipt" : "Awaiting receipt"}
-            </Link>
-          )}
-          {b.status === "PENDING" && !(b.paymentMethod === "ONLINE" && b.paymentStatus !== "PAID") && (
-            <button onClick={onConfirm} disabled={updating}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-40 rounded-lg transition-colors">
-              {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-              Confirm
-            </button>
-          )}
-          {b.status === "CONFIRMED" && (
-            <>
-              <button onClick={sessionOver ? onComplete : undefined} disabled={updating || !sessionOver}
-                title={!sessionOver ? "Session hasn't ended yet" : undefined}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                  pastDue
-                    ? "text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-40"
-                    : sessionOver
-                    ? "text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40"
-                    : "text-slate-400 bg-slate-100 cursor-not-allowed"
-                }`}>
-                {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock3 className="w-3.5 h-3.5" />}
-                {sessionOver ? "Complete" : "Ongoing"}
-              </button>
-              {/* No-show only makes sense for individual player bookings, not system open match bookings */}
-              {sessionOver && !isOpenMatch && (
-                <button onClick={onNoShow} disabled={updating}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 disabled:opacity-40 rounded-lg transition-colors">
-                  {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserX className="w-3.5 h-3.5" />}
-                  No-Show
-                </button>
-              )}
-            </>
-          )}
-          {/* Open match bookings cannot be cancelled — contact GoPlay support */}
-          {(b.status === "PENDING" || b.status === "CONFIRMED") && !isOpenMatch && (
-            <button onClick={onCancel} disabled={updating}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 disabled:opacity-40 rounded-lg transition-colors">
-              {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
-              Cancel
-            </button>
-          )}
           {isOpenMatch && b.openMatchId && (
-            <Link
-              href={`/open-matches/${b.openMatchId}`}
-              target="_blank"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors"
-            >
-              <Zap className="w-3.5 h-3.5" /> View Lobby
-            </Link>
+            <Link href={`/open-matches/${b.openMatchId}`} target="_blank" className="mt-1.5 inline-block text-sm text-pitch hover:underline">{t("View lobby")}</Link>
           )}
-        </div>
+          {b.specialRequests && <p className="mt-1.5 text-sm text-slate-500">&ldquo;{b.specialRequests}&rdquo;</p>}
+        </RowWho>
       </div>
-    </div>
+      <RowAmount amount={b.totalAmount} />
+      <div className="flex sm:flex-col gap-2 sm:w-44 shrink-0">
+        {b.status === "PENDING" && (awaitingTransfer ? (
+          <Link href="/worker/bookings" className={`flex-1 ${quietBtn}`}>
+            {b.paymentStatus === "RECEIPT_SUBMITTED" ? t("Check receipt") : t("Waiting for transfer")}
+          </Link>
+        ) : (
+          <button onClick={onConfirm} disabled={updating} className={`flex-1 ${primaryBtn}`}>
+            {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Confirm booking
+          </button>
+        ))}
+        {b.status === "CONFIRMED" && sessionOver && (
+          <button onClick={onComplete} disabled={updating} className={`flex-1 ${primaryBtn}`}>
+            {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock3 className="w-4 h-4" />} Mark played
+          </button>
+        )}
+        {b.status === "CONFIRMED" && sessionOver && !isOpenMatch && (
+          <button onClick={onNoShow} disabled={updating} className={`flex-1 ${quietBtn}`}>{t("No-show")}</button>
+        )}
+        {(b.status === "PENDING" || (b.status === "CONFIRMED" && !sessionOver)) && !isOpenMatch && (
+          <button onClick={onCancel} disabled={updating} className={`flex-1 ${quietBtn} hover:border-red-300 hover:text-red-700`}>
+            <XCircle className="w-4 h-4" /> {t("Cancel")}
+          </button>
+        )}
+      </div>
+    </li>
   );
 }
 
-/* ── Walk-in / Phone Booking modal ── */
 interface WalkInModalProps {
   facility:  FacilityInfo | null;
   onClose:   () => void;
@@ -371,6 +278,7 @@ interface WalkInModalProps {
 }
 
 function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
+  const { t, tn, locale } = useT();
   const today   = isoDate(new Date());
   const maxDate = isoDate(new Date(Date.now() + 60 * 24 * 60 * 60 * 1000));
   const courts = facility?.courts ?? [];
@@ -401,14 +309,14 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
 
   const handleSubmit = async () => {
     setError("");
-    if (!bookingDate || !startTime || !endTime || !playerName.trim()) { setError("Please fill in all required fields."); return; }
-    if (playerName.trim().length < 2) { setError("Player name must be at least 2 characters."); return; }
-    if (courts.length > 0 && !courtId) { setError("Please select a court."); return; }
-    if (startTime >= endTime) { setError("Start time must be before end time."); return; }
+    if (!bookingDate || !startTime || !endTime || !playerName.trim()) { setError(t("Please fill in all required fields.")); return; }
+    if (playerName.trim().length < 2) { setError(t("Player name must be at least 2 characters.")); return; }
+    if (courts.length > 0 && !courtId) { setError(t("Please select a court.")); return; }
+    if (startTime >= endTime) { setError(t("Start time must be before end time.")); return; }
     if (contactNumber.trim()) {
       const cleaned = contactNumber.replace(/[\s\-().]/g, "");
       if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned)) {
-        setError("Enter a valid Sri Lankan mobile number (e.g. 077 123 4567).");
+        setError(t("Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)."));
         return;
       }
     }
@@ -421,7 +329,7 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
       });
       const d = await res.json();
       if (res.ok) { onCreated(); }
-      else        { setError(d.error ?? "Failed to create booking."); }
+      else        { setError(d.error ?? t("Failed to create booking.")); }
     } finally { setSubmitting(false); }
   };
 
@@ -435,7 +343,7 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
               <Plus className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-lg">Add Phone Booking</h3>
+              <h3 className="font-bold text-slate-900 text-lg">{t("Add Phone Booking")}</h3>
               <p className="text-sm text-slate-400">{facility ? `${facility.name} · ${facility.city}` : "Loading…"}</p>
             </div>
           </div>
@@ -447,7 +355,7 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
           {/* Court selector — only when facility has courts */}
           {courts.length > 0 && (
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Court / Field</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">{t("Court / Field")}</p>
               <div className="grid grid-cols-2 gap-3">
                 {courts.map((c) => (
                   <button
@@ -470,7 +378,7 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
                 ))}
               </div>
               {courts.length > 0 && !courtId && (
-                <p className="text-sm text-amber-600 mt-2 ml-0.5">Select a court to continue</p>
+                <p className="text-sm text-amber-600 mt-2 ml-0.5">{t("Select a court to continue")}</p>
               )}
             </div>
           )}
@@ -479,26 +387,26 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
 
           {/* Booking Time */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Booking Time</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">{t("Booking Time")}</p>
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
-                  <Calendar className="w-4 h-4 text-blue-500" /> Date *
+                  <Calendar className="w-4 h-4 text-blue-500" /> {t("Date *")}
                 </label>
                 <div className="relative">
                   <input type="date" value={bookingDate} min={today} max={maxDate} onChange={(e) => setBookingDate(e.target.value)}
                     className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-blue-500" />
                   {(isToday || isTomorrow) && (
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full pointer-events-none">
-                      {isToday ? "Today" : "Tomorrow"}
+                      {isToday ? t("Today") : t("Tomorrow")}
                     </span>
                   )}
                 </div>
-                {bookingDate && <p className="text-sm text-slate-400 mt-1.5">{fmtShort(bookingDate)}</p>}
+                {bookingDate && <p className="text-sm text-slate-400 mt-1.5">{fmtShort(bookingDate, locale)}</p>}
                 {daySchedule?.closed && (
                   <p className="text-sm text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-4 py-2.5 mt-2 flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
-                    Facility is normally closed on this day.
+                    {t("Facility is normally closed on this day.")}
                   </p>
                 )}
                 {daySchedule && !daySchedule.closed && (
@@ -518,12 +426,12 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
                   <div className="flex items-center gap-2 text-sm text-blue-700">
                     <Clock3 className="w-4 h-4" />
                     <span className="font-semibold">
-                      {durationHrs % 1 === 0 ? `${durationHrs} hr${durationHrs !== 1 ? "s" : ""}` : `${durationHrs.toFixed(1)} hrs`}
+                      {tn(durationHrs, "{n} hour", "{n} hours")}
                     </span>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-blue-400">Estimated</p>
-                    <p className="text-sm font-bold text-blue-700">Rs. {estimatedAmt.toLocaleString()}</p>
+                    <p className="text-xs text-blue-400">{t("Estimated")}</p>
+                    <p className="text-sm font-bold text-blue-700">{t("Rs.")} {estimatedAmt.toLocaleString()}</p>
                   </div>
                 </div>
               )}
@@ -534,27 +442,27 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
 
           {/* Player Details */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Player Details</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">{t("Player Details")}</p>
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
-                  <User className="w-4 h-4 text-blue-500" /> Player Name *
+                  <User className="w-4 h-4 text-blue-500" /> {t("Player Name *")}
                 </label>
-                <input type="text" value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="e.g. Ashan Fernando"
+                <input type="text" value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder={t("e.g. Ashan Fernando")}
                   className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-300" />
               </div>
               <div>
                 <label className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
-                  <Phone className="w-4 h-4 text-blue-500" /> Contact Number
+                  <Phone className="w-4 h-4 text-blue-500" /> {t("Contact Number")}
                 </label>
-                <input type="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} placeholder="07X XXX XXXX"
+                <input type="tel" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} placeholder={t("07X XXX XXXX")}
                   className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-300" />
               </div>
               <div>
                 <label className="text-sm font-semibold text-slate-600 flex items-center gap-2 mb-2">
-                  <StickyNote className="w-4 h-4 text-blue-500" /> Notes
+                  <StickyNote className="w-4 h-4 text-blue-500" /> {t("Notes")}
                 </label>
-                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Any special requests…"
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder={t("Any special requests…")}
                   className="w-full border border-slate-200 rounded-xl px-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-300 resize-none" />
               </div>
             </div>
@@ -565,16 +473,16 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
             <>
               <div className="border-t border-slate-100" />
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Booking Summary</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">{t("Booking Summary")}</p>
                 <div className="bg-slate-50 rounded-xl border border-slate-100 divide-y divide-slate-100 overflow-hidden">
                   {[
-                    { icon: MapPin,    label: "Ground",   value: facility ? `${facility.name}, ${facility.city}` : "—" },
-                    ...(courtId ? [{ icon: BadgeInfo, label: "Court", value: courts.find((c) => c.id === courtId)?.name ?? courtId }] : []),
-                    { icon: User,      label: "Player",   value: playerName.trim() },
-                    { icon: Calendar,  label: "Date",     value: bookingDate ? fmtShort(bookingDate) : "—" },
-                    { icon: Clock,     label: "Time",     value: `${startTime} – ${endTime}` },
-                    { icon: Clock3,    label: "Duration", value: durationHrs % 1 === 0 ? `${durationHrs} hr${durationHrs !== 1 ? "s" : ""}` : `${durationHrs.toFixed(1)} hrs` },
-                    { icon: BadgeInfo, label: "Amount",   value: facility ? `Rs. ${estimatedAmt.toLocaleString()} (cash on arrival)` : "—" },
+                    { icon: MapPin,    label: t("Ground"),   value: facility ? `${facility.name}, ${facility.city}` : "—" },
+                    ...(courtId ? [{ icon: BadgeInfo, label: t("Court"), value: courts.find((c) => c.id === courtId)?.name ?? courtId }] : []),
+                    { icon: User,      label: t("Player"),   value: playerName.trim() },
+                    { icon: Calendar,  label: t("Date"),     value: bookingDate ? fmtShort(bookingDate, locale) : "—" },
+                    { icon: Clock,     label: t("Time"),     value: `${startTime} – ${endTime}` },
+                    { icon: Clock3,    label: t("Duration"), value: tn(durationHrs, "{n} hour", "{n} hours") },
+                    { icon: BadgeInfo, label: t("Amount"),   value: facility ? t("Rs. {amount} (cash on arrival)", { amount: estimatedAmt.toLocaleString() }) : "—" },
                   ].map(({ icon: Icon, label, value }) => (
                     <div key={label} className="flex items-center gap-3 px-5 py-3">
                       <Icon className="w-4 h-4 text-slate-400 shrink-0" />
@@ -589,16 +497,16 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />{error}
+              <AlertTriangle className="w-4 h-4 shrink-0" />{t(error)}
             </p>
           )}
 
           <div className="flex gap-3 pb-1">
-            <button onClick={onClose} className="flex-1 py-3.5 border border-slate-200 rounded-xl text-base text-slate-600 font-medium hover:border-slate-300 transition-colors">Cancel</button>
+            <button onClick={onClose} className="flex-1 py-3.5 border border-slate-200 rounded-xl text-base text-slate-600 font-medium hover:border-slate-300 transition-colors">{t("Cancel")}</button>
             <button onClick={handleSubmit} disabled={submitting}
               className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-base font-semibold rounded-xl transition-colors">
               {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-              Confirm Booking
+              {t("Confirm Booking")}
             </button>
           </div>
         </div>
@@ -609,22 +517,23 @@ function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
 
 /* ── Cash confirmation modal ── */
 function CashModal({ onConfirm, onClose, updating }: { onConfirm: (r: boolean) => void; onClose: () => void; updating: boolean }) {
+  const { t } = useT();
   const [received, setReceived] = useState(true);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-5">
-        <h3 className="font-semibold text-slate-900 text-base">Confirm Cash Payment</h3>
-        <p className="text-sm text-slate-500">Did you receive the cash payment for this session?</p>
+        <h3 className="font-semibold text-slate-900 text-base">{t("Confirm Cash Payment")}</h3>
+        <p className="text-sm text-slate-500">{t("Did you receive the cash payment for this session?")}</p>
         <div className="flex gap-2">
-          <button onClick={() => setReceived(true)} className={`flex-1 py-2.5 text-sm font-medium rounded-xl border-2 transition-all ${received ? "border-green-500 bg-green-50 text-green-700" : "border-slate-200 text-slate-500"}`}>Yes, received</button>
-          <button onClick={() => setReceived(false)} className={`flex-1 py-2.5 text-sm font-medium rounded-xl border-2 transition-all ${!received ? "border-amber-500 bg-amber-50 text-amber-700" : "border-slate-200 text-slate-500"}`}>Not yet</button>
+          <button onClick={() => setReceived(true)} className={`flex-1 py-2.5 text-sm font-medium rounded-xl border-2 transition-all ${received ? "border-green-500 bg-green-50 text-green-700" : "border-slate-200 text-slate-500"}`}>{t("Yes, received")}</button>
+          <button onClick={() => setReceived(false)} className={`flex-1 py-2.5 text-sm font-medium rounded-xl border-2 transition-all ${!received ? "border-amber-500 bg-amber-50 text-amber-700" : "border-slate-200 text-slate-500"}`}>{t("Not yet")}</button>
         </div>
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">Cancel</button>
+          <button onClick={onClose} className="flex-1 py-2.5 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">{t("Cancel")}</button>
           <button onClick={() => onConfirm(received)} disabled={updating}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl transition-colors">
             {updating && <Loader2 className="w-4 h-4 animate-spin" />}
-            Mark Complete
+            {t("Mark Complete")}
           </button>
         </div>
       </div>
@@ -634,6 +543,7 @@ function CashModal({ onConfirm, onClose, updating }: { onConfirm: (r: boolean) =
 
 /* ── Main page ── */
 export default function WorkerBookingsPage() {
+  const { t, tn } = useT();
   const [bookings,      setBookings]      = useState<Booking[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [actionError,   setActionError]   = useState("");
@@ -643,8 +553,8 @@ export default function WorkerBookingsPage() {
   const [cashTarget,    setCashTarget]    = useState<string | null>(null);
   const [cancelTarget,  setCancelTarget]  = useState<Booking | null>(null);
   // One screen: the action inbox (receipts, cash requests, refunds) and the full booking list
-  const [view,          setView]          = useState<"inbox" | "all">("inbox");
-  const [inboxCount,    setInboxCount]    = useState<number | null>(null);
+  const [view,   setView]   = useState<"requests" | "receipts" | "complete" | "all">("requests");
+  const [counts, setCounts] = useState<InboxCounts | null>(null);
   const [noShowTarget,  setNoShowTarget]  = useState<Booking | null>(null);
 
   useEffect(() => {
@@ -675,10 +585,10 @@ export default function WorkerBookingsPage() {
       if (res.ok) {
         setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status } : b));
       } else {
-        setActionError(d.error ?? "Failed to update booking.");
+        setActionError(d.error ?? t("Failed to update booking."));
       }
     } catch {
-      setActionError("Network error. Please try again.");
+      setActionError(t("Network error. Check your connection and try again."));
     } finally {
       setUpdating(null);
       setCashTarget(null);
@@ -724,9 +634,9 @@ export default function WorkerBookingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Bookings</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{t("Bookings")}</h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            {totalActive > 0 ? `${totalActive} active booking${totalActive !== 1 ? "s" : ""}` : "All caught up"}
+            {totalActive > 0 ? tn(totalActive, "{n} active booking", "{n} active bookings") : t("All caught up")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -734,38 +644,42 @@ export default function WorkerBookingsPage() {
             href="/worker/booking-history"
             className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-xl transition-colors"
           >
-            <History className="w-4 h-4" /> View History
+            <History className="w-4 h-4" /> {t("View History")}
           </Link>
           <button onClick={() => setShowModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">
-            <Plus className="w-4 h-4" /> Add Phone Booking
+            <Plus className="w-4 h-4" /> {t("Add Phone Booking")}
           </button>
         </div>
       </div>
 
       {actionError && (
-        <div className="bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-xl">{actionError}</div>
+        <div className="bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-xl">{t(actionError)}</div>
       )}
 
-      <div role="tablist" className="flex gap-6 border-b border-rule">
-        {([["inbox", "Needs action"], ["all", "All bookings"]] as const).map(([key, label]) => (
-          <button key={key} role="tab" aria-selected={view === key} onClick={() => setView(key)}
-            className={`-mb-px border-b-2 pb-2.5 text-[15px] font-medium ${view === key ? "border-pitch text-pitch-deep" : "border-transparent text-slate-500 hover:text-pitch-deep"}`}>
-            {label}{key === "inbox" && inboxCount ? <span className="ml-1.5 tabular-nums text-pitch">{inboxCount}</span> : null}
-          </button>
-        ))}
+      <div role="tablist" className="flex gap-6 border-b border-rule overflow-x-auto">
+        {([["requests", tk("Requests")], ["receipts", tk("Receipts")], ["complete", tk("To complete")], ["all", tk("All bookings")]] as const).map(([key, label]) => {
+          const n = key === "all" ? null : counts?.[key];
+          return (
+            <button key={key} role="tab" aria-selected={view === key} onClick={() => setView(key)}
+              className={`-mb-px shrink-0 border-b-2 pb-2.5 text-[15px] font-medium ${view === key ? "border-pitch text-pitch-deep" : "border-transparent text-slate-500 hover:text-pitch-deep"}`}>
+              {t(label)}{n ? <span className="ml-1.5 rounded-full bg-pitch/10 px-1.5 py-0.5 text-xs tabular-nums text-pitch">{n}</span> : null}
+            </button>
+          );
+        })}
       </div>
 
-      {view === "inbox" ? <ActionInbox role="worker" onCount={setInboxCount} /> : (<>
+      {view !== "all" ? <ActionInbox role="worker" view={view} onCounts={setCounts} /> : (<>
+      <TypeLegend />
       {/* Stats strip */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
         {[
-          { label: "Past Due",  value: pastDue.length,           color: "text-amber-600"  },
-          { label: "Pending",   value: pendingUpcoming.length,   color: "text-amber-500"  },
-          { label: "Confirmed", value: confirmedUpcoming.length, color: "text-green-600"  },
-          { label: "Completed", value: completed.length,         color: "text-blue-600"   },
-          { label: "Cancelled", value: cancelled.length,         color: "text-red-500"    },
-          { label: "No-Shows",  value: noShows.length,           color: "text-purple-600" },
+          { label: t("Past Due"),  value: pastDue.length,           color: "text-amber-600"  },
+          { label: t("Pending"),   value: pendingUpcoming.length,   color: "text-amber-500"  },
+          { label: t("Confirmed"), value: confirmedUpcoming.length, color: "text-green-600"  },
+          { label: t("Completed"), value: completed.length,         color: "text-blue-600"   },
+          { label: t("Cancelled"), value: cancelled.length,         color: "text-red-500"    },
+          { label: t("No-Shows"),  value: noShows.length,           color: "text-purple-600" },
         ].map(({ label, value, color }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-100 p-4">
             <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -777,62 +691,56 @@ export default function WorkerBookingsPage() {
       {/* Booking list */}
       {loading ? (
         <div className="flex items-center justify-center py-20 text-slate-400 gap-2">
-          <Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">Loading bookings…</span>
+          <Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">{t("Loading bookings…")}</span>
         </div>
       ) : bookings.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-100 px-6 py-20 text-center">
           <CalendarCheck className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-          <p className="text-sm text-slate-400">No bookings in the next 60 days</p>
+          <p className="text-sm text-slate-400">{t("No bookings in the next 60 days")}</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col">
 
           {/* 1. Past due — needs action */}
           {pastDue.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <SectionLabel label="Needs Action — Mark Complete" count={pastDue.length} accent="text-amber-600" />
+            <RowGroup title={t("Played — close the booking")} count={pastDue.length}>
               {renderSection(pastDue, true)}
-            </div>
+            </RowGroup>
           )}
 
           {/* 2. Pending requests */}
           {pendingUpcoming.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <SectionLabel label="Pending Requests" count={pendingUpcoming.length} accent="text-amber-500" />
+            <RowGroup title={t("Booking requests")} count={pendingUpcoming.length}>
               {renderSection(pendingUpcoming)}
-            </div>
+            </RowGroup>
           )}
 
           {/* 3. Confirmed upcoming */}
           {confirmedUpcoming.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <SectionLabel label="Confirmed Upcoming" count={confirmedUpcoming.length} accent="text-green-600" />
+            <RowGroup title={t("Confirmed")} count={confirmedUpcoming.length}>
               {renderSection(confirmedUpcoming)}
-            </div>
+            </RowGroup>
           )}
 
           {/* 4. Completed */}
           {completed.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <SectionLabel label="Completed" count={completed.length} accent="text-blue-500" />
+            <RowGroup title={t("Played")} count={completed.length}>
               {renderSection(completed)}
-            </div>
+            </RowGroup>
           )}
 
           {/* 5. Cancelled */}
           {cancelled.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <SectionLabel label="Cancelled" count={cancelled.length} accent="text-slate-400" />
+            <RowGroup title={t("Cancelled")} count={cancelled.length}>
               {renderSection(cancelled)}
-            </div>
+            </RowGroup>
           )}
 
           {/* 6. No-Shows */}
           {noShows.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <SectionLabel label="No-Shows" count={noShows.length} accent="text-purple-500" />
+            <RowGroup title={t("No-shows")} count={noShows.length}>
               {renderSection(noShows)}
-            </div>
+            </RowGroup>
           )}
         </div>
       )}

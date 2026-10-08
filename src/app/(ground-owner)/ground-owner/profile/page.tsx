@@ -1,15 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Loader2, User, Mail, Phone, Shield, Building2,
-  MapPin, AlignLeft, CheckCircle, Clock, Star,
-  CalendarCheck, Eye, EyeOff, Save, KeyRound,
-  Wallet, LayoutGrid,
-} from "lucide-react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-
-type Tab = "personal" | "business" | "security";
+import { Check, Eye, EyeOff, Loader2, MapPin } from "lucide-react";
+import { tk, formatDay } from "@/i18n/core";
+import { useT } from "@/i18n/I18nProvider";
 
 interface Profile {
   name: string; email: string; phone: string | null; createdAt: string;
@@ -18,352 +13,299 @@ interface Profile {
     address: string | null; city: string | null; phone: string | null;
   } | null;
 }
-interface Stats {
-  totalGrounds: number; activeGrounds: number;
-  pendingGrounds: number; totalBookings: number; totalReviews: number;
-}
+interface Stats { totalGrounds: number; activeGrounds: number; pendingGrounds: number; totalBookings: number; totalReviews: number }
+interface Setup { contact: boolean; business: boolean; ground: boolean; approved: boolean; photos: boolean; hours: boolean; method: boolean; payments: boolean; workers: boolean }
 
-function initials(name: string) { return name?.[0]?.toUpperCase() ?? "G"; }
-function avatarColor(name: string) {
-  const palette = ["from-green-500 to-emerald-600","from-teal-500 to-cyan-600","from-blue-500 to-indigo-600","from-violet-500 to-purple-600","from-orange-500 to-amber-600"];
-  return palette[name.charCodeAt(0) % palette.length];
-}
+const PHONE_RE = /^(?:\+94|0)7[0-9]{8}$/;
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+/* ── Building blocks ─────────────────────────────────────────────────────── */
+
+const inputCls =
+  "w-full rounded-lg border border-rule bg-white px-3.5 py-2.5 text-[15px] text-pitch-deep placeholder:text-slate-400 " +
+  "outline-none focus:border-pitch focus:ring-2 focus:ring-pitch/20 disabled:bg-slip disabled:text-slate-500";
+
+function Field({ label, hint, htmlFor, children }: { label: string; hint?: string; htmlFor: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{label}</label>
+      <label htmlFor={htmlFor} className="block text-sm font-medium text-pitch-deep mb-1.5">{label}</label>
       {children}
-      {hint && <p className="text-xs text-slate-400 mt-1.5">{hint}</p>}
+      {hint && <p className="mt-1.5 text-[13px] text-slate-500">{hint}</p>}
     </div>
   );
 }
 
-function TextInput({ icon: Icon, ...props }: { icon: React.ElementType } & React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <div className="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-green-500 focus-within:border-green-500 transition-all bg-white">
-      <Icon className="w-4 h-4 text-slate-400 shrink-0" />
-      <input className="flex-1 text-sm text-slate-900 outline-none bg-transparent placeholder:text-slate-400" {...props} />
-    </div>
-  );
-}
-
-function PwField({ label, value, show, onChange, onToggle }: {
-  label: string; value: string; show: boolean;
-  onChange: (v: string) => void; onToggle: () => void;
+/** A settings section: what it is on the left, the fields on the right. */
+function Section({ title, description, children, footer }: {
+  title: string; description: string; children: React.ReactNode; footer: React.ReactNode;
 }) {
   return (
-    <Field label={label}>
-      <div className="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-green-500 focus-within:border-green-500 transition-all bg-white">
-        <KeyRound className="w-4 h-4 text-slate-400 shrink-0" />
-        <input type={show ? "text" : "password"} required value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="flex-1 text-sm text-slate-900 outline-none bg-transparent placeholder:text-slate-400" />
-        <button type="button" onClick={onToggle} className="text-slate-400 hover:text-slate-600">
-          {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-        </button>
+    <section className="bg-white rounded-xl border border-rule">
+      <div className="p-6 grid gap-6 lg:grid-cols-[minmax(0,13rem)_minmax(0,1fr)]">
+        <div>
+          <h2 className="text-[17px] font-semibold text-pitch-deep">{title}</h2>
+          <p className="mt-1 text-sm text-slate-500 leading-relaxed">{description}</p>
+        </div>
+        <div className="flex flex-col gap-5 max-w-lg">{children}</div>
       </div>
-    </Field>
+      <div className="flex items-center justify-end gap-3 border-t border-rule bg-slip/60 px-6 py-3 rounded-b-xl">{footer}</div>
+    </section>
   );
 }
 
-export default function GroundOwnerProfilePage() {
-  const [tab,     setTab]     = useState<Tab>("personal");
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [stats,   setStats]   = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
+function SaveBar({ saving, saved, error, label }: { saving: boolean; saved: boolean; error: string; label: string }) {
+  const { t } = useT();
+  return (
+    <>
+      {error && <p className="mr-auto text-sm text-red-700" role="alert">{t(error)}</p>}
+      {saved && !error && <p className="mr-auto flex items-center gap-1.5 text-sm text-pitch" role="status"><Check className="w-4 h-4" />{t("Saved")}</p>}
+      <button type="submit" disabled={saving}
+        className="inline-flex items-center gap-2 rounded-lg bg-pitch px-4 py-2 text-sm font-semibold text-white hover:bg-pitch-deep disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pitch">
+        {saving && <Loader2 className="w-4 h-4 animate-spin" />}{label}
+      </button>
+    </>
+  );
+}
 
-  const [pForm,   setPForm]   = useState({ name: "", phone: "" });
-  const [bForm,   setBForm]   = useState({ businessName: "", bio: "", address: "", city: "" });
-  const [pSaving, setPSaving] = useState(false);
-  const [pSaved,  setPSaved]  = useState(false);
-  const [pError,  setPError]  = useState("");
-
-  const [pwForm,   setPwForm]   = useState({ current: "", next: "", confirm: "" });
-  const [pwSaving, setPwSaving] = useState(false);
-  const [pwSaved,  setPwSaved]  = useState(false);
-  const [pwError,  setPwError]  = useState("");
-  const [showPw,   setShowPw]   = useState({ current: false, next: false, confirm: false });
-
-  useEffect(() => {
-    fetch("/api/ground-owner/profile").then((r) => r.json()).then((d) => {
-      if (d.user) {
-        setProfile(d.user);
-        const p = d.user.groundOwnerProfile;
-        setPForm({ name: d.user.name ?? "", phone: d.user.phone ?? "" });
-        setBForm({
-          businessName: p?.businessName ?? "",
-          bio:          p?.bio          ?? "",
-          address:      p?.address      ?? "",
-          city:         p?.city         ?? "",
-        });
-      }
-      if (d.stats) setStats(d.stats);
-    }).finally(() => setLoading(false));
-  }, []);
-
-  const saveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pForm.name.trim() || pForm.name.trim().length < 2) { setPError("Full name must be at least 2 characters."); return; }
-    if (pForm.name.trim().length > 50) { setPError("Full name must be under 50 characters."); return; }
-    if (pForm.phone.trim()) {
-      const cleaned = pForm.phone.replace(/[\s\-().]/g, "");
-      if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned)) { setPError("Enter a valid Sri Lankan mobile number (e.g. 077 123 4567)."); return; }
-    }
-    if (bForm.businessName.trim().length > 100) { setPError("Business name must be under 100 characters."); return; }
-    if (bForm.bio.trim().length > 500)           { setPError("Bio must be under 500 characters."); return; }
-    setPSaving(true); setPError("");
-    const res  = await fetch("/api/ground-owner/profile", {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...pForm, ...bForm }),
-    });
-    const data = await res.json();
-    setPSaving(false);
-    if (!res.ok) { setPError(data.error ?? "Failed to save."); return; }
-    setProfile((p) => p ? { ...p, name: pForm.name, phone: pForm.phone || null } : p);
-    setPSaved(true); setTimeout(() => setPSaved(false), 3000);
-  };
-
-  const savePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pwForm.next !== pwForm.confirm) { setPwError("Passwords do not match."); return; }
-    if (pwForm.next.length < 8)        { setPwError("Password must be at least 8 characters."); return; }
-    if (!/[a-zA-Z]/.test(pwForm.next)) { setPwError("Password must contain at least one letter."); return; }
-    if (!/[0-9]/.test(pwForm.next))    { setPwError("Password must contain at least one number."); return; }
-    setPwSaving(true); setPwError("");
-    const res  = await fetch("/api/user/password", {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.next }),
-    });
-    const data = await res.json();
-    setPwSaving(false);
-    if (!res.ok) { setPwError(data.error ?? "Failed to change password."); return; }
-    setPwForm({ current: "", next: "", confirm: "" });
-    setPwSaved(true); setTimeout(() => setPwSaved(false), 4000);
-  };
-
-  if (loading) return (
-    <div className="flex items-center justify-center h-96 text-slate-400 gap-2">
-      <Loader2 className="w-5 h-5 animate-spin" /><span className="text-sm">Loading profile…</span>
+function PasswordInput({ id, value, onChange, autoComplete }: { id: string; value: string; onChange: (v: string) => void; autoComplete: string }) {
+  const [show, setShow] = useState(false);
+  const { t } = useT();
+  return (
+    <div className="relative">
+      <input id={id} type={show ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)}
+        autoComplete={autoComplete} className={`${inputCls} pr-11`} required />
+      <button type="button" onClick={() => setShow((s) => !s)} aria-label={show ? t("Hide password") : t("Show password")}
+        className="absolute inset-y-0 right-0 px-3 text-slate-400 hover:text-pitch-deep">
+        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      </button>
     </div>
   );
+}
 
-  const name = profile?.name ?? "Owner";
-  const businessName = profile?.groundOwnerProfile?.businessName;
-  const city = profile?.groundOwnerProfile?.city;
-  const memberSince = profile
-    ? new Date(profile.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })
-    : "—";
+const SETUP_STEPS: { key: keyof Setup; label: string; href: string; optional?: boolean }[] = [
+  { key: "contact",  label: tk("Add your phone number"),        href: "#contact" },
+  { key: "business", label: tk("Add your business details"),    href: "#business" },
+  { key: "ground",   label: tk("List your first ground"),       href: "/ground-owner/grounds/new" },
+  { key: "approved", label: tk("Get a ground approved"),        href: "/ground-owner/grounds" },
+  { key: "photos",   label: tk("Add photos to every ground"),   href: "/ground-owner/grounds" },
+  { key: "hours",    label: tk("Set opening hours"),            href: "/ground-owner/availability" },
+  { key: "method",   label: tk("Choose how players pay"),       href: "/ground-owner/setup" },
+  { key: "payments", label: tk("Add a bank account for online payments"), href: "/ground-owner/payment-details" },
+  { key: "workers",  label: tk("Invite a ground worker"),       href: "/ground-owner/workers", optional: true },
+];
 
-  const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: "personal", label: "Personal Info",  icon: User },
-    { id: "business", label: "Business Info",  icon: Building2 },
-    { id: "security", label: "Security",       icon: Shield },
-  ];
+/* ── Page ─────────────────────────────────────────────────────────────────── */
+
+export default function GroundOwnerProfilePage() {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [stats,   setStats]   = useState<Stats | null>(null);
+  const [setup,   setSetup]   = useState<Setup | null>(null);
+  const [failed,  setFailed]  = useState(false);
+  const { t, tn, locale } = useT();
+
+  const [contact,  setContact]  = useState({ name: "", phone: "" });
+  const [business, setBusiness] = useState({ businessName: "", address: "", city: "", bio: "" });
+  const [pw,       setPw]       = useState({ current: "", next: "", confirm: "" });
+
+  const [state, setState] = useState<Record<"contact" | "business" | "password", { saving: boolean; saved: boolean; error: string }>>({
+    contact:  { saving: false, saved: false, error: "" },
+    business: { saving: false, saved: false, error: "" },
+    password: { saving: false, saved: false, error: "" },
+  });
+  const patch = (k: keyof typeof state, v: Partial<(typeof state)["contact"]>) => setState((s) => ({ ...s, [k]: { ...s[k], ...v } }));
+
+  async function load() {
+    try {
+      const res = await fetch("/api/ground-owner/profile", { cache: "no-store" });
+      const d   = await res.json();
+      if (!res.ok || !d.user) { setFailed(true); return; }
+      setProfile(d.user);
+      setStats(d.stats);
+      setSetup(d.setup);
+      const p = d.user.groundOwnerProfile;
+      setContact({ name: d.user.name ?? "", phone: d.user.phone ?? "" });
+      setBusiness({ businessName: p?.businessName ?? "", address: p?.address ?? "", city: p?.city ?? "", bio: p?.bio ?? "" });
+    } catch {
+      setFailed(true);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function saveDetails(which: "contact" | "business", e: React.FormEvent) {
+    e.preventDefault();
+    const name = contact.name.trim();
+    if (which === "contact") {
+      if (name.length < 2 || name.length > 50) return patch("contact", { error: t("Use a name between 2 and 50 characters."), saved: false });
+      if (contact.phone.trim() && !PHONE_RE.test(contact.phone.replace(/[\s\-().]/g, "")))
+        return patch("contact", { error: t("Use a Sri Lankan mobile number, like 077 123 4567."), saved: false });
+    } else {
+      if (business.businessName.trim().length > 100) return patch("business", { error: t("Keep the business name under 100 characters."), saved: false });
+      if (business.bio.trim().length > 500)          return patch("business", { error: t("Keep the description under 500 characters."), saved: false });
+    }
+    patch(which, { saving: true, error: "", saved: false });
+    try {
+      const res  = await fetch("/api/ground-owner/profile", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...contact, ...business }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return patch(which, { saving: false, error: data.error ?? t("Couldn't save. Try again.") });
+      patch(which, { saving: false, saved: true });
+      load();
+    } catch {
+      patch(which, { saving: false, error: t("You're offline. Reconnect and try again.") });
+    }
+  }
+
+  async function savePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (pw.next !== pw.confirm)                           return patch("password", { error: t("The new passwords don't match."), saved: false });
+    if (pw.next.length < 8 || !/[a-zA-Z]/.test(pw.next) || !/[0-9]/.test(pw.next))
+      return patch("password", { error: t("Use at least 8 characters with a letter and a number."), saved: false });
+    patch("password", { saving: true, error: "", saved: false });
+    try {
+      const res  = await fetch("/api/user/password", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: pw.current, newPassword: pw.next }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return patch("password", { saving: false, error: data.error ?? t("Couldn't change the password.") });
+      setPw({ current: "", next: "", confirm: "" });
+      patch("password", { saving: false, saved: true });
+    } catch {
+      patch("password", { saving: false, error: t("You're offline. Reconnect and try again.") });
+    }
+  }
+
+  if (failed) return <p className="text-red-700">{t("Your profile didn't load. Refresh the page to try again.")}</p>;
+  if (!profile || !stats || !setup) {
+    return <div className="flex justify-center py-24"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>;
+  }
+
+  const p        = profile.groundOwnerProfile;
+  const since    = formatDay(new Date(profile.createdAt), locale, { month: "long", year: "numeric" });
+  const monogram = (p?.businessName || profile.name).split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("");
+  const required = SETUP_STEPS.filter((s) => !s.optional);
+  const doneCount = required.filter((s) => setup[s.key]).length;
 
   return (
-    <div className="max-w-3xl flex flex-col gap-6">
-      {/* ── Profile card ── */}
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+    <div className="max-w-6xl">
+      <header className="mb-8">
+        <h1 className="text-2xl font-bold text-pitch-deep">{t("Profile")}</h1>
+      </header>
 
-        {/* Banner */}
-        <div className="bg-gradient-to-br from-green-700 to-emerald-500 px-5 sm:px-8 py-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-            {/* Avatar */}
-            <div className={`w-20 h-20 bg-gradient-to-br ${avatarColor(name)} rounded-2xl flex items-center justify-center text-white text-3xl font-black ring-4 ring-white/30 shrink-0 shadow-lg`}>
-              {initials(name)}
+      <div className="grid gap-8 lg:grid-cols-[18rem_minmax(0,1fr)] items-start">
+        {/* ── Identity, numbers, setup ── */}
+        <aside className="flex flex-col gap-6 lg:sticky lg:top-6">
+          <div className="bg-white rounded-xl border border-rule p-6">
+            <div className="grid place-items-center w-16 h-16 rounded-xl bg-pitch-deep text-white font-scoreboard text-[28px] font-semibold tracking-wide" aria-hidden>
+              {monogram}
             </div>
-            {/* Identity */}
-            <div className="flex-1 min-w-0">
-              <h1 className="text-white text-2xl font-bold leading-tight">{name}</h1>
-              {businessName && (
-                <p className="text-green-100 text-sm font-medium mt-0.5">{businessName}</p>
-              )}
-              <p className="text-green-200 text-sm mt-0.5">{profile?.email}</p>
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur text-white text-xs px-3 py-1 rounded-full font-semibold">
-                  <Building2 className="w-3 h-3" />Ground Owner
-                </span>
-                {city && (
-                  <span className="inline-flex items-center gap-1 bg-white/15 text-green-100 text-xs px-3 py-1 rounded-full">
-                    <MapPin className="w-3 h-3" />{city}
-                  </span>
-                )}
-                <span className="text-green-200 text-xs">Since {memberSince}</span>
-              </div>
-            </div>
+            <p className="mt-4 text-lg font-semibold text-pitch-deep leading-snug">{p?.businessName || profile.name}</p>
+            {p?.businessName && <p className="text-sm text-slate-600">{profile.name}</p>}
+            <p className="mt-1 text-sm text-slate-500 break-all">{profile.email}</p>
+            {p?.city && <p className="mt-2 flex items-center gap-1 text-sm text-slate-500"><MapPin className="w-3.5 h-3.5" />{p.city}</p>}
+            <p className="mt-4 pt-4 border-t border-rule text-[13px] text-slate-500">{t("Ground owner since {date}", { date: since })}</p>
+
+            <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
+              {([[tk("Grounds"), stats.totalGrounds], [tk("Bookings"), stats.totalBookings], [tk("Reviews"), stats.totalReviews]] as const).map(([label, value]) => (
+                <div key={label} className="rounded-lg bg-slip py-2.5">
+                  <dd className="font-scoreboard text-2xl font-semibold text-pitch-deep tabular-nums">{value}</dd>
+                  <dt className="text-xs text-slate-500">{t(label)}</dt>
+                </div>
+              ))}
+            </dl>
+            {stats.pendingGrounds > 0 && (
+              <p className="mt-3 text-[13px] text-deadline">{tn(stats.pendingGrounds, "{n} ground waiting for GoPlay approval", "{n} grounds waiting for GoPlay approval")}</p>
+            )}
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-7 pt-6 border-t border-white/20">
-            {[
-              { label: "Grounds",     value: stats?.totalGrounds   ?? 0, icon: Building2 },
-              { label: "Active",      value: stats?.activeGrounds  ?? 0, icon: CheckCircle },
-              { label: "Pending",     value: stats?.pendingGrounds ?? 0, icon: Clock },
-              { label: "Bookings",    value: stats?.totalBookings  ?? 0, icon: CalendarCheck },
-              { label: "Reviews",     value: stats?.totalReviews   ?? 0, icon: Star },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="text-center">
-                <Icon className="w-4 h-4 text-white/70 mx-auto mb-1" />
-                <p className="text-white text-xl font-bold">{value}</p>
-                <p className="text-green-200 text-xs mt-0.5 leading-tight">{label}</p>
-              </div>
-            ))}
+          <div className="bg-white rounded-xl border border-rule p-6">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-[15px] font-semibold text-pitch-deep">{t("Setup")}</h2>
+              <span className="text-sm text-slate-500 tabular-nums">{t("{done} of {total}", { done: doneCount, total: required.length })}</span>
+            </div>
+            <div className="mt-3 h-1.5 rounded-full bg-slip overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={required.length} aria-valuenow={doneCount}>
+              <div className="h-full bg-pitch rounded-full transition-[width] duration-500" style={{ width: `${(doneCount / required.length) * 100}%` }} />
+            </div>
+            <ol className="mt-4 flex flex-col gap-1">
+              {SETUP_STEPS.map((s) => {
+                const done = setup[s.key];
+                return (
+                  <li key={s.key}>
+                    <Link href={s.href}
+                      className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm hover:bg-slip ${done ? "text-slate-400" : "text-pitch-deep"}`}>
+                      <span className={`grid place-items-center w-5 h-5 rounded-full shrink-0 ${done ? "bg-pitch text-white" : "border-2 border-rule"}`} aria-hidden>
+                        {done && <Check className="w-3 h-3" />}
+                      </span>
+                      <span className={done ? "line-through decoration-slate-300" : ""}>{t(s.label)}</span>
+                      {s.optional && !done && <span className="ml-auto text-xs text-slate-400">{t("Optional")}</span>}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
           </div>
-        </div>
+        </aside>
 
-        {/* Quick links */}
-        <div className="grid grid-cols-2 gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50/40">
-          <Link href="/ground-owner/payment-details"
-            className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 hover:border-green-300 hover:bg-green-50 transition-all group">
-            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors shrink-0">
-              <Wallet className="w-4 h-4 text-green-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-900 group-hover:text-green-700">Payment Details</p>
-              <p className="text-xs text-slate-400 truncate">Where players pay online</p>
-            </div>
-          </Link>
-          <Link href="/ground-owner/grounds"
-            className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 hover:border-green-300 hover:bg-green-50 transition-all group">
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors shrink-0">
-              <LayoutGrid className="w-4 h-4 text-blue-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-900 group-hover:text-green-700">My Grounds</p>
-              <p className="text-xs text-slate-400 truncate">View & manage facilities</p>
-            </div>
-          </Link>
-        </div>
-
-        {/* Tab nav */}
-        <div className="flex border-b border-slate-100 bg-slate-50/60">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button key={id} onClick={() => setTab(id)}
-              className={`flex items-center gap-2 px-6 py-3.5 text-sm font-medium transition-colors ${
-                tab === id
-                  ? "border-b-2 border-green-500 text-green-600 bg-white"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-white/60"
-              }`}
-            >
-              <Icon className="w-4 h-4" />{label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        <div className="p-7 max-w-md">
-          {/* ── Personal Info ── */}
-          {tab === "personal" && (
-            <form onSubmit={saveProfile} className="flex flex-col gap-5">
-              <Field label="Full Name">
-                <TextInput icon={User} type="text" required value={pForm.name}
-                  onChange={(e) => setPForm({ ...pForm, name: e.target.value })}
-                  placeholder="Your full name" />
+        {/* ── Settings ── */}
+        <div className="flex flex-col gap-6">
+          <form id="contact" onSubmit={(e) => saveDetails("contact", e)} className="scroll-mt-6">
+            <Section title={t("Contact details")} description={t("How players reach you.")}
+              footer={<SaveBar {...state.contact} label={t("Save contact details")} />}>
+              <Field label={t("Full name")} htmlFor="name">
+                <input id="name" className={inputCls} value={contact.name} autoComplete="name"
+                  onChange={(e) => setContact({ ...contact, name: e.target.value })} />
               </Field>
-
-              <Field label="Email Address">
-                <div className="flex items-center gap-3 border border-slate-100 rounded-xl px-4 py-3 bg-slate-50">
-                  <Mail className="w-4 h-4 text-slate-300 shrink-0" />
-                  <span className="flex-1 text-sm text-slate-400">{profile?.email}</span>
-                  <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">Read only</span>
-                </div>
+              <Field label={t("Email")} htmlFor="email" hint={t("Contact support to change it.")}>
+                <input id="email" className={inputCls} value={profile.email} disabled />
               </Field>
-
-              <Field label="Phone Number" hint="Used for approval and booking SMS notifications.">
-                <TextInput icon={Phone} type="tel" value={pForm.phone}
-                  onChange={(e) => setPForm({ ...pForm, phone: e.target.value })}
-                  placeholder="+94 77 123 4567" />
+              <Field label={t("Mobile number")} htmlFor="phone" hint={t("We text new bookings here.")}>
+                <input id="phone" type="tel" className={inputCls} value={contact.phone} placeholder="077 123 4567" autoComplete="tel"
+                  onChange={(e) => setContact({ ...contact, phone: e.target.value })} />
               </Field>
+            </Section>
+          </form>
 
-              {pError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-2.5 rounded-xl">{pError}</p>}
-
-              <button type="submit" disabled={pSaving}
-                className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-3 rounded-xl transition-colors mt-1">
-                {pSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : pSaved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                {pSaved ? "Saved!" : pSaving ? "Saving…" : "Save Changes"}
-              </button>
-            </form>
-          )}
-
-          {/* ── Business Info ── */}
-          {tab === "business" && (
-            <form onSubmit={saveProfile} className="flex flex-col gap-5">
-              <Field label="Business Name" hint="Shown on your public profile and facility listings.">
-                <TextInput icon={Building2} type="text" value={bForm.businessName}
-                  onChange={(e) => setBForm({ ...bForm, businessName: e.target.value })}
-                  placeholder="e.g. Colombo Sports Hub" />
+          <form id="business" onSubmit={(e) => saveDetails("business", e)} className="scroll-mt-6">
+            <Section title={t("Business")} description={t("Shown on your ground pages.")}
+              footer={<SaveBar {...state.business} label={t("Save business details")} />}>
+              <Field label={t("Business name")} htmlFor="businessName">
+                <input id="businessName" className={inputCls} value={business.businessName} placeholder={t("e.g. Kandy Hills Sports")} autoComplete="organization"
+                  onChange={(e) => setBusiness({ ...business, businessName: e.target.value })} />
               </Field>
-
-              <Field label="Business Address">
-                <TextInput icon={MapPin} type="text" value={bForm.address}
-                  onChange={(e) => setBForm({ ...bForm, address: e.target.value })}
-                  placeholder="Street address" />
-              </Field>
-
-              <Field label="City">
-                <TextInput icon={MapPin} type="text" value={bForm.city}
-                  onChange={(e) => setBForm({ ...bForm, city: e.target.value })}
-                  placeholder="e.g. Colombo" />
-              </Field>
-
-              <Field label="Bio">
-                <div className="flex gap-3 border border-slate-200 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-green-500 focus-within:border-green-500 transition-all bg-white">
-                  <AlignLeft className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                  <textarea
-                    value={bForm.bio}
-                    onChange={(e) => setBForm({ ...bForm, bio: e.target.value })}
-                    placeholder="Tell players about your facilities and what makes them special…"
-                    rows={4}
-                    className="flex-1 text-sm text-slate-900 outline-none bg-transparent placeholder:text-slate-400 resize-none"
-                  />
-                </div>
-              </Field>
-
-              {pError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-2.5 rounded-xl">{pError}</p>}
-
-              <button type="submit" disabled={pSaving}
-                className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-3 rounded-xl transition-colors mt-1">
-                {pSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : pSaved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                {pSaved ? "Saved!" : pSaving ? "Saving…" : "Save Business Info"}
-              </button>
-            </form>
-          )}
-
-          {/* ── Security ── */}
-          {tab === "security" && (
-            <form onSubmit={savePassword} className="flex flex-col gap-5">
-              <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
-                <Shield className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-blue-700">
-                  Choose a strong password with at least 8 characters. You&apos;ll need your current password to make changes.
-                </p>
+              <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_10rem]">
+                <Field label={t("Address")} htmlFor="address">
+                  <input id="address" className={inputCls} value={business.address} autoComplete="street-address"
+                    onChange={(e) => setBusiness({ ...business, address: e.target.value })} />
+                </Field>
+                <Field label={t("City")} htmlFor="city">
+                  <input id="city" className={inputCls} value={business.city} autoComplete="address-level2"
+                    onChange={(e) => setBusiness({ ...business, city: e.target.value })} />
+                </Field>
               </div>
+              <Field label={t("About your business")} htmlFor="bio" hint={`${business.bio.length} / 500`}>
+                <textarea id="bio" rows={4} className={`${inputCls} resize-y`} value={business.bio} maxLength={500}
+                  placeholder={t("What makes your grounds worth booking — surfaces, lights, parking, coaching…")}
+                  onChange={(e) => setBusiness({ ...business, bio: e.target.value })} />
+              </Field>
+            </Section>
+          </form>
 
-              <PwField label="Current Password" value={pwForm.current}
-                show={showPw.current} onChange={(v) => setPwForm({ ...pwForm, current: v })}
-                onToggle={() => setShowPw((s) => ({ ...s, current: !s.current }))} />
-              <PwField label="New Password" value={pwForm.next}
-                show={showPw.next} onChange={(v) => setPwForm({ ...pwForm, next: v })}
-                onToggle={() => setShowPw((s) => ({ ...s, next: !s.next }))} />
-              <PwField label="Confirm New Password" value={pwForm.confirm}
-                show={showPw.confirm} onChange={(v) => setPwForm({ ...pwForm, confirm: v })}
-                onToggle={() => setShowPw((s) => ({ ...s, confirm: !s.confirm }))} />
-
-              {pwError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-4 py-2.5 rounded-xl">{pwError}</p>}
-              {pwSaved && (
-                <p className="text-xs text-green-700 bg-green-50 border border-green-100 px-4 py-2.5 rounded-xl flex items-center gap-2">
-                  <CheckCircle className="w-3.5 h-3.5" />Password changed successfully.
-                </p>
-              )}
-
-              <button type="submit" disabled={pwSaving}
-                className="flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-semibold py-3 rounded-xl transition-colors mt-1">
-                {pwSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
-                {pwSaving ? "Updating…" : "Update Password"}
-              </button>
-            </form>
-          )}
+          <form id="security" onSubmit={savePassword} className="scroll-mt-6">
+            <Section title={t("Sign-in & security")} description={t("Your sign-in password.")}
+              footer={<SaveBar {...state.password} label={t("Change password")} />}>
+              <Field label={t("Current password")} htmlFor="pw-current">
+                <PasswordInput id="pw-current" value={pw.current} autoComplete="current-password" onChange={(v) => setPw({ ...pw, current: v })} />
+              </Field>
+              <Field label={t("New password")} htmlFor="pw-new" hint={t("At least 8 characters, with a letter and a number.")}>
+                <PasswordInput id="pw-new" value={pw.next} autoComplete="new-password" onChange={(v) => setPw({ ...pw, next: v })} />
+              </Field>
+              <Field label={t("Confirm new password")} htmlFor="pw-confirm">
+                <PasswordInput id="pw-confirm" value={pw.confirm} autoComplete="new-password" onChange={(v) => setPw({ ...pw, confirm: v })} />
+              </Field>
+            </Section>
+          </form>
         </div>
       </div>
     </div>
