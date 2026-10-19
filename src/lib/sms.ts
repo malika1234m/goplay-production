@@ -2,6 +2,12 @@ const userId   = process.env.NOTIFY_USER_ID;
 const apiKey   = process.env.NOTIFY_API_KEY;
 const senderId = process.env.NOTIFY_SENDER_ID;
 
+/** Notify.lk wants the international form without "+": 94XXXXXXXXX (11 digits). */
+function toNotifyFormat(phone: string): string | null {
+  const local = normalizeToLocal(phone);
+  return local ? "94" + local.slice(1) : null;
+}
+
 function normalizeToLocal(phone: string): string | null {
   const clean = phone.replace(/[\s\-\(\)]/g, "");
 
@@ -20,20 +26,28 @@ function normalizeToLocal(phone: string): string | null {
   return null;
 }
 
-export async function sendSMS(to: string, message: string): Promise<void> {
-  if (!userId || !apiKey || !senderId) return;
+/** Sends one SMS through Notify.lk. Resolves true only when Notify.lk accepted it —
+ *  booking notices ignore the result, but phone OTPs must know a send failed. */
+export async function sendSMS(to: string, message: string): Promise<boolean> {
+  if (!userId || !apiKey || !senderId) {
+    console.error("[SMS notify.lk] NOTIFY_USER_ID / NOTIFY_API_KEY / NOTIFY_SENDER_ID not set — SMS not sent");
+    return false;
+  }
 
-  const local = normalizeToLocal(to);
-  if (!local) return;
+  const intl = toNotifyFormat(to);
+  if (!intl) return false;
 
   try {
-    const url = `https://app.notify.lk/api/v1/send?user_id=${encodeURIComponent(userId)}&api_key=${encodeURIComponent(apiKey)}&service_id=${encodeURIComponent(senderId)}&to=${local}&message=${encodeURIComponent(message)}`;
+    const url = `https://app.notify.lk/api/v1/send?user_id=${encodeURIComponent(userId)}&api_key=${encodeURIComponent(apiKey)}&service_id=${encodeURIComponent(senderId)}&to=${intl}&message=${encodeURIComponent(message)}`;
     const res  = await fetch(url);
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.status === "error") {
       console.error("[SMS notify.lk]", data);
+      return false;
     }
+    return true;
   } catch (err) {
     console.error("[SMS notify.lk]", err);
+    return false;
   }
 }

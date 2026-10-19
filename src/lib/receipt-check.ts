@@ -5,6 +5,9 @@ export type ReceiptKind = "jpeg" | "png" | "webp" | "heic" | "pdf";
 const MIN_SHORT_SIDE = 300;   // px — a readable phone screenshot or photo is far larger
 const MAX_ASPECT     = 8;     // a long banking-app screenshot is ~1:5; anything thinner is not a receipt
 const MAX_PDF_PAGES  = 5;
+// A 200 MP phone photo is ~200M px; past this a small compressed file could expand to gigabytes when decoded
+const MAX_PIXELS     = 250_000_000;
+const SHARP_OPTS     = { limitInputPixels: MAX_PIXELS, sequentialRead: true } as const;
 
 /** Work out what the file really is from its first bytes — never trust the name or declared type. */
 export function sniffReceipt(buf: Buffer): ReceiptKind | null {
@@ -31,11 +34,14 @@ function checkPdf(buf: Buffer): string | null {
 async function checkImage(buf: Buffer): Promise<string | null> {
   let meta: Awaited<ReturnType<ReturnType<typeof sharp>["metadata"]>>;
   try {
-    meta = await sharp(buf).metadata();
+    meta = await sharp(buf, SHARP_OPTS).metadata();
   } catch {
     return "This image can't be opened. Take a new screenshot of the receipt.";
   }
   const w = meta.width ?? 0, h = meta.height ?? 0;
+  if (w * h > MAX_PIXELS) {
+    return "This image is too large. Send a normal screenshot or photo of the receipt.";
+  }
   if (Math.min(w, h) < MIN_SHORT_SIDE) {
     return "This image is too small to read. Send a full-size screenshot or photo of the receipt.";
   }
@@ -43,7 +49,14 @@ async function checkImage(buf: Buffer): Promise<string | null> {
     return "This doesn't look like a receipt. Send a screenshot that shows the whole transfer.";
   }
   // A single flat colour (blank, black or cropped-out) carries no receipt
-  const { channels } = await sharp(buf).stats();
+  // Checked on a small copy so the full image is never held in memory
+  let channels: Awaited<ReturnType<ReturnType<typeof sharp>["stats"]>>["channels"];
+  try {
+    ({ channels } = await sharp(buf, SHARP_OPTS).resize(256, 256, { fit: "inside" }).toBuffer()
+      .then((small) => sharp(small).stats()));
+  } catch {
+    return "This image can't be opened. Take a new screenshot of the receipt.";
+  }
   if (channels.slice(0, 3).every((c) => c.stdev < 4)) {
     return "This image is blank. Send a screenshot that shows the transfer details.";
   }

@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Calendar, Phone, Clock, Loader2, CheckCircle, CreditCard, Banknote, Zap, ChevronRight, Users } from "lucide-react";
 import BankDetailsCard from "@/components/payments/BankDetailsCard";
+import PhoneVerifyDialog from "@/components/booking/PhoneVerifyDialog";
 import type { PaymentDetails } from "@/components/payments/types";
 
 interface OpenMatchSlotInfo {
@@ -66,6 +67,7 @@ export default function BookingForm({
   const [specialRequests, setSpecialRequests] = useState("");
   const [selectedCourt,   setSelectedCourt]   = useState<string | null>(courts.length === 1 ? courts[0].id : null);
   const [paymentMethod,   setPaymentMethod]   = useState<PaymentMethod>(paymentMethods.cash ? "ON_ARRIVAL" : "ONLINE");
+  const [verifying,       setVerifying]       = useState(false);   // phone check before a pay-at-ground booking
   const [slots,           setSlots]           = useState<Slot[]>([]);
   const [loadingSlots,    setLoadingSlots]    = useState(false);
   const [submitting,      setSubmitting]      = useState(false);
@@ -172,6 +174,18 @@ export default function BookingForm({
     const phoneErr = validatePhone(contactNumber);
     if (phoneErr) { setPhoneError(phoneErr); return; }
 
+    // Pay-at-ground holds a slot with nothing paid — prove the number by SMS first (once per number)
+    if (paymentMethod === "ON_ARRIVAL") {
+      setSubmitting(true);
+      const st = await fetch(`/api/phone-verification?phone=${encodeURIComponent(contactNumber.trim())}`).then((r) => r.json()).catch(() => ({}));
+      setSubmitting(false);
+      if (!st.verified) { setVerifying(true); return; }
+    }
+    await createBooking();
+  };
+
+  const createBooking = async () => {
+    if (!selectedSlot) return;
     setSubmitting(true);
     setError("");
     setLobbyId(null);
@@ -196,6 +210,7 @@ export default function BookingForm({
     setSubmitting(false);
 
     if (!res.ok) {
+      if (data.code === "PHONE_NOT_VERIFIED") { setVerifying(true); return; }
       setError(data.error ?? "Booking failed. Please try again.");
       if (data.lobbyId) setLobbyId(data.lobbyId);
       return;
@@ -628,6 +643,14 @@ export default function BookingForm({
       {paymentMethod === "ON_ARRIVAL" && (
         <p className="text-xs text-slate-400 text-center">Pending confirmation from the ground owner.</p>
       )}
+
+      {verifying && <PhoneVerifyDialog
+        open
+        phone={contactNumber.trim()}
+        onClose={() => setVerifying(false)}
+        onVerified={() => { setVerifying(false); void createBooking(); }}
+        onChangeNumber={() => { setVerifying(false); setPhoneError("Update your number, then book again."); }}
+      />}
     </form>
   );
 }

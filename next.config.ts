@@ -69,6 +69,18 @@ const nextConfig: NextConfig = {
     deviceSizes:     [640, 750, 828, 1080, 1200, 1920],
     imageSizes:      [16, 32, 48, 64, 96, 128, 256, 384],
   },
+  // www pages move to goplay.lk, but /api stays put: a redirect to another host drops the
+  // Authorization header, which logs out every mobile app build pointed at www.goplay.lk.
+  async redirects() {
+    return [
+      {
+        source:      "/:path((?!api/).*)",
+        has:         [{ type: "host", value: "www.goplay.lk" }],
+        destination: "https://goplay.lk/:path",
+        permanent:   true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

@@ -3,12 +3,16 @@ import { Resend } from "resend";
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const FROM   = process.env.EMAIL_FROM ?? "GoPlay <noreply@goplay.lk>";
 
-async function send(to: string, subject: string, html: string) {
-  if (!resend) return; // silently skip if not configured
+/** Resolves false when the email didn't go out — most callers ignore it, OTP codes can't */
+async function send(to: string, subject: string, html: string): Promise<boolean> {
+  if (!resend) return false; // silently skip if not configured
   try {
-    await resend.emails.send({ from: FROM, to, subject, html });
+    const { error } = await resend.emails.send({ from: FROM, to, subject, html });
+    if (error) { console.error("[email]", error); return false; }
+    return true;
   } catch (err) {
     console.error("[email]", err);
+    return false;
   }
 }
 
@@ -431,4 +435,22 @@ export async function sendReceiptRejectedEmail(opts: {
     ${button(`${APP_URL}${opts.link}`, "Open booking")}
   `);
   await send(opts.to, `Receipt not accepted — ${opts.facilityName}`, html);
+}
+
+// ── Booking verification code (to player) ─────────────────────────────────
+export async function sendBookingOtpEmail(to: string, code: string): Promise<boolean> {
+  const html = layout(`
+    <h2 style="margin:0 0 8px;color:#0f172a;font-size:20px">Confirm your booking</h2>
+    <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px">
+      Enter this code in the GoPlay app to confirm your pay-at-ground booking.
+    </p>
+    <p style="margin:0 0 20px;text-align:center">
+      <span style="display:inline-block;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 28px;font-size:32px;font-weight:800;letter-spacing:10px;color:#15803d">${code}</span>
+    </p>
+    <p style="color:#64748b;font-size:13px;margin:0">
+      The code expires in 10 minutes. Never share it with anyone — GoPlay will never ask you for it.
+      If you didn't try to book a ground, you can ignore this email.
+    </p>
+  `);
+  return send(to, `${code} is your GoPlay booking code`, html);
 }

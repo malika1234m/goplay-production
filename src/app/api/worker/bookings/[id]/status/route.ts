@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
+import { slotInstant } from "@/lib/local-time";
 import { sendSMS } from "@/lib/sms";
 import { createNotification } from "@/lib/notify";
 import { getCommissionRate } from "@/lib/settings";
@@ -80,9 +81,7 @@ export async function PUT(
     }
 
     if (status === "COMPLETED") {
-      const [h, m]     = booking.endTime.split(":").map(Number);
-      const sessionEnd = new Date(booking.bookingDate);
-      sessionEnd.setHours(h, m, 0, 0);
+      const sessionEnd = slotInstant(booking.bookingDate, booking.endTime);
       if (sessionEnd > new Date()) {
         return Response.json({ error: "Cannot mark complete before the session has ended." }, { status: 400 });
       }
@@ -92,9 +91,7 @@ export async function PUT(
       if (booking.status !== "CONFIRMED") {
         return Response.json({ error: "Only confirmed bookings can be marked as no-show." }, { status: 400 });
       }
-      const [h, m]      = booking.startTime.split(":").map(Number);
-      const slotStart   = new Date(booking.bookingDate);
-      slotStart.setHours(h, m, 0, 0);
+      const slotStart = slotInstant(booking.bookingDate, booking.startTime);
       if (slotStart > new Date()) {
         return Response.json({ error: "Cannot mark no-show before the session has started." }, { status: 400 });
       }

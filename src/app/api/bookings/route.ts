@@ -10,6 +10,8 @@ import { bookablePaymentMethods } from "@/lib/payment-options";
 import { sendSMS } from "@/lib/sms";
 import { sendBookingReceivedEmail, sendNewBookingAlertEmail } from "@/lib/email";
 import { isAllowed } from "@/lib/rateLimiter";
+import { isPhoneVerified } from "@/lib/phone-otp";
+import { consumeEmailVerification, hasUsableEmailVerification, normalizeEmail } from "@/lib/email-otp";
 import { createNotification } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
@@ -51,6 +53,7 @@ export async function POST(req: NextRequest) {
       startTime,
       endTime,
       contactNumber,
+      contactEmail,
       specialRequests,
       paymentMethod = "ON_ARRIVAL",
     } = await req.json();
@@ -89,6 +92,32 @@ export async function POST(req: NextRequest) {
 
     if (!["ONLINE", "ON_ARRIVAL"].includes(paymentMethod)) {
       return Response.json({ error: "Invalid paymentMethod." }, { status: 400 });
+    }
+
+    // Pay-at-ground bookings hold a slot with no money down, so the player must prove the
+    // contact number is theirs (SMS code) first. Switched on with REQUIRE_PHONE_OTP once every
+    // client has the code screen — older app builds would otherwise be unable to book cash.
+    if (paymentMethod === "ON_ARRIVAL" && process.env.REQUIRE_PHONE_OTP === "true"
+        && !(await isPhoneVerified(session.user.id, cleanedPhone))) {
+      return Response.json(
+        { error: "Please verify your phone number with the code we text you.", code: "PHONE_NOT_VERIFIED" },
+        { status: 403 },
+      );
+    }
+
+    // Pay-at-ground bookings are confirmed with a code emailed to the player, spent by this
+    // booking. App builds that send an email are always held to it; REQUIRE_EMAIL_OTP also
+    // turns it on for older clients that don't, once they have been updated.
+    const cleanedEmail = contactEmail ? normalizeEmail(String(contactEmail)) : null;
+    if (contactEmail && !cleanedEmail) {
+      return Response.json({ error: "Enter a valid email address." }, { status: 400 });
+    }
+    const needsEmailOtp = paymentMethod === "ON_ARRIVAL" && (!!cleanedEmail || process.env.REQUIRE_EMAIL_OTP === "true");
+    if (needsEmailOtp && !(cleanedEmail && await hasUsableEmailVerification(session.user.id, cleanedEmail))) {
+      return Response.json(
+        { error: "Please confirm your booking with the code we email you.", code: "EMAIL_NOT_VERIFIED" },
+        { status: 403 },
+      );
     }
 
     const facility = await db.sportsFacility.findUnique({
@@ -213,6 +242,11 @@ export async function POST(req: NextRequest) {
       return { ok: false as const, status: 409, body: { error: "This time slot is already booked. Please choose another." } };
     }
 
+    // Spent under the lock so one code can never confirm two bookings
+    if (needsEmailOtp && !(await consumeEmailVerification(tx, session.user.id, cleanedEmail!))) {
+      return { ok: false as const, status: 403, body: { error: "Please confirm your booking with the code we email you.", code: "EMAIL_NOT_VERIFIED" } };
+    }
+
     const created = await tx.facilityBooking.create({
       data: {
         userId:          session.user.id,
@@ -227,6 +261,7 @@ export async function POST(req: NextRequest) {
         paymentMethod,
         paymentStatus:   "PENDING",
         contactNumber:   contactNumber  || null,
+        contactEmail:    cleanedEmail,
         specialRequests: specialRequests || null,
       },
       include: {
@@ -283,7 +318,7 @@ export async function POST(req: NextRequest) {
       bookingId:     booking.id,
     };
     void sendBookingReceivedEmail({
-      to:   session.user.email ?? "",
+      to:   cleanedEmail ?? session.user.email ?? "",
       name: session.user.name ?? "Player",
       ...emailOpts,
     });

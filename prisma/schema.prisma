@@ -33,6 +33,8 @@ model User {
   paymentComplaints     PaymentComplaint[]
   passwordResetTokens   PasswordResetToken[]
   providerApplications  ProviderApplication[]
+  phoneVerifications    PhoneVerification[]
+  emailVerifications    EmailVerification[]
 }
 
 model PasswordResetToken {
@@ -170,6 +172,7 @@ model FacilityBooking {
   status              BookingStatus      @default(PENDING)
   specialRequests     String?
   contactNumber       String?
+  contactEmail        String?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   paymentMethod       PaymentMethod      @default(ON_ARRIVAL)
@@ -462,4 +465,39 @@ enum SpotStatus {
   CONFIRMED
   CANCELLED
   REFUNDED
+}
+
+/// One SMS code sent to confirm a player's phone before a pay-at-ground booking.
+/// A row with verifiedAt set means that user has proven they own that number.
+model PhoneVerification {
+  id         String    @id @default(cuid())
+  userId     String
+  phone      String // normalised 07XXXXXXXX
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, phone])
+  @@index([phone, createdAt])
+}
+
+/// One emailed code that confirms a pay-at-ground booking. Unlike the phone check this is
+/// per booking: a verified row is spent (usedAt) by the booking it let through.
+model EmailVerification {
+  id         String    @id @default(cuid())
+  userId     String
+  email      String // lower-cased
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, email])
+  @@index([email, createdAt])
 }

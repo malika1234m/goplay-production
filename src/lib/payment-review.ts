@@ -175,11 +175,12 @@ export async function reviewSpotPayment(opts: {
   const spot = await db.openMatchSpot.findUnique({ where: { id: opts.spotId }, include: spotInclude });
   if (!spot || !facilityIds.includes(spot.match.facilityId)) return { ok: false, status: 404, error: "Spot not found." };
   if (spot.paymentStatus !== "RECEIPT_SUBMITTED") return { ok: false, status: 409, error: "There is no receipt waiting for review on this spot." };
+  if (spot.status !== "RESERVED") return { ok: false, status: 409, error: "This player has left the lobby, so there's nothing to confirm." };
 
   const reason = opts.reason?.trim().slice(0, 500) || null;
   const now    = new Date();
   const updated = await db.openMatchSpot.updateMany({
-    where: { id: spot.id, paymentStatus: "RECEIPT_SUBMITTED" },
+    where: { id: spot.id, paymentStatus: "RECEIPT_SUBMITTED", status: "RESERVED" },
     data:  opts.approve
       ? { paymentStatus: "PAID", amountPaid: spot.amountDue, receiptReviewedAt: now, receiptReviewedBy: opts.reviewer.id, receiptRejectReason: null }
       : { paymentStatus: "REJECTED", receiptReviewedAt: now, receiptReviewedBy: opts.reviewer.id, receiptRejectReason: reason },

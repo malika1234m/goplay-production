@@ -146,6 +146,8 @@ const d: Record<string, string> = {
   "Your booking": "ඔබේ වෙන්කිරීම",
   "Bank transfer": "බැංකු මුදල් මාරුව",
   "Payment received": "ගෙවීම ලැබුණා",
+  "Tap the receipt to zoom.": "විශාල කිරීමට රිසිට්පත ඔබන්න.",
+  "Tap the receipt to zoom. Check your bank app for {amount} before confirming.": "විශාල කිරීමට රිසිට්පත ඔබන්න. තහවුරු කිරීමට පෙර ඔබේ බැංකු ඇප් එකේ {amount} ලැබී ඇත්දැයි බලන්න.",
   "Rs. {amount} reached {account}. Booking reference {ref}.": "රු. {amount} {account} වෙත ලැබුණා. වෙන්කිරීම් යොමු අංකය {ref}.",
   "This ground hasn't added a bank account yet. Contact the ground to arrange payment.": "මෙම ක්‍රීඩාංගණය තවම බැංකු ගිණුමක් එක් කර නැත. ගෙවීම සඳහා ක්‍රීඩාංගණය අමතන්න.",
   "Transfer from your banking app": "ඔබේ බැංකු ඇප් එකෙන් මුදල් මාරු කරන්න",

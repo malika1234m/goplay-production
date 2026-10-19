@@ -53,7 +53,10 @@ export async function GET(req: NextRequest) {
         },
       }),
       db.openMatchSpot.findMany({
-        where:   { match: { facilityId: { in: facilityIds } }, receiptUrl: { not: null }, paymentStatus: { in: statuses } },
+        // A receipt still under review only counts while the player holds the spot — once they leave,
+        // the money is owed back, not waiting to be confirmed
+        where:   { match: { facilityId: { in: facilityIds } }, receiptUrl: { not: null }, paymentStatus: { in: statuses },
+                   NOT: { paymentStatus: "RECEIPT_SUBMITTED", status: { not: "RESERVED" } } },
         orderBy: { receiptUploadedAt: "desc" },
         take:    100,
         select: {
@@ -65,7 +68,7 @@ export async function GET(req: NextRequest) {
       }),
       Promise.all([
         db.facilityBooking.count({ where: { facilityId: { in: facilityIds }, paymentStatus: "RECEIPT_SUBMITTED", isOpenMatch: false } }),
-        db.openMatchSpot.count({ where: { match: { facilityId: { in: facilityIds } }, paymentStatus: "RECEIPT_SUBMITTED" } }),
+        db.openMatchSpot.count({ where: { match: { facilityId: { in: facilityIds } }, paymentStatus: "RECEIPT_SUBMITTED", status: "RESERVED" } }),
       ]).then(([a, b]) => a + b),
     ]);
 

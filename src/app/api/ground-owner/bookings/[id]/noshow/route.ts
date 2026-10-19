@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
+import { slotInstant } from "@/lib/local-time";
 import { NO_SHOW_ONLINE_THRESHOLD, NO_SHOW_SUSPEND_THRESHOLD } from "@/lib/cancellation-policy";
 import { createNotification } from "@/lib/notify";
 
@@ -42,9 +43,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     // Session must have already started
-    const [h, m]  = booking.startTime.split(":").map(Number);
-    const slotStart = new Date(booking.bookingDate);
-    slotStart.setHours(h, m, 0, 0);
+    const slotStart = slotInstant(booking.bookingDate, booking.startTime);
     if (slotStart > new Date()) {
       return Response.json({ error: "Cannot mark no-show before the session start time." }, { status: 400 });
     }
