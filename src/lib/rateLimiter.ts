@@ -30,8 +30,13 @@ export async function isAllowed(key: string, limit: number, windowMs: number): P
 
 /** Count one hit and return the count in the current window (0 if the database is unavailable). */
 export async function recordHit(key: string, windowMs: number): Promise<number> {
+  return (await hit(key, windowMs)).count;
+}
+
+/** Count one hit; also return which window it landed in, so a later release can target it. */
+async function hit(key: string, windowMs: number): Promise<{ count: number; windowStart: Date | null }> {
   try {
-    const rows = await db.$queryRaw<{ count: number }[]>`
+    const rows = await db.$queryRaw<{ count: number; windowStart: Date }[]>`
       INSERT INTO "RateLimit" ("key", "windowStart", "count")
       VALUES (${key}, now(), 1)
       ON CONFLICT ("key") DO UPDATE SET
@@ -39,11 +44,21 @@ export async function recordHit(key: string, windowMs: number): Promise<number> 
                              THEN 1 ELSE "RateLimit"."count" + 1 END,
         "windowStart" = CASE WHEN "RateLimit"."windowStart" < now() - ${windowMs} * interval '1 millisecond'
                              THEN now() ELSE "RateLimit"."windowStart" END
-      RETURNING "count"`;
-    return Number(rows[0]?.count ?? 0);
+      RETURNING "count", "windowStart"`;
+    return { count: Number(rows[0]?.count ?? 0), windowStart: rows[0]?.windowStart ?? null };
   } catch (err) {
     console.error("[rateLimiter]", err);
-    return 0;
+    return { count: 0, windowStart: null };
+  }
+}
+
+/** Undo one hit — only inside the window it was counted in, so a window reset can't be gamed. */
+async function unhit(key: string, windowStart: Date | null): Promise<void> {
+  if (!windowStart) return;
+  try {
+    await db.$executeRaw`UPDATE "RateLimit" SET "count" = "count" - 1 WHERE "key" = ${key} AND "windowStart" = ${windowStart} AND "count" > 0`;
+  } catch (err) {
+    console.error("[rateLimiter]", err);
   }
 }
 
@@ -55,34 +70,28 @@ const loginKeys = (email: string, ip: string) => {
   return { acctIp: `login-fail-acctip:${acct}|${ip}`, acct: `login-fail-acct:${acct}`, ip: `login-ip:${ip}` };
 };
 
+export interface LoginAttempt { ok: boolean; release: () => Promise<void> }
+
 /**
  * Password-guessing guard. Reserve an attempt *before* checking the password — atomically, so
- * parallel guesses can't all slip past the limit — and hand it back with releaseLoginAttempt()
- * when the login succeeds. Net effect: only failures count, so nobody can lock a player out by
+ * parallel guesses can't all slip past the limit — and call release() when the login succeeds. Net effect: only failures count, so nobody can lock a player out by
  * hammering their email. Failures are capped per account+IP (an attacker's failures don't block
  * the real player's own device) and, higher, per account from any IP (stops spread-out guessing).
  * Returns false when the attempt must be refused.
  */
-export async function reserveLoginAttempt(email: string, ip: string): Promise<boolean> {
+export async function reserveLoginAttempt(email: string, ip: string): Promise<LoginAttempt> {
   const k = loginKeys(email, ip);
-  const [ipCount, acctIp, acct] = await Promise.all([
-    recordHit(k.ip, LOGIN_WINDOW), recordHit(k.acctIp, LOGIN_WINDOW), recordHit(k.acct, LOGIN_WINDOW),
+  const [ipHit, acctIpHit, acctHit] = await Promise.all([
+    hit(k.ip, LOGIN_WINDOW), hit(k.acctIp, LOGIN_WINDOW), hit(k.acct, LOGIN_WINDOW),
   ]);
-  if (ipCount <= 30 && acctIp <= 5 && acct <= 20) return true;
+  const release = async () => {
+    await Promise.all([unhit(k.acctIp, acctIpHit.windowStart), unhit(k.acct, acctHit.windowStart)]);
+  };
+  if (ipHit.count <= 30 && acctIpHit.count <= 5 && acctHit.count <= 20) return { ok: true, release };
   // Refused before any password check — hand the slot back, so a burst of refused requests
   // can't push the account-wide count up and lock the real player out everywhere
-  await releaseLoginAttempt(email, ip);
-  return false;
-}
-
-/** A successful login gives its reserved attempt back. */
-export async function releaseLoginAttempt(email: string, ip: string): Promise<void> {
-  const k = loginKeys(email, ip);
-  try {
-    await db.$executeRaw`UPDATE "RateLimit" SET "count" = GREATEST("count" - 1, 0) WHERE "key" IN (${k.acctIp}, ${k.acct})`;
-  } catch (err) {
-    console.error("[rateLimiter]", err);
-  }
+  await release();
+  return { ok: false, release: async () => {} };
 }
 
 /** Drop counters whose window ended long ago — called from a daily cron. */

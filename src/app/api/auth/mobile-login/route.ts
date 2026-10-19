@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { getClientIp, releaseLoginAttempt, reserveLoginAttempt } from "@/lib/rateLimiter";
+import { getClientIp, reserveLoginAttempt } from "@/lib/rateLimiter";
 import { signMobileToken } from "@/lib/mobile-auth";
 
 export async function POST(req: NextRequest) {
@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
 
     const ip      = getClientIp(req);
     const account = String(email).toLowerCase().trim();
-    if (!(await reserveLoginAttempt(account, ip))) {
+    const attempt = await reserveLoginAttempt(account, ip);
+    if (!attempt.ok) {
       return Response.json(
         { error: "Too many login attempts. Please try again later." },
         { status: 429 }
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await releaseLoginAttempt(account, ip);   // success doesn't count towards the limit
+    await attempt.release();   // success doesn't count towards the limit
 
     const token = await signMobileToken({
       id:    user.id,

@@ -4,7 +4,7 @@ import Google from "next-auth/providers/google";
 import { findOrCreateGoogleUser } from "@/lib/google-auth";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { getClientIp, releaseLoginAttempt, reserveLoginAttempt } from "@/lib/rateLimiter";
+import { getClientIp, reserveLoginAttempt } from "@/lib/rateLimiter";
 import { verifyTurnstile } from "@/lib/turnstile";
 
 class RateLimitError extends CredentialsSignin {
@@ -35,7 +35,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!credentials?.email || !credentials?.password) return null;
         const email = String(credentials.email).toLowerCase().trim();
-        if (!(await reserveLoginAttempt(email, ip))) throw new RateLimitError();
+        const attempt = await reserveLoginAttempt(email, ip);
+        if (!attempt.ok) throw new RateLimitError();
 
         const user = await db.user.findUnique({
           where: { email: credentials.email as string },
@@ -49,7 +50,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         );
 
         if (!user || !user.isActive || !passwordMatch) return null;
-        await releaseLoginAttempt(email, ip);   // success doesn't count towards the limit
+        await attempt.release();   // success doesn't count towards the limit
 
         return {
           id:                 user.id,
