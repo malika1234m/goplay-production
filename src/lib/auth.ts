@@ -4,7 +4,7 @@ import Google from "next-auth/providers/google";
 import { findOrCreateGoogleUser } from "@/lib/google-auth";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { isAllowed, getClientIp } from "@/lib/rateLimiter";
+import { getClientIp, loginBlocked, recordLoginFailure } from "@/lib/rateLimiter";
 import { verifyTurnstile } from "@/lib/turnstile";
 
 class RateLimitError extends CredentialsSignin {
@@ -33,11 +33,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const ip = getClientIp(request);
         if (!(await verifyTurnstile(credentials?.turnstileToken, ip))) throw new CaptchaError();
 
-        // 5 tries per account per 15 min; per-IP cap is loose for shared mobile IPs
         const email = String(credentials?.email ?? "").toLowerCase().trim();
-        if (!(await isAllowed(`login:${email}`, 5, 15 * 60_000)) || !(await isAllowed(`login-ip:${ip}`, 30, 15 * 60_000))) {
-          throw new RateLimitError();
-        }
+        if (await loginBlocked(email, ip)) throw new RateLimitError();
 
         if (!credentials?.email || !credentials?.password) return null;
 
@@ -52,7 +49,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user?.password ?? DUMMY_HASH
         );
 
-        if (!user || !user.isActive || !passwordMatch) return null;
+        if (!user || !user.isActive || !passwordMatch) {
+          if (email) await recordLoginFailure(email, ip);
+          return null;
+        }
 
         return {
           id:                 user.id,

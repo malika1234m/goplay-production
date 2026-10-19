@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
     }
     // 3 reset emails per address per hour, and a looser per-IP cap (shared mobile IPs).
     // Same reply either way, so this can't be used to find out which emails are registered.
-    if (!(await isAllowed(`forgot-pwd:${email.toLowerCase().trim()}`, 3, 60 * 60_000))
-        || !(await isAllowed(`forgot-pwd-ip:${ip}`, app ? 10 : 20, 60 * 60_000))) {
+    if (!(await isAllowed(`forgot-pwd-ip:${ip}`, app ? 10 : 20, 60 * 60_000))
+        || !(await isAllowed(`forgot-pwd:${email.toLowerCase().trim()}`, 3, 60 * 60_000))) {
       return Response.json(
         { message: "If that email is registered, a reset link has been sent." },
         { status: 200 }
