@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { db } from "@/lib/db";
 
 /**
@@ -46,32 +47,42 @@ export async function recordHit(key: string, windowMs: number): Promise<number> 
   }
 }
 
-/** Has this key already reached `limit` in its current window? Doesn't count a hit. */
-export async function isLimited(key: string, limit: number, windowMs: number): Promise<boolean> {
-  try {
-    const row = await db.rateLimit.findUnique({ where: { key } });
-    return !!row && row.windowStart.getTime() > Date.now() - windowMs && row.count >= limit;
-  } catch (err) {
-    console.error("[rateLimiter]", err);
-    return false;
-  }
-}
-
 const LOGIN_WINDOW = 15 * 60_000;
 
+// The email is hashed so no crafted address can collide with another account's keys
+const loginKeys = (email: string, ip: string) => {
+  const acct = createHash("sha256").update(email.toLowerCase().trim()).digest("hex").slice(0, 32);
+  return { acctIp: `login-fail-acctip:${acct}|${ip}`, acct: `login-fail-acct:${acct}`, ip: `login-ip:${ip}` };
+};
+
 /**
- * Password-guessing guard. Only failed attempts count, so nobody can lock a player out by
- * hammering their email: failures are capped per account+IP (an attacker's failures don't block
- * the real player's own device) and, higher, per account across all IPs (stops spread-out guessing).
+ * Password-guessing guard. Reserve an attempt *before* checking the password — atomically, so
+ * parallel guesses can't all slip past the limit — and hand it back with releaseLoginAttempt()
+ * when the login succeeds. Net effect: only failures count, so nobody can lock a player out by
+ * hammering their email. Failures are capped per account+IP (an attacker's failures don't block
+ * the real player's own device) and, higher, per account from any IP (stops spread-out guessing).
+ * Returns false when the attempt must be refused.
  */
-export async function loginBlocked(email: string, ip: string): Promise<boolean> {
-  return (await isLimited(`login-fail:${email}:${ip}`, 5, LOGIN_WINDOW))
-      || (await isLimited(`login-fail:${email}`, 20, LOGIN_WINDOW))
-      || !(await isAllowed(`login-ip:${ip}`, 30, LOGIN_WINDOW));
+export async function reserveLoginAttempt(email: string, ip: string): Promise<boolean> {
+  const k = loginKeys(email, ip);
+  const [ipCount, acctIp, acct] = await Promise.all([
+    recordHit(k.ip, LOGIN_WINDOW), recordHit(k.acctIp, LOGIN_WINDOW), recordHit(k.acct, LOGIN_WINDOW),
+  ]);
+  if (ipCount <= 30 && acctIp <= 5 && acct <= 20) return true;
+  // Refused before any password check — hand the slot back, so a burst of refused requests
+  // can't push the account-wide count up and lock the real player out everywhere
+  await releaseLoginAttempt(email, ip);
+  return false;
 }
 
-export async function recordLoginFailure(email: string, ip: string): Promise<void> {
-  await Promise.all([recordHit(`login-fail:${email}:${ip}`, LOGIN_WINDOW), recordHit(`login-fail:${email}`, LOGIN_WINDOW)]);
+/** A successful login gives its reserved attempt back. */
+export async function releaseLoginAttempt(email: string, ip: string): Promise<void> {
+  const k = loginKeys(email, ip);
+  try {
+    await db.$executeRaw`UPDATE "RateLimit" SET "count" = GREATEST("count" - 1, 0) WHERE "key" IN (${k.acctIp}, ${k.acct})`;
+  } catch (err) {
+    console.error("[rateLimiter]", err);
+  }
 }
 
 /** Drop counters whose window ended long ago — called from a daily cron. */

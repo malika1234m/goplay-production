@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { getClientIp, loginBlocked, recordLoginFailure } from "@/lib/rateLimiter";
+import { getClientIp, releaseLoginAttempt, reserveLoginAttempt } from "@/lib/rateLimiter";
 import { signMobileToken } from "@/lib/mobile-auth";
 
 export async function POST(req: NextRequest) {
@@ -9,19 +9,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const { email, password } = body;
 
-    const ip      = getClientIp(req);
-    const account = String(email ?? "").toLowerCase().trim();
-    if (await loginBlocked(account, ip)) {
-      return Response.json(
-        { error: "Too many login attempts. Please try again later." },
-        { status: 429 }
-      );
-    }
-
     if (!email || !password) {
       return Response.json(
         { error: "Email and password are required." },
         { status: 400 }
+      );
+    }
+
+    const ip      = getClientIp(req);
+    const account = String(email).toLowerCase().trim();
+    if (!(await reserveLoginAttempt(account, ip))) {
+      return Response.json(
+        { error: "Too many login attempts. Please try again later." },
+        { status: 429 }
       );
     }
 
@@ -32,7 +32,6 @@ export async function POST(req: NextRequest) {
     const match = await bcrypt.compare(password, user?.password ?? DUMMY_HASH);
 
     if (!user || !user.isActive || !match) {
-      if (account) await recordLoginFailure(account, ip);
       return Response.json(
         { error: "Invalid email or password." },
         { status: 401 }
@@ -45,6 +44,8 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
+
+    await releaseLoginAttempt(account, ip);   // success doesn't count towards the limit
 
     const token = await signMobileToken({
       id:    user.id,
