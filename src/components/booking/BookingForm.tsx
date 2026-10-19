@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Calendar, Phone, Clock, Loader2, CheckCircle, CreditCard, Banknote, Zap, ChevronRight, Users } from "lucide-react";
 import BankDetailsCard from "@/components/payments/BankDetailsCard";
 import PhoneVerifyDialog from "@/components/booking/PhoneVerifyDialog";
+import EmailOtpDialog from "@/components/booking/EmailOtpDialog";
 import type { PaymentDetails } from "@/components/payments/types";
 
 interface OpenMatchSlotInfo {
@@ -67,7 +68,8 @@ export default function BookingForm({
   const [specialRequests, setSpecialRequests] = useState("");
   const [selectedCourt,   setSelectedCourt]   = useState<string | null>(courts.length === 1 ? courts[0].id : null);
   const [paymentMethod,   setPaymentMethod]   = useState<PaymentMethod>(paymentMethods.cash ? "ON_ARRIVAL" : "ONLINE");
-  const [verifying,       setVerifying]       = useState(false);   // phone check before a pay-at-ground booking
+  const [verifying,       setVerifying]       = useState(false);   // phone check — only if the server asks (REQUIRE_PHONE_OTP)
+  const [askEmail,        setAskEmail]        = useState(false);   // email code before a pay-at-ground booking
   const [slots,           setSlots]           = useState<Slot[]>([]);
   const [loadingSlots,    setLoadingSlots]    = useState(false);
   const [submitting,      setSubmitting]      = useState(false);
@@ -174,14 +176,35 @@ export default function BookingForm({
     const phoneErr = validatePhone(contactNumber);
     if (phoneErr) { setPhoneError(phoneErr); return; }
 
-    // Pay-at-ground holds a slot with nothing paid — prove the number by SMS first (once per number)
-    if (paymentMethod === "ON_ARRIVAL") {
-      setSubmitting(true);
-      const st = await fetch(`/api/phone-verification?phone=${encodeURIComponent(contactNumber.trim())}`).then((r) => r.json()).catch(() => ({}));
-      setSubmitting(false);
-      if (!st.verified) { setVerifying(true); return; }
-    }
+    // Pay-at-ground holds a slot with nothing paid — confirm it with a code emailed to the player
+    if (paymentMethod === "ON_ARRIVAL") { setError(""); setAskEmail(true); return; }
     await createBooking();
+  };
+
+  /** Pay on arrival: called by the email dialog once the code checks out. Throws so the dialog shows the error. */
+  const bookWithEmail = async (email: string) => {
+    if (!selectedSlot) return;
+    const res = await fetch("/api/bookings", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        facilityId,
+        courtId:         selectedCourt || undefined,
+        bookingDate:     date,
+        startTime:       selectedSlot,
+        endTime:         endTime(selectedSlot, duration),
+        contactNumber:   contactNumber.trim(),
+        contactEmail:    email,
+        specialRequests: specialRequests || undefined,
+        paymentMethod:   "ON_ARRIVAL",
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (data.lobbyId) { setAskEmail(false); setError(data.error); setLobbyId(data.lobbyId); return; }
+      throw new Error(data.error ?? "Booking failed. Please try again.");
+    }
+    router.push(`/my-bookings/${data.booking.id}/confirmed`);
   };
 
   const createBooking = async () => {
@@ -643,6 +666,12 @@ export default function BookingForm({
       {paymentMethod === "ON_ARRIVAL" && (
         <p className="text-xs text-slate-400 text-center">Pending confirmation from the ground owner.</p>
       )}
+
+      {askEmail && <EmailOtpDialog
+        defaultEmail={session?.user?.email ?? ""}
+        onClose={() => setAskEmail(false)}
+        onVerified={bookWithEmail}
+      />}
 
       {verifying && <PhoneVerifyDialog
         open

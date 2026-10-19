@@ -23,6 +23,8 @@ export async function GET(
         endTime: true,
         totalHours: true,
         totalAmount: true,
+        contactNumber: true,
+        contactEmail: true,
         status: true,
         paymentMethod: true,
         paymentStatus: true,
