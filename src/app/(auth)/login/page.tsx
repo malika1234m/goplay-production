@@ -5,17 +5,23 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, getSession } from "next-auth/react";
 import { Eye, EyeOff, Loader2, CheckCircle } from "lucide-react";
+import Turnstile, { turnstileEnabled } from "@/components/security/Turnstile";
+import GoogleButton from "@/components/auth/GoogleButton";
 
 function LoginForm() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const registered   = searchParams.get("registered") === "1";
+  // Set by the Google sign-in callback when it can't let someone in
+  const googleError  = { google: "Google sign-in didn't work. Please try again.", inactive: "Your account has been deactivated. Please contact support." }[searchParams.get("error") ?? ""] ?? "";
 
   const [form,         setForm]         = useState({ email: "", password: "" });
   const [touched,      setTouched]      = useState({ email: false, password: false });
   const [showPassword, setShowPassword] = useState(false);
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState("");
+  const [captcha,      setCaptcha]      = useState<string | null>(null);
+  const [captchaKey,   setCaptchaKey]   = useState(0);   // remount = fresh single-use token
 
   const emailError    = touched.email    && !form.email.trim()    ? "Email address is required."  : "";
   const passwordError = touched.password && !form.password.trim() ? "Password is required."       : "";
@@ -24,6 +30,7 @@ function LoginForm() {
     e.preventDefault();
     setTouched({ email: true, password: true });
     if (!form.email.trim() || !form.password.trim()) return;
+    if (turnstileEnabled && !captcha) { setError("Please wait a moment for the security check, then try again."); return; }
 
     setLoading(true);
     setError("");
@@ -31,12 +38,19 @@ function LoginForm() {
     const result = await signIn("credentials", {
       email:    form.email,
       password: form.password,
+      turnstileToken: captcha ?? "",
       redirect: false,
     });
 
     setLoading(false);
+    if (result?.error) { setCaptcha(null); setCaptchaKey((k) => k + 1); }
 
-    if (result?.error === "rate_limit") {
+    // next-auth reports the custom reason in `code`; `error` is just "CredentialsSignin"
+    if (result?.code === "captcha") {
+      setError("The security check didn't go through. Please try again.");
+      return;
+    }
+    if (result?.code === "rate_limit") {
       setError("Too many login attempts. Please wait 15 minutes and try again.");
       return;
     }
@@ -85,6 +99,12 @@ function LoginForm() {
           </div>
         )}
 
+        {googleError && (
+          <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 mb-5">{googleError}</div>
+        )}
+
+        <div className="flex flex-col gap-4 mb-5"><GoogleButton /></div>
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           {/* Email */}
           <div>
@@ -127,6 +147,8 @@ function LoginForm() {
             </div>
             {passwordError && <p className="text-xs text-red-500 mt-1">{passwordError}</p>}
           </div>
+
+          <Turnstile key={captchaKey} action="login" onToken={setCaptcha} />
 
           {error && (
             <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">

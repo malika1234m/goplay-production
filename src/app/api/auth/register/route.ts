@@ -3,15 +3,22 @@ import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { sendWelcomeEmail } from "@/lib/email";
 import { isAllowed, getClientIp } from "@/lib/rateLimiter";
+import { isAppRequest, verifyTurnstile } from "@/lib/turnstile";
 
 export async function POST(req: NextRequest) {
   try {
-    // 5 registrations per hour per IP
-    if (!isAllowed(`register:${getClientIp(req)}`, 5, 60 * 60_000)) {
+    // Per IP — loose, because mobile carriers put many players behind one address. The apps
+    // can't show the bot check, so their requests get a tighter limit.
+    const ip  = getClientIp(req);
+    const app = isAppRequest(req);
+    if (!(await isAllowed(`register:${ip}`, 10, 60 * 60_000)) || (app && !(await isAllowed(`register-app:${ip}`, 5, 60 * 60_000)))) {
       return Response.json({ error: "Too many registration attempts. Please try again later." }, { status: 429 });
     }
 
-    const { name, email, password, phone } = await req.json();
+    const { name, email, password, phone, turnstileToken } = await req.json();
+    if (!app && !(await verifyTurnstile(turnstileToken, ip))) {
+      return Response.json({ error: "Please complete the security check and try again.", code: "CAPTCHA_FAILED" }, { status: 400 });
+    }
 
     if (!name?.trim() || !email?.trim() || !password) {
       return Response.json({ error: "Name, email and password are required." }, { status: 400 });

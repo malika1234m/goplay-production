@@ -10,7 +10,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const session = await getSession(req);
     if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
-    if (!isAllowed(`receipt:${session.user.id}`, 10, 60_000)) {
+    if (!(await isAllowed(`receipt:${session.user.id}`, 10, 60_000))) {
       return Response.json({ error: "Too many requests. Please slow down." }, { status: 429 });
     }
 

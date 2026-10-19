@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { nowToSecond } from "@/lib/google-auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,7 +39,8 @@ export async function POST(req: NextRequest) {
     await db.$transaction([
       db.user.update({
         where: { id: record.userId },
-        data: { password: hashed },
+        // A reset link proves the email, and ends sessions anyone else may hold
+        data: { password: hashed, emailVerifiedAt: new Date(), sessionsValidAfter: nowToSecond() },
       }),
       db.passwordResetToken.update({
         where: { id: record.id },

@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
 
 const secret = new TextEncoder().encode(process.env.AUTH_SECRET!);
 
@@ -35,6 +36,10 @@ async function fromBearer(req: NextRequest): Promise<MobileSession | null> {
       typeof payload.sub !== "string" ||
       typeof payload.role !== "string"
     ) return null;
+    // Tokens are stateless — this is how a password reset or account recovery signs devices out
+    const user = await db.user.findUnique({ where: { id: payload.sub }, select: { isActive: true, sessionsValidAfter: true } });
+    if (!user?.isActive) return null;
+    if (user.sessionsValidAfter && (payload.iat ?? 0) * 1000 < user.sessionsValidAfter.getTime()) return null;
     return {
       user: {
         id:    payload.sub,

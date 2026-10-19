@@ -32,6 +32,13 @@ export function I18nProvider({ initial, children }: { initial: Lang; children: R
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
+const ENGLISH: I18n = { lang: "en", locale: localeOf("en"), t: makeT("en"), tn: makeTN("en"), setLang: () => {} };
+
+/** Player-facing pages stay English even when this browser chose Sinhala in an owner or worker portal. */
+export function EnglishOnly({ children }: { children: React.ReactNode }) {
+  return <Ctx.Provider value={ENGLISH}>{children}</Ctx.Provider>;
+}
+
 export function useT(): I18n {
   const v = useContext(Ctx);
   if (!v) throw new Error("useT must be used inside I18nProvider");

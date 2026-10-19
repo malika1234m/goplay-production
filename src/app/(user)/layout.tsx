@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import Navbar from "@/components/layout/Navbar";
 import AdSenseScript from "@/components/ads/AdSenseScript";
+import { EnglishOnly } from "@/i18n/I18nProvider";
 
 export default async function UserLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -12,7 +13,7 @@ export default async function UserLayout({ children }: { children: React.ReactNo
     <div className="flex flex-col min-h-screen bg-slate-50">
       <Navbar />
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-        {children}
+        <EnglishOnly>{children}</EnglishOnly>
       </main>
       {/* Player-facing pages only. The owner, worker and admin portals stay
           ad-free — those are business tools, not consumer surfaces. */}

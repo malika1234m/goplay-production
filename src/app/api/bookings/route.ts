@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 10 booking attempts per minute per player — mobile carriers put many players behind one shared IP, so a per-IP limit would block strangers
-    if (!isAllowed(`book:${session.user.id}`, 10, 60_000)) {
+    if (!(await isAllowed(`book:${session.user.id}`, 10, 60_000))) {
       return Response.json({ error: "Too many requests. Please slow down." }, { status: 429 });
     }
 

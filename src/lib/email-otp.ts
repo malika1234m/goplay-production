@@ -105,5 +105,7 @@ export async function verifyEmailOtp(userId: string, email: string, code: string
       : { ok: false, status: 429, error: "Too many wrong codes. Ask for a new one." };
   }
   await db.emailVerification.update({ where: { id: row.id }, data: { verifiedAt: new Date() } });
+  // A code to the account's own address also proves they own the account's email
+  await db.user.updateMany({ where: { id: userId, email: { equals: e, mode: "insensitive" }, emailVerifiedAt: null }, data: { emailVerifiedAt: new Date() } });
   return { ok: true, verified: true };
 }

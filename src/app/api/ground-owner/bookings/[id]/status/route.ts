@@ -222,7 +222,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!booking.isOpenMatch) {
       if (status === "CONFIRMED") {
         void sendBookingConfirmedEmail({
-          to:            booking.user.email ?? "",
+          to:            booking.contactEmail ?? booking.user.email ?? "",
           name:          booking.user.name  ?? "Player",
           facilityName:  booking.facility.name,
           date:          dateStr,
@@ -234,7 +234,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         });
       } else if (status === "CANCELLED") {
         void sendBookingCancelledEmail({
-          to:           booking.user.email ?? "",
+          to:           booking.contactEmail ?? booking.user.email ?? "",
           name:         booking.user.name  ?? "Player",
           facilityName: booking.facility.name,
           date:         dateStr,

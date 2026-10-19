@@ -7,7 +7,7 @@ import { createNotification } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   try {
-    if (!isAllowed(`mobile-apply:${getClientIp(req)}`, 3, 60 * 60_000)) {
+    if (!(await isAllowed(`mobile-apply:${getClientIp(req)}`, 3, 60 * 60_000))) {
       return Response.json({ error: "Too many attempts. Please try again later." }, { status: 429 });
     }
 

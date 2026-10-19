@@ -15,10 +15,12 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Invalid push token." }, { status: 400 });
     }
 
-    await db.user.update({
-      where: { id: session.user.id },
-      data:  { pushToken: token },
-    });
+    // A phone belongs to whoever signed in last — a shared device must not get the previous
+    // account's bookings pushed to it
+    await db.$transaction([
+      db.user.updateMany({ where: { pushToken: token, id: { not: session.user.id } }, data: { pushToken: null } }),
+      db.user.update({ where: { id: session.user.id }, data: { pushToken: token } }),
+    ]);
 
     return Response.json({ ok: true });
   } catch (err) {

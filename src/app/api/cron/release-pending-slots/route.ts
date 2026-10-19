@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notify";
 import { getReceiptWindowMinutes } from "@/lib/settings";
 import { staleUnpaidBookingWhere, staleUnpaidSpotWhere } from "@/lib/payment-review";
+import { pruneRateLimits } from "@/lib/rateLimiter";
 
 // Releases "Pay online" bookings and open match spots that never got an accepted receipt
 // within the receipt window. Booking creation also releases these lazily per slot.
@@ -60,5 +61,8 @@ export async function GET(req: NextRequest) {
   }
 
   console.log(`[cron/release-pending-slots] Released ${expired.length} bookings and ${staleSpots.length} spots (cutoff: ${cutoff.toISOString()})`);
-  return Response.json({ released: expired.length, spotsReleased: staleSpots.length, cutoff: cutoff.toISOString() });
+  // Daily housekeeping for the shared rate-limit counters
+  const rateLimitsPruned = await pruneRateLimits();
+
+  return Response.json({ released: expired.length, spotsReleased: staleSpots.length, rateLimitsPruned, cutoff: cutoff.toISOString() });
 }

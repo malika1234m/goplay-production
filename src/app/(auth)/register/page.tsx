@@ -4,6 +4,8 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import Turnstile, { turnstileEnabled } from "@/components/security/Turnstile";
+import GoogleButton from "@/components/auth/GoogleButton";
 
 // ── Validators ────────────────────────────────────────────────────────────────
 function validateName(v: string) {
@@ -72,6 +74,8 @@ function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState("");
+  const [captcha, setCaptcha] = useState<string | null>(null);
+  const [captchaKey, setCaptchaKey] = useState(0);   // remount = fresh single-use token
 
   const errors = {
     name:     validateName(form.name),
@@ -90,6 +94,7 @@ function RegisterForm() {
     setTouched({ name: true, email: true, phone: true, password: true });
 
     if (errors.name || errors.email || errors.phone || errors.password) return;
+    if (turnstileEnabled && !captcha) { setServerError("Please wait a moment for the security check, then try again."); return; }
 
     setLoading(true);
     setServerError("");
@@ -97,12 +102,13 @@ function RegisterForm() {
     const res  = await fetch("/api/auth/register", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ ...form, role: "USER" }),
+      body:    JSON.stringify({ ...form, role: "USER", turnstileToken: captcha ?? "" }),
     });
     const data = await res.json();
     setLoading(false);
 
     if (!res.ok) {
+      setCaptcha(null); setCaptchaKey((k) => k + 1);
       setServerError(data.error ?? "Something went wrong. Please try again.");
     } else {
       router.push("/login?registered=1");
@@ -116,6 +122,8 @@ function RegisterForm() {
           <h1 className="text-2xl font-bold text-slate-900">Create your account</h1>
           <p className="text-slate-500 text-sm mt-1">Join thousands of players on GoPlay</p>
         </div>
+
+        <div className="flex flex-col gap-4 mb-4"><GoogleButton label="Sign up with Google" /></div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Full name */}
@@ -202,6 +210,8 @@ function RegisterForm() {
             )}
             {touched.password && <FieldError msg={errors.password} />}
           </div>
+
+          <Turnstile key={captchaKey} action="register" onToken={setCaptcha} />
 
           {serverError && (
             <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">

@@ -2,21 +2,29 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { isAllowed, getClientIp } from "@/lib/rateLimiter";
+import { isAppRequest, verifyTurnstile } from "@/lib/turnstile";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
-    // 3 attempts per hour per IP
-    if (!isAllowed(`forgot-pwd:${getClientIp(req)}`, 3, 60 * 60 * 1000)) {
+    const { email, turnstileToken } = await req.json();
+    if (!email?.trim()) {
+      return Response.json({ error: "Email is required." }, { status: 400 });
+    }
+
+    const ip  = getClientIp(req);
+    const app = isAppRequest(req);
+    if (!app && !(await verifyTurnstile(turnstileToken, ip))) {
+      return Response.json({ error: "Please complete the security check and try again.", code: "CAPTCHA_FAILED" }, { status: 400 });
+    }
+    // 3 reset emails per address per hour, and a looser per-IP cap (shared mobile IPs).
+    // Same reply either way, so this can't be used to find out which emails are registered.
+    if (!(await isAllowed(`forgot-pwd:${email.toLowerCase().trim()}`, 3, 60 * 60_000))
+        || !(await isAllowed(`forgot-pwd-ip:${ip}`, app ? 10 : 20, 60 * 60_000))) {
       return Response.json(
         { message: "If that email is registered, a reset link has been sent." },
         { status: 200 }
       );
-    }
-
-    const { email } = await req.json();
-    if (!email?.trim()) {
-      return Response.json({ error: "Email is required." }, { status: 400 });
     }
 
     // Always return the same message — never reveal whether an account exists

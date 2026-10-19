@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getSession(req);
     if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
-    if (!isAllowed(`complaint:${session.user.id}`, 5, 60_000)) {
+    if (!(await isAllowed(`complaint:${session.user.id}`, 5, 60_000))) {
       return Response.json({ error: "Too many requests. Please slow down." }, { status: 429 });
     }
     const { bookingId, spotId, message } = await req.json();

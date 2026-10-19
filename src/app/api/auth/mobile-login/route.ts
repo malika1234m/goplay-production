@@ -1,25 +1,24 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { isAllowed } from "@/lib/rateLimiter";
+import { isAllowed, getClientIp } from "@/lib/rateLimiter";
 import { signMobileToken } from "@/lib/mobile-auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      req.headers.get("x-real-ip") ??
-      "unknown";
+    const body = await req.json().catch(() => ({}));
+    const { email, password } = body;
 
-    if (!isAllowed(`mobile-login:${ip}`, 5, 15 * 60_000)) {
+    // 5 tries per account per 15 min stops password guessing; the per-IP cap is loose
+    // because mobile carriers put many players behind one address
+    const ip = getClientIp(req);
+    if (!(await isAllowed(`login:${String(email ?? "").toLowerCase().trim()}`, 5, 15 * 60_000))
+        || !(await isAllowed(`login-ip:${ip}`, 30, 15 * 60_000))) {
       return Response.json(
         { error: "Too many login attempts. Please try again later." },
         { status: 429 }
       );
     }
-
-    const body = await req.json().catch(() => ({}));
-    const { email, password } = body;
 
     if (!email || !password) {
       return Response.json(

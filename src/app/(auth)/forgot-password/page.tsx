@@ -3,27 +3,32 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Mail, Loader2, CheckCircle, ArrowLeft } from "lucide-react";
+import Turnstile, { turnstileEnabled } from "@/components/security/Turnstile";
 
 export default function ForgotPasswordPage() {
   const [email,     setEmail]     = useState("");
   const [loading,   setLoading]   = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error,     setError]     = useState("");
+  const [captcha,   setCaptcha]   = useState<string | null>(null);
+  const [captchaKey, setCaptchaKey] = useState(0);   // remount = fresh single-use token
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (turnstileEnabled && !captcha) { setError("Please wait a moment for the security check, then try again."); return; }
     setLoading(true);
     setError("");
 
     const res  = await fetch("/api/auth/forgot-password", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ email }),
+      body:    JSON.stringify({ email, turnstileToken: captcha ?? "" }),
     });
     const data = await res.json();
     setLoading(false);
 
     if (!res.ok) {
+      setCaptcha(null); setCaptchaKey((k) => k + 1);
       setError(data.error ?? "Something went wrong. Please try again.");
       return;
     }
@@ -79,6 +84,8 @@ export default function ForgotPasswordPage() {
               />
             </div>
           </div>
+
+          <Turnstile key={captchaKey} action="forgot_password" onToken={setCaptcha} />
 
           {error && (
             <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">

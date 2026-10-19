@@ -24,6 +24,10 @@ model User {
   requiresOnlinePayment Boolean               @default(false)
   isSystemAccount       Boolean               @default(false)
   pushToken             String?
+  /// When this person proved they own the email (Google sign-in, password reset, or an email code)
+  emailVerifiedAt       DateTime?
+  /// Sessions signed before this are rejected — set on password reset and on account recovery
+  sessionsValidAfter    DateTime?
   bookings              FacilityBooking[]
   reviews               FacilityReview[]
   facilityWorker        FacilityWorker?
@@ -500,4 +504,12 @@ model EmailVerification {
 
   @@index([userId, email])
   @@index([email, createdAt])
+}
+
+/// Fixed-window rate-limit counter, shared by every server instance (in-memory counters
+/// aren't on Vercel, where each request can land on a different instance).
+model RateLimit {
+  key         String   @id
+  windowStart DateTime
+  count       Int
 }

@@ -1,51 +1,48 @@
+import { db } from "@/lib/db";
+
 /**
- * In-memory sliding-window rate limiter.
- * Not suitable for multi-instance deployments — use Redis there.
- * Good enough for single-instance production servers.
+ * Rate limiter backed by Postgres, so the limit holds across all server instances.
+ * One row per key, counted in fixed windows by a single atomic upsert.
+ * If the database call fails the request is let through — a limiter outage must not lock
+ * everyone out of logging in.
  */
 
-interface Window {
-  timestamps: number[];
-}
-
-const store = new Map<string, Window>();
-
-// Prune entries older than 2x the window to avoid unbounded memory growth
-function prune(key: string, windowMs: number) {
-  const entry = store.get(key);
-  if (!entry) return;
-  const cutoff = Date.now() - windowMs * 2;
-  entry.timestamps = entry.timestamps.filter((t) => t > cutoff);
-  if (entry.timestamps.length === 0) store.delete(key);
-}
-
-/** Extract the best-effort client IP from a Next.js request. */
+/** Best-effort client IP. Vercel sets x-vercel-forwarded-for itself, so it can't be spoofed there. */
 export function getClientIp(req: { headers: { get(name: string): string | null } }): string {
   return (
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip") ??
+    req.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     "unknown"
   );
 }
 
 /**
  * Returns true if the request is allowed, false if rate-limited.
- * @param key      Unique key — typically `${route}:${ip}`
+ * @param key      Unique key — typically `${route}:${ip}` or `${route}:${userId}`
  * @param limit    Max requests allowed in the window
  * @param windowMs Window duration in milliseconds
  */
-export function isAllowed(key: string, limit: number, windowMs: number): boolean {
-  prune(key, windowMs);
+export async function isAllowed(key: string, limit: number, windowMs: number): Promise<boolean> {
+  try {
+    const rows = await db.$queryRaw<{ count: number }[]>`
+      INSERT INTO "RateLimit" ("key", "windowStart", "count")
+      VALUES (${key}, now(), 1)
+      ON CONFLICT ("key") DO UPDATE SET
+        "count"       = CASE WHEN "RateLimit"."windowStart" < now() - ${windowMs} * interval '1 millisecond'
+                             THEN 1 ELSE "RateLimit"."count" + 1 END,
+        "windowStart" = CASE WHEN "RateLimit"."windowStart" < now() - ${windowMs} * interval '1 millisecond'
+                             THEN now() ELSE "RateLimit"."windowStart" END
+      RETURNING "count"`;
+    return Number(rows[0]?.count ?? 0) <= limit;
+  } catch (err) {
+    console.error("[rateLimiter]", err);
+    return true;
+  }
+}
 
-  const now    = Date.now();
-  const cutoff = now - windowMs;
-  const entry  = store.get(key) ?? { timestamps: [] };
-
-  const recent = entry.timestamps.filter((t) => t > cutoff);
-
-  if (recent.length >= limit) return false;
-
-  recent.push(now);
-  store.set(key, { timestamps: recent });
-  return true;
+/** Drop counters whose window ended long ago — called from a daily cron. */
+export async function pruneRateLimits(): Promise<number> {
+  const { count } = await db.rateLimit.deleteMany({ where: { windowStart: { lt: new Date(Date.now() - 2 * 86_400_000) } } });
+  return count;
 }

@@ -13,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
 
   // 5 joins per minute per player — mobile carriers put many players behind one shared IP, so a per-IP limit would block strangers
-  if (!isAllowed(`open-match-join:${session.user.id}`, 5, 60_000)) {
+  if (!(await isAllowed(`open-match-join:${session.user.id}`, 5, 60_000))) {
     return Response.json({ error: "Too many requests." }, { status: 429 });
   }
 

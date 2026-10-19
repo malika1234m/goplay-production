@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
 import { slotInstant } from "@/lib/local-time";
 import { sendSMS } from "@/lib/sms";
+import { sendBookingConfirmedEmail, sendBookingCancelledEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notify";
 import { getCommissionRate } from "@/lib/settings";
 import {
@@ -53,6 +54,7 @@ export async function PUT(
           select: {
             id:                   true,
             name:                 true,
+            email:                true,
             noShowCount:          true,
             requiresOnlinePayment: true,
             isBookingSuspended:    true,
@@ -178,6 +180,20 @@ export async function PUT(
       if (booking.contactNumber) {
         await sendSMS(booking.contactNumber, `GoPlay: Your booking at ${booking.facility.name} on ${dateStr} from ${booking.startTime} to ${booking.endTime} has been confirmed. See you there!`);
       }
+      // Same email the owner's confirm sends — fire-and-forget
+      if (!booking.isOpenMatch) {
+        void sendBookingConfirmedEmail({
+          to:            booking.contactEmail ?? booking.user.email ?? "",
+          name:          booking.user.name ?? "Player",
+          facilityName:  booking.facility.name,
+          date:          dateStr,
+          startTime:     booking.startTime,
+          endTime:       booking.endTime,
+          totalAmount:   booking.totalAmount,
+          paymentMethod: booking.paymentMethod,
+          bookingId:     booking.id,
+        });
+      }
       return Response.json({ booking: updated, message: "Booking confirmed." });
     }
 
@@ -259,6 +275,18 @@ export async function PUT(
 
       if (booking.contactNumber) {
         await sendSMS(booking.contactNumber, `GoPlay: Your booking at ${booking.facility.name} on ${dateStr} was cancelled. ${isOnlinePaid ? "A full refund will be processed." : "Contact support if needed."}`);
+      }
+      if (!booking.isOpenMatch) {
+        void sendBookingCancelledEmail({
+          to:           booking.contactEmail ?? booking.user.email ?? "",
+          name:         booking.user.name ?? "Player",
+          facilityName: booking.facility.name,
+          date:         dateStr,
+          startTime:    booking.startTime,
+          endTime:      booking.endTime,
+          cancelledBy:  "owner",
+          refundNeeded: isOnlinePaid,
+        });
       }
 
       return Response.json({ message: "Booking cancelled. Strike recorded on facility." });
