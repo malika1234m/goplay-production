@@ -25,5 +25,6 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
-  return Response.json(spots);
+  // GoPlay's fee percentage stays admin-only
+  return Response.json(spots.map(({ match: { serviceFeePct: _fee, ...match }, ...spot }) => ({ ...spot, match })));
 }

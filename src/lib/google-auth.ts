@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { db } from "@/lib/db";
 import { sendWelcomeEmail } from "@/lib/email";
+import { isBlocked } from "@/lib/trust";
 
 // "Continue with Google" for the website (NextAuth) and the player app (ID token).
 // A Google login is matched to a GoPlay account by its verified email; a new email
@@ -53,6 +54,8 @@ export const nowToSecond = () => new Date(Math.floor(Date.now() / 1000) * 1000);
 export async function findOrCreateGoogleUser(profile: GoogleProfile) {
   const email = profile.email.toLowerCase().trim();
   const existing = await db.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
+  // A blocked email can't come back as a new account through Google either
+  if (!existing && await isBlocked({ email })) return null;
   if (existing?.emailVerifiedAt) return existing;
   if (existing) {
     return db.user.update({

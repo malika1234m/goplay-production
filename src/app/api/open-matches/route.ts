@@ -3,9 +3,9 @@ import { db } from "@/lib/db";
 import { slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
 import { getSession } from "@/lib/mobile-auth";
 import { resolveContactPhone } from "@/lib/contact-phone";
-import { calcHours, calcSpotAmount } from "@/lib/open-match-engine";
+import { calcHours, calcSpotAmount, publicLobby } from "@/lib/open-match-engine";
 import { isAllowed } from "@/lib/rateLimiter";
-import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
+import { getPlatformPaymentDetails } from "@/lib/lobby-payments";
 import { getReceiptWindowMinutes } from "@/lib/settings";
 
 // Players pay their court share straight to the ground; GoPlay earns its commission from the owner.
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
     take: 50,
   });
 
-  return Response.json(matches);
+  return Response.json(matches.map(publicLobby));
 }
 
 // POST /api/open-matches — create lobby at a specific facility
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
   const [facility, category] = await Promise.all([
     db.sportsFacility.findUnique({
       where: { id: facilityId, status: "ACTIVE" },
-      include: { availability: true, categories: { select: { id: true } }, courts: { where: { isActive: true }, select: { id: true } }, owner: { select: paymentDetailsSelect.owner.select } },
+      include: { availability: true, categories: { select: { id: true } }, courts: { where: { isActive: true }, select: { id: true } } },
     }),
     db.sportsCategory.findUnique({ where: { id: categoryId } }),
   ]);
@@ -106,12 +106,11 @@ export async function POST(req: NextRequest) {
   if (!facility) return Response.json({ error: "Facility not found or not active." }, { status: 404 });
   if (!category) return Response.json({ error: "Sport category not found." }, { status: 404 });
 
-  const paymentDetails = resolvePaymentDetails(facility);
-  if (facility.paymentOptions === "ON_ARRIVAL_ONLY") {
-    return Response.json({ error: "This ground only takes payment at the ground, so open matches aren't available here." }, { status: 400 });
-  }
+  // Lobby spots are paid to GoPlay, which pays the ground once the lobby fills — so this
+  // works at any ground, but needs GoPlay's own account set up in admin settings
+  const paymentDetails = await getPlatformPaymentDetails();
   if (!paymentDetails) {
-    return Response.json({ error: "This ground has not set up online payments yet, so open matches can't be created here." }, { status: 400 });
+    return Response.json({ error: "Open match payments aren't available right now. Please try again later." }, { status: 503 });
   }
 
   // A lobby books a specific court, exactly like a direct booking does
@@ -246,6 +245,7 @@ export async function POST(req: NextRequest) {
       totalSpotsNeeded,
       spotsReserved:      groupSize,
       serviceFeePct:      SERVICE_FEE_PCT,
+      payee:              "PLATFORM",
       expiresAt,
       spots: {
         create: {
@@ -254,7 +254,7 @@ export async function POST(req: NextRequest) {
           status:       "RESERVED",
           paymentStatus: "PENDING",
           amountPaid:   0,
-          amountDue:    calcSpotAmount(facility.hourlyRate * calcHours(preferredStartTime, preferredEndTime), totalSpotsNeeded, groupSize, SERVICE_FEE_PCT),
+          amountDue:    calcSpotAmount(facility.hourlyRate * calcHours(preferredStartTime, preferredEndTime), category.minPlayers, groupSize, SERVICE_FEE_PCT),
         },
       },
     },
@@ -276,12 +276,14 @@ export async function POST(req: NextRequest) {
   const match = outcome.match;
 
   const creatorSpot = match.spots[0];
-  const chargeAmount = calcSpotAmount(facility.hourlyRate * calcHours(preferredStartTime, preferredEndTime), totalSpotsNeeded, groupSize, SERVICE_FEE_PCT);
+  // Same divisor joiners pay with — the lobby fills at category.minPlayers, so this covers the court
+  const chargeAmount = calcSpotAmount(facility.hourlyRate * calcHours(preferredStartTime, preferredEndTime), category.minPlayers, groupSize, SERVICE_FEE_PCT);
 
   return Response.json({
     id:                   match.id,
     spotId:               creatorSpot.id,
     chargeAmount,
+    payTo:                "GOPLAY",
     paymentDetails,
     receiptWindowMinutes: await getReceiptWindowMinutes(),
   }, { status: 201 });

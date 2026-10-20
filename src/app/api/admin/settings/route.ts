@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { getSetting, setSetting } from "@/lib/settings";
+import { PLATFORM_BANK_KEYS, getPlatformPaymentDetails, setPlatformPaymentDetails } from "@/lib/lobby-payments";
 
 const KEYS = ["commissionRate", "receiptWindowMinutes", "maintenance", "maintenanceMessage", "minAppVersion"] as const;
 
@@ -19,7 +20,13 @@ export async function GET() {
       getSetting("minAppVersion"),
     ]);
 
+    // GoPlay's account for open match payments (blank fields until an admin fills them in)
+    const bank = await Promise.all(Object.values(PLATFORM_BANK_KEYS).map((k) => getSetting(k)));
+    const [bankName, bankBranch, accountName, accountNumber, instructions] = bank.map((v) => v ?? "");
+
     return Response.json({
+      platformBank:       { bankName, bankBranch, accountName, accountNumber, instructions },
+      platformBankReady:  !!(await getPlatformPaymentDetails()),
       commissionRate:     commissionRate     ?? "10",
       receiptWindowMinutes: receiptWindowMinutes ?? "120",
       maintenance:        maintenance        ?? "false",
@@ -52,6 +59,18 @@ export async function PUT(req: NextRequest) {
       if (!Number.isInteger(v) || v < 15 || v > 1440) {
         return Response.json({ error: "Receipt window must be between 15 and 1440 minutes." }, { status: 400 });
       }
+    }
+
+    if (body.platformBank && typeof body.platformBank === "object") {
+      const b = body.platformBank as Record<string, unknown>;
+      const number = String(b.accountNumber ?? "").replace(/[\s-]/g, "");
+      if (number && !/^\d{6,20}$/.test(number)) {
+        return Response.json({ error: "Account number must be 6–20 digits." }, { status: 400 });
+      }
+      await setPlatformPaymentDetails({
+        bankName: String(b.bankName ?? ""), bankBranch: String(b.bankBranch ?? ""),
+        accountName: String(b.accountName ?? ""), accountNumber: number, instructions: String(b.instructions ?? ""),
+      });
     }
 
     await Promise.all(

@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { sendWelcomeEmail } from "@/lib/email";
 import { isAllowed, getClientIp } from "@/lib/rateLimiter";
 import { isAppRequest, verifyTurnstile } from "@/lib/turnstile";
+import { isBlocked } from "@/lib/trust";
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
       if (!/^(?:\+94|0)7[0-9]{8}$/.test(cleaned)) {
         return Response.json({ error: "Enter a valid Sri Lankan mobile number." }, { status: 400 });
       }
+    }
+
+    // Blocked people can't come back on the same email or phone
+    if (await isBlocked({ email, phone })) {
+      return Response.json({ error: "This email or phone number can't be used to create a GoPlay account. Contact support if you think this is a mistake." }, { status: 403 });
     }
 
     const existing = await db.user.findUnique({ where: { email } });

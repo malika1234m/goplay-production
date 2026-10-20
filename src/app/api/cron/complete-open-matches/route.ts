@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { getCommissionRate } from "@/lib/settings";
+import { earningFigures } from "@/lib/lobby-payments";
 
 // Runs every hour. Auto-completes CONFIRMED + ONLINE + PAID bookings as soon as
 // their session end time has passed (Sri Lanka local time, UTC+5:30).
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       earning:       { is: null },
     },
     select: {
-      id: true, totalAmount: true, isOpenMatch: true,
+      id: true, totalAmount: true, isOpenMatch: true, openMatchId: true, specialRequests: true,
       bookingDate: true,
       endTime: true, // stored as "HH:MM" in Sri Lanka local time
       facility: { select: { id: true, ownerId: true } },
@@ -47,15 +47,12 @@ export async function GET(req: NextRequest) {
     return Response.json({ completed: 0 });
   }
 
-  const PLATFORM_FEE = await getCommissionRate();
   let completed = 0;
   const errors: string[] = [];
 
   for (const b of toComplete) {
     try {
-      const gross = b.totalAmount;
-      const fee   = Math.round(gross * PLATFORM_FEE * 100) / 100;
-      const net   = Math.round((gross - fee) * 100) / 100;
+      const figures = await earningFigures(b);
 
       await db.$transaction(async (tx) => {
         await tx.groundEarning.upsert({
@@ -64,12 +61,9 @@ export async function GET(req: NextRequest) {
             bookingId:      b.id,
             facilityId:     b.facility.id,
             ownerId:        b.facility.ownerId,
-            grossAmount:    gross,
-            platformFee:    fee,
-            netAmount:      net,
+            ...figures,
             paymentMethod:  "ONLINE",
             cashConfirmed:  true,
-            ...(b.isOpenMatch && { commissionNote: "GoPlay Connect — open match" }),
           },
           update: {},
         });

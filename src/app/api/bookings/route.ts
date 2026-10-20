@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     const currentUser = await db.user.findUnique({
       where:  { id: session.user.id },
-      select: { isActive: true, isBookingSuspended: true },
+      select: { isActive: true, isBookingSuspended: true, requiresOnlinePayment: true },
     });
     if (!currentUser?.isActive) {
       return Response.json({ error: "Your account has been deactivated. Please contact support." }, { status: 403 });
@@ -92,6 +92,13 @@ export async function POST(req: NextRequest) {
 
     if (!["ONLINE", "ON_ARRIVAL"].includes(paymentMethod)) {
       return Response.json({ error: "Invalid paymentMethod." }, { status: 400 });
+    }
+    // Players with repeated no-shows have to pay upfront from now on
+    if (paymentMethod === "ON_ARRIVAL" && currentUser.requiresOnlinePayment) {
+      return Response.json(
+        { error: "Because of previous no-shows, your bookings need to be paid online. Choose Pay online.", code: "ONLINE_PAYMENT_REQUIRED" },
+        { status: 403 },
+      );
     }
 
     // Pay-at-ground bookings hold a slot with no money down, so the player must prove the

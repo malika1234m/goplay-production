@@ -18,6 +18,7 @@ interface LobbyPay {
     id: string; groupSize: number; status: string; paymentStatus: PaymentStatus; amountDue: number; createdAt: string;
     receiptUrl: string | null; receiptReviewedAt: string | null; receiptRejectReason: string | null;
     latestComplaint: Complaint | null; paymentDetails: PaymentDetails | null; receiptWindowMinutes: number | null;
+    payTo: "GOPLAY" | "GROUND";
   } | null;
 }
 
@@ -82,6 +83,7 @@ export default function LobbyPayPage({ params }: { params: Promise<{ id: string 
       latestComplaint={spot.latestComplaint}
       uploadEndpoint={`/api/open-matches/${id}/receipt`}
       spotId={spot.id}
+      payee={spot.payTo === "GOPLAY" ? "goplay" : "ground"}
       onChanged={load}
     />
   );

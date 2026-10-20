@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Users, DollarSign, MapPin, TrendingUp, Loader2, UserPlus, CheckCircle, RefreshCw, CalendarDays, BadgeDollarSign } from "lucide-react";
+import { Users, DollarSign, MapPin, TrendingUp, Loader2, UserPlus, CheckCircle, RefreshCw, CalendarDays, BadgeDollarSign, Landmark, ChevronRight, ShieldCheck } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -30,6 +30,8 @@ interface RecentUser {
 
 interface ChartPoint { label: string; revenue: number }
 
+interface LobbyTasks { receiptsToCheck: number; payoutsDue: number; payoutsDueTotal: number; refundsDue: number; refundsDueTotal: number; bankAccountSet: boolean }
+
 const ROLE_STYLE: Record<string, string> = {
   USER:          "bg-blue-50 text-blue-700",
   GROUND_OWNER:  "bg-amber-50 text-amber-700",
@@ -43,6 +45,17 @@ export default function AdminDashboardPage() {
   const [chartData,  setChartData]  = useState<ChartPoint[]>([]);
   const [chartDays,  setChartDays]  = useState(30);
   const [loading,    setLoading]    = useState(true);
+  const [lobby,      setLobby]      = useState<LobbyTasks | null>(null);
+  const [trust,      setTrust]      = useState<{ reportsToReview: number; disputed: number; unresolved: number } | null>(null);
+
+  const loadLobby = useCallback(async () => {
+    try {
+      const d = await (await fetch("/api/admin/lobby-payments", { cache: "no-store" })).json();
+      if (d.summary) setLobby({ ...d.summary, bankAccountSet: d.bankAccountSet });
+      const t = await (await fetch("/api/admin/trust", { cache: "no-store" })).json();
+      if (t.summary) setTrust(t.summary);
+    } catch { /* keep the last value */ }
+  }, []);
 
   const loadChart = useCallback(async (days: number) => {
     try {
@@ -67,6 +80,7 @@ export default function AdminDashboardPage() {
   }, []);
 
   useEffect(() => { loadChart(chartDays); }, [chartDays, loadChart]);
+  useEffect(() => { void loadLobby(); }, [loadLobby]);
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -80,13 +94,14 @@ export default function AdminDashboardPage() {
       ]);
       setStats(s.stats ?? null);
       setRecentUsers((u.users ?? []).slice(0, 8));
+      void loadLobby();
       const labels:  string[] = t.trends?.labels  ?? [];
       const revenue: number[] = t.trends?.revenue ?? [];
       setChartData(labels.map((l: string, i: number) => ({ label: l, revenue: revenue[i] ?? 0 })));
     } finally {
       setRefreshing(false);
     }
-  }, [chartDays]);
+  }, [chartDays, loadLobby]);
 
   if (loading) {
     return (
@@ -114,6 +129,44 @@ export default function AdminDashboardPage() {
           {refreshing ? "Refreshing…" : "Refresh"}
         </button>
       </div>
+
+      {/* Open match money waiting on an admin */}
+      {lobby && (lobby.receiptsToCheck + lobby.payoutsDue + lobby.refundsDue > 0 || !lobby.bankAccountSet) && (
+        <Link href={lobby.bankAccountSet ? "/admin/lobby-payments" : "/admin/settings"}
+          className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 hover:bg-amber-100/60 transition-colors">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0"><Landmark className="w-5 h-5 text-amber-700" /></div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-900">{lobby.bankAccountSet ? "Lobby payments need attention" : "Set GoPlay's bank account to enable open matches"}</p>
+            {lobby.bankAccountSet && (
+              <p className="text-xs text-amber-800 mt-0.5">
+                {[
+                  lobby.receiptsToCheck > 0 && `${lobby.receiptsToCheck} receipt${lobby.receiptsToCheck > 1 ? "s" : ""} to check`,
+                  lobby.payoutsDue > 0 && `${lobby.payoutsDue} payout${lobby.payoutsDue > 1 ? "s" : ""} due (Rs. ${Math.round(lobby.payoutsDueTotal).toLocaleString()})`,
+                  lobby.refundsDue > 0 && `${lobby.refundsDue} refund${lobby.refundsDue > 1 ? "s" : ""} due (Rs. ${Math.round(lobby.refundsDueTotal).toLocaleString()})`,
+                ].filter(Boolean).join(" · ")}
+              </p>
+            )}
+          </div>
+          <ChevronRight className="w-5 h-5 text-amber-700" />
+        </Link>
+      )}
+
+      {/* No-shows and unsettled cash bookings waiting on an admin */}
+      {trust && trust.reportsToReview + trust.unresolved > 0 && (
+        <Link href="/admin/trust" className="flex items-center gap-4 bg-purple-50 border border-purple-200 rounded-2xl px-5 py-4 hover:bg-purple-100/60 transition-colors">
+          <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0"><ShieldCheck className="w-5 h-5 text-purple-700" /></div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-purple-900">Cash bookings need review</p>
+            <p className="text-xs text-purple-800 mt-0.5">
+              {[
+                trust.reportsToReview > 0 && `${trust.reportsToReview} no-show report${trust.reportsToReview > 1 ? "s" : ""}${trust.disputed ? ` (${trust.disputed} disputed)` : ""}`,
+                trust.unresolved > 0 && `${trust.unresolved} unsettled cash booking${trust.unresolved > 1 ? "s" : ""}`,
+              ].filter(Boolean).join(" · ")}
+            </p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-purple-700" />
+        </Link>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

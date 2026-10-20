@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notify";
 import { tryMatchLobby } from "@/lib/open-match-engine";
+import { notifyAdmins } from "@/lib/lobby-payments";
 import { sendBookingConfirmedEmail, sendReceiptRejectedEmail, sendReceiptSubmittedEmail } from "@/lib/email";
 
 // "Pay online" is a bank transfer straight to the ground owner. The player uploads the
@@ -128,7 +129,7 @@ const spotInclude = {
   user:  { select: { id: true, name: true, email: true } },
   match: {
     select: {
-      id: true, status: true, facilityId: true, preferredDate: true, preferredStartTime: true, preferredEndTime: true,
+      id: true, status: true, facilityId: true, preferredDate: true, preferredStartTime: true, preferredEndTime: true, payee: true,
       facility: facilityOwnerInclude,
     },
   },
@@ -139,7 +140,7 @@ export async function submitSpotReceipt(spotId: string, userId: string, receiptU
   if (!spot || spot.userId !== userId) return { ok: false, status: 404, error: "Spot not found." };
   if (spot.status !== "RESERVED" || spot.match.status !== "COLLECTING") return { ok: false, status: 409, error: "This spot is no longer waiting for payment." };
   if (!["PENDING", "REJECTED"].includes(spot.paymentStatus)) {
-    return { ok: false, status: 409, error: spot.paymentStatus === "PAID" ? "This spot is already paid." : "Your receipt is already with the ground for review." };
+    return { ok: false, status: 409, error: spot.paymentStatus === "PAID" ? "This spot is already paid." : "Your receipt is already being reviewed." };
   }
 
   const updated = await db.openMatchSpot.updateMany({
@@ -149,6 +150,14 @@ export async function submitSpotReceipt(spotId: string, userId: string, receiptU
   if (updated.count === 0) return { ok: false, status: 409, error: "This spot changed while you were uploading. Please refresh." };
 
   const m     = spot.match;
+  // GoPlay collected this lobby, so GoPlay checks its own bank account
+  if (m.payee === "PLATFORM") {
+    await notifyAdmins(
+      "Lobby receipt to check",
+      `${spot.user.name} sent Rs. ${spot.amountDue.toLocaleString()} for an open match at ${m.facility.name} on ${fmtDate(m.preferredDate)} ${m.preferredStartTime}–${m.preferredEndTime}. Reference ${ref(spot.id)}.`,
+    );
+    return { ok: true };
+  }
   const owner = m.facility.owner.user;
   await createNotification({
     userId:  owner.id,
@@ -171,9 +180,12 @@ export async function reviewSpotPayment(opts: {
   approve:  boolean;
   reason?:  string | null;
 }): Promise<Result> {
-  const facilityIds = await reviewableFacilityIds(opts.reviewer);
   const spot = await db.openMatchSpot.findUnique({ where: { id: opts.spotId }, include: spotInclude });
-  if (!spot || !facilityIds.includes(spot.match.facilityId)) return { ok: false, status: 404, error: "Spot not found." };
+  // Money paid to GoPlay is checked by GoPlay's admins; money paid to a ground by its own staff
+  const allowed = spot?.match.payee === "PLATFORM"
+    ? opts.reviewer.role === "ADMIN"
+    : !!spot && (await reviewableFacilityIds(opts.reviewer)).includes(spot.match.facilityId);
+  if (!spot || !allowed) return { ok: false, status: 404, error: "Spot not found." };
   if (spot.paymentStatus !== "RECEIPT_SUBMITTED") return { ok: false, status: 409, error: "There is no receipt waiting for review on this spot." };
   if (spot.status !== "RESERVED") return { ok: false, status: 409, error: "This player has left the lobby, so there's nothing to confirm." };
 
@@ -189,12 +201,13 @@ export async function reviewSpotPayment(opts: {
 
   const m    = spot.match;
   const link = `/open-matches/${m.id}/pay`;
+  const by   = m.payee === "PLATFORM" ? "GoPlay" : m.facility.name;
   if (opts.approve) {
     await closeComplaintsOnConfirm({ spotId: spot.id });
     await createNotification({
       userId:  spot.user.id,
       title:   "Payment confirmed — you're in the lobby!",
-      message: `${m.facility.name} confirmed your Rs. ${spot.amountDue.toLocaleString()} transfer. We'll let you know when enough players join.`,
+      message: `${by} confirmed your Rs. ${spot.amountDue.toLocaleString()} transfer. We'll let you know when enough players join.`,
       type:    "success",
       link,
     });
@@ -204,13 +217,13 @@ export async function reviewSpotPayment(opts: {
       userId:  spot.user.id,
       title:   "Payment receipt not accepted",
       message: reason
-        ? `${m.facility.name} rejected your open match receipt: ${reason}`
-        : `${m.facility.name} rejected your open match receipt without giving a reason. You can upload it again or raise a complaint.`,
+        ? `${by} rejected your open match receipt: ${reason}`
+        : `${by} rejected your open match receipt without giving a reason. You can upload it again or raise a complaint.`,
       type:    "error",
       link,
     });
     void sendReceiptRejectedEmail({
-      to: spot.user.email, name: spot.user.name, facilityName: m.facility.name,
+      to: spot.user.email, name: spot.user.name, facilityName: by,
       date: fmtDate(m.preferredDate), startTime: m.preferredStartTime, endTime: m.preferredEndTime,
       reason, link,
     });

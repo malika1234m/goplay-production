@@ -46,6 +46,10 @@ function LoginForm() {
     if (result?.error) { setCaptcha(null); setCaptchaKey((k) => k + 1); }
 
     // next-auth reports the custom reason in `code`; `error` is just "CredentialsSignin"
+    if (result?.code === "blocked") {
+      setError("This account has been blocked. Check your email for details, or contact official.goplay.support@gmail.com.");
+      return;
+    }
     if (result?.code === "captcha") {
       setError("The security check didn't go through. Please try again.");
       return;

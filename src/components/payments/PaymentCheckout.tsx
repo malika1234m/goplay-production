@@ -30,6 +30,8 @@ export interface CheckoutProps {
   uploadEndpoint:    string;
   bookingId?:        string;
   spotId?:           string;
+  /** Who the transfer goes to — GoPlay for GoPlay-collected open matches, otherwise the ground */
+  payee?:            "ground" | "goplay";
   onChanged:         () => void;
 }
 
@@ -121,7 +123,7 @@ function Tracker({ status }: { status: PaymentStatus }) {
   );
 }
 
-function Dropzone({ endpoint, onUploaded, again }: { endpoint: string; onUploaded: () => void; again: boolean }) {
+function Dropzone({ endpoint, onUploaded, again, toGoPlay }: { endpoint: string; onUploaded: () => void; again: boolean; toGoPlay?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file,      setFile]      = useState<File | null>(null);
   const [preview,   setPreview]   = useState<string | null>(null);
@@ -197,7 +199,7 @@ function Dropzone({ endpoint, onUploaded, again }: { endpoint: string; onUploade
         className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-pitch px-5 py-3.5 text-[15px] font-semibold text-white hover:bg-pitch-deep disabled:bg-slate-300 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pitch"
       >
         {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
-        {uploading ? t("Sending receipt") : t("Send receipt to the ground")}
+        {uploading ? t("Sending receipt") : toGoPlay ? t("Send receipt to GoPlay") : t("Send receipt to the ground")}
       </button>
     </div>
   );
@@ -212,6 +214,7 @@ export default function PaymentCheckout(p: CheckoutProps) {
   const urgent    = countdown !== null && countdown.ms < 30 * 60_000;
   const complaintOpen = p.latestComplaint?.status === "OPEN";
   const { t, locale } = useT();
+  const goplay = p.payee === "goplay";
 
   const day   = new Date(p.date.slice(0, 10) + "T00:00:00");
   const dow   = formatDay(day, locale, { weekday: "long" });
@@ -226,13 +229,16 @@ export default function PaymentCheckout(p: CheckoutProps) {
       <header className="mt-4 mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-[28px] sm:text-[34px] leading-tight font-bold text-pitch-deep tracking-tight">
-            {p.paymentStatus === "PAID" ? t("You're booked") : p.paymentStatus === "RECEIPT_SUBMITTED" ? t("Receipt sent") : t("Pay the ground to lock in your slot")}
+            {p.paymentStatus === "PAID" ? t("You're booked") : p.paymentStatus === "RECEIPT_SUBMITTED" ? t("Receipt sent")
+              : goplay ? t("Pay GoPlay to lock in your spot") : t("Pay the ground to lock in your slot")}
           </h1>
           <p className="mt-1 text-slate-600 max-w-prose">
             {p.paymentStatus === "PAID"
-              ? t("{ground} confirmed your transfer. See you there.", { ground: p.groundName })
+              ? t("{ground} confirmed your transfer. See you there.", { ground: goplay ? "GoPlay" : p.groundName })
               : p.paymentStatus === "RECEIPT_SUBMITTED"
-              ? t("{ground} is checking their account. Your booking is confirmed the moment they see the money — we'll notify you.", { ground: p.groundName })
+              ? goplay
+                ? t("GoPlay is checking its account. Your spot counts the moment the money arrives — we'll notify you.")
+                : t("{ground} is checking their account. Your booking is confirmed the moment they see the money — we'll notify you.", { ground: p.groundName })
               : t("Transfer the amount below from your banking app, then send a screenshot of the receipt.")}
           </p>
         </div>
@@ -288,7 +294,7 @@ export default function PaymentCheckout(p: CheckoutProps) {
                 <SlipField label={t("Bank")} value={p.details.bankBranch ? `${p.details.bankName}, ${p.details.bankBranch}` : p.details.bankName} />
                 <SlipField label={t("Remark")} value={p.reference} display={`${p.reference}`} />
               </dl>
-              <p className="mt-3 text-sm text-slate-500">{t("Put the remark in the transfer description so the ground can match your payment.")}</p>
+              <p className="mt-3 text-sm text-slate-500">{goplay ? t("Put the remark in the transfer description so GoPlay can match your payment.") : t("Put the remark in the transfer description so the ground can match your payment.")}</p>
               {p.details.instructions && (
                 <p className="mt-3 text-sm text-pitch-deep bg-white rounded-lg px-3 py-2 border border-rule">{p.details.instructions}</p>
               )}
@@ -302,11 +308,13 @@ export default function PaymentCheckout(p: CheckoutProps) {
         <div className="text-sm text-slate-600 leading-relaxed md:pr-6">
           {p.paymentStatus === "REJECTED" ? (
             <>
-              <p className="font-semibold text-red-700">{t("The ground couldn't match your receipt.")}</p>
+              <p className="font-semibold text-red-700">{goplay ? t("GoPlay couldn't match your receipt.") : t("The ground couldn't match your receipt.")}</p>
               <p className="mt-1">{p.rejectReason ? t("Their note: “{reason}”", { reason: p.rejectReason }) : t("They didn't say why.")} {t("Check the amount and account, then send the receipt again.")}</p>
             </>
           ) : p.paymentStatus === "RECEIPT_SUBMITTED" ? (
-            <p>{t("Most grounds confirm within a few hours. If you cancel before then, any refund comes from the ground by bank transfer.")}</p>
+            <p>{goplay
+              ? t("GoPlay usually confirms within a few hours. If the lobby doesn't fill or you leave, GoPlay refunds you by bank transfer.")
+              : t("Most grounds confirm within a few hours. If you cancel before then, any refund comes from the ground by bank transfer.")}</p>
           ) : p.paymentStatus === "PENDING" ? (
             <p>{t("If no receipt arrives before the timer runs out, the slot is released for other players and nothing is charged.")}</p>
           ) : null}
@@ -314,7 +322,7 @@ export default function PaymentCheckout(p: CheckoutProps) {
 
         <div>
           {(p.paymentStatus === "PENDING" || p.paymentStatus === "REJECTED") && p.details && (
-            <Dropzone endpoint={p.uploadEndpoint} onUploaded={p.onChanged} again={p.paymentStatus === "REJECTED"} />
+            <Dropzone endpoint={p.uploadEndpoint} onUploaded={p.onChanged} again={p.paymentStatus === "REJECTED"} toGoPlay={goplay} />
           )}
 
           {p.paymentStatus === "RECEIPT_SUBMITTED" && p.receiptUrl && (

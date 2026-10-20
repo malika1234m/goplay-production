@@ -13,6 +13,9 @@ class RateLimitError extends CredentialsSignin {
 class CaptchaError extends CredentialsSignin {
   code = "captcha";
 }
+class BlockedError extends CredentialsSignin {
+  code = "blocked";
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET,
@@ -49,7 +52,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user?.password ?? DUMMY_HASH
         );
 
-        if (!user || !user.isActive || !passwordMatch) return null;
+        // Only after the right password: say the account is blocked rather than "wrong password"
+        if (user && passwordMatch && !user.isActive) throw new BlockedError();
+        if (!user || !passwordMatch) return null;
         await attempt.release();   // success doesn't count towards the limit
 
         return {
@@ -73,7 +78,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         name:    profile.name ?? profile.email.split("@")[0],
         picture: typeof profile.picture === "string" ? profile.picture : undefined,
       });
-      return user.isActive ? true : "/login?error=inactive";
+      return user?.isActive ? true : "/login?error=inactive";
     },
     async jwt({ token, user, account }) {
       // Google hands us its own profile — swap in the GoPlay account it belongs to

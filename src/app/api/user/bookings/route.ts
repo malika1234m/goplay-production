@@ -52,7 +52,8 @@ export async function GET(req: NextRequest) {
       cancelled: count("CANCELLED"),
     };
 
-    const mapped = bookings.map(({ review, ...b }) => ({ ...b, hasReview: !!review }));
+    // Who reported a no-show and GoPlay's internal review note stay admin-only
+    const mapped = bookings.map(({ review, noShowMarkedBy: _by, noShowReviewedBy: _rev, noShowReviewNote: _note, ...b }) => ({ ...b, hasReview: !!review }));
     return Response.json({ bookings: mapped, stats }, { headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=60" } });
   } catch (err) {
     console.error("[GET /api/user/bookings]", err);

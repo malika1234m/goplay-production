@@ -47,7 +47,7 @@ export default function BookingForm({
   hourlyRate,
   availability = [],
   courts = [],
-  paymentMethods = { cash: true, online: true },
+  paymentMethods: groundMethods = { cash: true, online: true },
 }: {
   facilityId:   string;
   hourlyRate:   number;
@@ -59,6 +59,14 @@ export default function BookingForm({
   const { data: session } = useSession();
   const router = useRouter();
 
+  // After repeated no-shows a player must pay online — hide "Pay on arrival" for them
+  const [onlineOnly, setOnlineOnly] = useState(false);
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/user/profile").then((r) => r.json()).then((d) => setOnlineOnly(!!d.user?.requiresOnlinePayment)).catch(() => {});
+  }, [session]);
+  const paymentMethods = onlineOnly ? { ...groundMethods, cash: false } : groundMethods;
+
   const today   = new Date().toISOString().split("T")[0];
   const maxDate = (() => { const d = new Date(); d.setDate(d.getDate() + 60); return d.toISOString().split("T")[0]; })();
   const [date,            setDate]            = useState(() => firstOpenDate(availability));
@@ -67,7 +75,8 @@ export default function BookingForm({
   const [contactNumber,   setContactNumber]   = useState("");
   const [specialRequests, setSpecialRequests] = useState("");
   const [selectedCourt,   setSelectedCourt]   = useState<string | null>(courts.length === 1 ? courts[0].id : null);
-  const [paymentMethod,   setPaymentMethod]   = useState<PaymentMethod>(paymentMethods.cash ? "ON_ARRIVAL" : "ONLINE");
+  const [paymentMethod,   setPaymentMethod]   = useState<PaymentMethod>(groundMethods.cash ? "ON_ARRIVAL" : "ONLINE");
+  useEffect(() => { if (onlineOnly && groundMethods.online) { setPaymentMethod("ONLINE"); void choosePayOnline(); } }, [onlineOnly]);
   const [verifying,       setVerifying]       = useState(false);   // phone check — only if the server asks (REQUIRE_PHONE_OTP)
   const [askEmail,        setAskEmail]        = useState(false);   // email code before a pay-at-ground booking
   const [slots,           setSlots]           = useState<Slot[]>([]);
@@ -548,12 +557,16 @@ export default function BookingForm({
         <label className="block text-xs font-medium text-slate-600 mb-2">Payment Method</label>
         {!paymentMethods.cash && !paymentMethods.online ? (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            This ground only takes online payment and hasn&apos;t finished setting it up. Check back soon.
+            {onlineOnly && groundMethods.cash
+              ? "This ground only takes payment at the ground, and after previous no-shows your bookings need to be paid online. Try a ground that accepts online payment."
+              : "This ground only takes online payment and hasn't finished setting it up. Check back soon."}
           </p>
         ) : !(paymentMethods.cash && paymentMethods.online) ? (
           <p className="flex items-center gap-2 rounded-xl border-2 border-slate-200 px-4 py-3 text-sm font-medium text-slate-700">
             {paymentMethods.cash ? <Banknote className="w-4 h-4 shrink-0" /> : <CreditCard className="w-4 h-4 shrink-0" />}
-            {paymentMethods.cash ? "Pay on arrival — this ground takes cash at the ground" : "Pay online — this ground only takes bank transfer"}
+            {paymentMethods.cash ? "Pay on arrival — this ground takes cash at the ground"
+              : onlineOnly ? "Pay online — after previous no-shows, your bookings need to be paid in advance"
+              : "Pay online — this ground only takes bank transfer"}
           </p>
         ) : (
         <div className="grid grid-cols-2 gap-3">

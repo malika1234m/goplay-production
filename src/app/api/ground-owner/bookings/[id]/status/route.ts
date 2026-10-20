@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { earningFigures } from "@/lib/lobby-payments";
 import { slotInstant } from "@/lib/local-time";
 import { getSession } from "@/lib/mobile-auth";
 import { sendSMS } from "@/lib/sms";
 import { sendBookingConfirmedEmail, sendBookingCancelledEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notify";
-import { getCommissionRate } from "@/lib/settings";
 import { STRIKE_SUSPEND_THRESHOLD, STRIKE_RESET_DAYS } from "@/lib/cancellation-policy";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -102,11 +102,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const existingEarning = await db.groundEarning.findUnique({ where: { bookingId: id } });
 
       if (!existingEarning) {
-        const isWalkIn   = booking.specialRequests?.startsWith("[Walk-in]") ?? false;
-        const PLATFORM_FEE_PCT = await getCommissionRate();
-        const gross      = booking.totalAmount;
-        const fee        = isWalkIn ? 0 : Math.round(gross * PLATFORM_FEE_PCT * 100) / 100;
-        const net        = isWalkIn ? gross : Math.round((gross - fee) * 100) / 100;
+        const figures    = await earningFigures(booking);
         const isOnline   = booking.paymentMethod === "ONLINE";
         const confirmed  = isOnline ? booking.paymentStatus === "PAID" : (cashReceived === true);
 
@@ -115,12 +111,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             bookingId:      id,
             facilityId:     booking.facilityId,
             ownerId:        profile.id,
-            grossAmount:    gross,
-            platformFee:    fee,
-            netAmount:      net,
+            ...figures,
             paymentMethod:  booking.paymentMethod,
             cashConfirmed:  confirmed,
-            ...(isWalkIn && { commissionNote: "Walk-in — no platform commission" }),
           },
         });
 

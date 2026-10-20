@@ -216,7 +216,7 @@ function CreatePageInner() {
         return;
       }
 
-      // The lobby page shows the ground's bank details and the receipt upload
+      // The lobby page shows GoPlay's bank details and the receipt upload
       router.push(`/open-matches/${data.id}/pay`);
     } catch {
       setError("Network error. Please try again.");
@@ -451,7 +451,7 @@ function CreatePageInner() {
                 <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
                   <p className="text-sm font-semibold text-green-800 mb-2">Zero risk</p>
                   <p className="text-xs text-green-700 leading-relaxed">
-                    If the lobby expires without enough players, the ground refunds your transfer in full.
+                    If the lobby expires without enough players, GoPlay refunds your transfer in full.
                   </p>
                 </div>
               </div>
@@ -711,7 +711,7 @@ function CreatePageInner() {
                         <span>Rs. {perPerson.toLocaleString()}</span>
                       </div>
                     </div>
-                    <p className="text-[11px] text-green-700 mt-3">Paid to the ground by bank transfer · refunded if lobby expires</p>
+                    <p className="text-[11px] text-green-700 mt-3">Paid to GoPlay by bank transfer · refunded if the lobby expires</p>
                   </div>
                 )}
 

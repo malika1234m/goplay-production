@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, CheckCircle, AlertCircle, Save, BadgeDollarSign, Wallet, Clock, Wrench, Smartphone } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, Save, BadgeDollarSign, Wallet, Clock, Wrench, Smartphone, Landmark } from "lucide-react";
+
+interface PlatformBank { bankName: string; bankBranch: string; accountName: string; accountNumber: string; instructions: string }
 
 interface PlatformSettings {
+  platformBank:       PlatformBank;
+  platformBankReady?: boolean;
   commissionRate:     string;
   receiptWindowMinutes: string;
   maintenance:        string;
@@ -12,7 +16,7 @@ interface PlatformSettings {
 }
 
 export default function AdminSettingsPage() {
-  const [form,    setForm]    = useState<PlatformSettings>({ commissionRate: "10", receiptWindowMinutes: "120", maintenance: "false", maintenanceMessage: "We're performing scheduled maintenance. We'll be back shortly.", minAppVersion: "1.0.0" });
+  const [form,    setForm]    = useState<PlatformSettings>({ platformBank: { bankName: "", bankBranch: "", accountName: "", accountNumber: "", instructions: "" }, commissionRate: "10", receiptWindowMinutes: "120", maintenance: "false", maintenanceMessage: "We're performing scheduled maintenance. We'll be back shortly.", minAppVersion: "1.0.0" });
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
@@ -33,6 +37,7 @@ export default function AdminSettingsPage() {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({
+        platformBank:       form.platformBank,
         commissionRate:     form.commissionRate,
         receiptWindowMinutes: form.receiptWindowMinutes,
         maintenance:        form.maintenance,
@@ -43,12 +48,17 @@ export default function AdminSettingsPage() {
     const data = await res.json();
     setSaving(false);
     if (!res.ok) { setError(data.error ?? "Failed to save."); return; }
+    const b = form.platformBank;
+    setForm((f) => ({ ...f, platformBankReady: !!(b.bankName.trim() && b.accountName.trim() && b.accountNumber.trim()) }));
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
 
   const set = (key: keyof PlatformSettings) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
+  const setBank = (key: keyof PlatformBank) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((f) => ({ ...f, platformBank: { ...f.platformBank, [key]: e.target.value } }));
+  const bankInput = "w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-green-500";
 
   if (loading) {
     return (
@@ -174,6 +184,40 @@ export default function AdminSettingsPage() {
           </div>
           <p className="text-[11px] text-slate-400 mt-1">An unpaid booking or lobby spot is released if no receipt is uploaded (or re-uploaded after a rejection) within this time</p>
         </div>
+      </div>
+
+      {/* GoPlay's own account — players pay open match spots here */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-6 flex flex-col gap-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+            <Landmark className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">GoPlay Bank Account (Open Matches)</h2>
+            <p className="text-xs text-slate-400">Players transfer lobby payments here; GoPlay pays the ground when the lobby fills</p>
+          </div>
+          <span className={`ml-auto text-[11px] font-semibold px-2.5 py-1 rounded-full ${form.platformBankReady ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>
+            {form.platformBankReady ? "Active" : "Not set — new lobbies are paused"}
+          </span>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <label className="text-xs font-medium text-slate-600">Bank
+            <input className={bankInput + " mt-1.5"} value={form.platformBank.bankName} onChange={setBank("bankName")} placeholder="e.g. Commercial Bank" />
+          </label>
+          <label className="text-xs font-medium text-slate-600">Branch
+            <input className={bankInput + " mt-1.5"} value={form.platformBank.bankBranch} onChange={setBank("bankBranch")} placeholder="e.g. Colombo 05" />
+          </label>
+          <label className="text-xs font-medium text-slate-600">Account name
+            <input className={bankInput + " mt-1.5"} value={form.platformBank.accountName} onChange={setBank("accountName")} />
+          </label>
+          <label className="text-xs font-medium text-slate-600">Account number
+            <input className={bankInput + " mt-1.5"} value={form.platformBank.accountNumber} onChange={setBank("accountNumber")} inputMode="numeric" />
+          </label>
+        </div>
+        <label className="text-xs font-medium text-slate-600">Note to players (optional)
+          <textarea rows={2} className={bankInput + " mt-1.5 resize-none"} value={form.platformBank.instructions} onChange={setBank("instructions")} placeholder="e.g. Use the lobby reference as the transfer remark" />
+        </label>
+        <p className="text-[11px] text-slate-400">Shown only to a player on their own payment screen after they join a lobby — never on public pages.</p>
       </div>
 
       {/* Maintenance Mode card */}

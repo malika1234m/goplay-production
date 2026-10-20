@@ -34,7 +34,7 @@ interface OpenMatch {
   id: string; lobbyCode: string | null;
   preferredDate: string; preferredStartTime: string; preferredEndTime: string;
   totalSpotsNeeded: number; spotsReserved: number; status: string; expiresAt: string;
-  serviceFeePct: number;
+  pricePerPerson: number;
   facility: { id: string; name: string; address: string; city: string; hourlyRate: number; images: string[] };
   category: Category;
   spots: Spot[];
@@ -124,11 +124,8 @@ export default function OpenMatchesPage() {
   const pctFilled      = (m: OpenMatch) => Math.min(100, Math.round((m.spotsReserved / m.category.minPlayers) * 100));
   const isFillingFast  = (m: OpenMatch) => pctFilled(m) >= 60 && m.spotsReserved < m.category.minPlayers;
 
-  const costPreview = (m: OpenMatch) => {
-    const hours = (new Date(`1970-01-01T${m.preferredEndTime}`).getTime() -
-                   new Date(`1970-01-01T${m.preferredStartTime}`).getTime()) / 3600000;
-    return Math.round((m.facility.hourlyRate * hours / m.category.minPlayers) * (1 + m.serviceFeePct / 100));
-  };
+  // The server works out the price — it's what each spot actually charges
+  const costPreview = (m: OpenMatch) => m.pricePerPerson;
 
   const hasFilters = !!(search.trim() || activeCity);
 

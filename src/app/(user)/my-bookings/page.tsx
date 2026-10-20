@@ -7,6 +7,7 @@ import {
   Banknote, AlertTriangle, CheckCircle, Star, X, ShieldAlert,
 } from "lucide-react";
 import AdSlot from "@/components/ads/AdSlot";
+import NoShowDispute from "@/components/bookings/NoShowDispute";
 
 interface Booking {
   id: string;
@@ -20,6 +21,8 @@ interface Booking {
   paymentStatus: "PENDING" | "RECEIPT_SUBMITTED" | "REJECTED" | "PAID" | "FAILED" | "REFUNDED";
   refundStatus: "NONE" | "NEEDED" | "PROCESSED";
   refundNote: string | null;
+  noShowReview?: "PENDING" | "CONFIRMED" | "OVERTURNED" | null;
+  noShowDisputedAt?: string | null;
   contactNumber: string | null;
   specialRequests: string | null;
   createdAt: string;
@@ -546,6 +549,10 @@ export default function MyBookingsPage() {
 
                     {b.specialRequests && (
                       <p className="mt-2 text-xs text-slate-500 italic">&ldquo;{b.specialRequests}&rdquo;</p>
+                    )}
+
+                    {b.status === "NO_SHOW" && (
+                      <NoShowDispute bookingId={b.id} review={b.noShowReview ?? null} disputedAt={b.noShowDisputedAt ?? null} />
                     )}
 
                     {/* Bank transfer: the full flow lives on the booking's payment page */}

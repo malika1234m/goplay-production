@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { earningFigures } from "@/lib/lobby-payments";
 import { getSession } from "@/lib/mobile-auth";
 import { slotInstant } from "@/lib/local-time";
 import { sendSMS } from "@/lib/sms";
-import { sendBookingConfirmedEmail, sendBookingCancelledEmail } from "@/lib/email";
+import { sendBookingConfirmedEmail, sendBookingCancelledEmail, sendNoShowRecordedEmail } from "@/lib/email";
+import { notifyAdmins } from "@/lib/lobby-payments";
 import { createNotification } from "@/lib/notify";
-import { getCommissionRate } from "@/lib/settings";
 import {
   STRIKE_SUSPEND_THRESHOLD,
   STRIKE_RESET_DAYS,
@@ -118,24 +119,17 @@ export async function PUT(
       if (!existingEarning) {
         const profile = await db.groundOwnerProfile.findUnique({ where: { userId: ownerId } });
         if (profile) {
-          const isWalkIn       = booking.specialRequests?.startsWith("[Walk-in]") ?? false;
-          const PLATFORM_FEE_PCT = await getCommissionRate();
-          const gross          = booking.totalAmount;
-          const fee            = isWalkIn ? 0 : Math.round(gross * PLATFORM_FEE_PCT * 100) / 100;
-          const net            = isWalkIn ? gross : Math.round((gross - fee) * 100) / 100;
+          const figures        = await earningFigures(booking);
           await db.groundEarning.create({
             data: {
               bookingId:     id,
               facilityId:    booking.facilityId,
               ownerId:       profile.id,
-              grossAmount:   gross,
-              platformFee:   fee,
-              netAmount:     net,
+              ...figures,
               paymentMethod: booking.paymentMethod,
               cashConfirmed: booking.paymentMethod === "ONLINE"
                 ? booking.paymentStatus === "PAID"
                 : (cashReceived === true),
-              ...(isWalkIn && { commissionNote: "Walk-in — no platform commission" }),
             },
           });
 
@@ -300,7 +294,7 @@ export async function PUT(
 
       await db.facilityBooking.update({
         where: { id },
-        data: { status: "NO_SHOW", noShowMarkedAt: new Date() },
+        data: { status: "NO_SHOW", noShowMarkedAt: new Date(), noShowMarkedBy: session.user.id, noShowReview: "PENDING" },
       });
 
       await db.user.update({
@@ -318,7 +312,12 @@ export async function PUT(
         : restrictOnline
         ? `You were marked as a no-show at ${booking.facility.name} on ${dateStr}. You now need to pay online for future bookings.`
         : `You were marked as a no-show for your booking at ${booking.facility.name} on ${dateStr}. Please ensure you attend or cancel in advance.`;
-      await createNotification({ userId: booking.user.id, title: "No-Show Recorded", message: noShowMsg, type: "warning" });
+      await createNotification({ userId: booking.user.id, title: "No-Show Recorded", message: `${noShowMsg} If you did play, you can dispute it from your booking.`, type: "warning", link: "/my-bookings" });
+      void sendNoShowRecordedEmail({
+        to: booking.contactEmail ?? booking.user.email ?? "", name: booking.user.name ?? "Player", facilityName: booking.facility.name,
+        date: dateStr, startTime: booking.startTime, endTime: booking.endTime, bookingId: booking.id,
+      });
+      await notifyAdmins("No-show to review", `${workerName} (worker at ${booking.facility.name}) reported ${booking.user.name} as a no-show on ${dateStr} ${booking.startTime}.`, "/admin/trust");
 
       // Notify owner
       await createNotification({

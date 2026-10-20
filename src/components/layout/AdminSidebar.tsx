@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
   LayoutDashboard, Users, MapPin, DollarSign, BarChart2, CalendarDays,
-  LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed, Menu, X, UserCircle, ShieldAlert, Swords,
+  LogOut, ChevronLeft, ChevronRight, Wallet, ClipboardList, BadgeDollarSign, Settings, ReceiptText, Star, LocateFixed, Menu, X, UserCircle, ShieldAlert, Swords, Landmark, ShieldCheck,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 
@@ -19,6 +19,8 @@ const NAV = [
   // MERGE CONFLICT NOTE (subscription-plans): that branch adds "Owner Plans" and "Subscriptions"
   // entries here. When merging, keep all three additions in the NAV array.
   { id: "open-matches", href: "/admin/open-matches",  label: "Open Matches",      icon: Swords },
+  { id: "lobby-payments", href: "/admin/lobby-payments", label: "Lobby Payments",  icon: Landmark },
+  { id: "trust",        href: "/admin/trust",         label: "Cash & Trust",      icon: ShieldCheck },
   { id: "earnings",     href: "/admin/earnings",      label: "Earnings",          icon: DollarSign },
   { id: "commissions",  href: "/admin/commissions",   label: "Commissions",       icon: BadgeDollarSign },
   { id: "complaints",   href: "/admin/complaints",    label: "Payment Complaints", icon: Wallet },
@@ -43,6 +45,8 @@ export default function AdminSidebar() {
   const [reportedReviews,    setReportedReviews]    = useState(0);
   const [cancellationAlerts, setCancellationAlerts] = useState(0);
   const [openMatchAlerts,    setOpenMatchAlerts]    = useState(0);
+  const [lobbyPaymentTasks,  setLobbyPaymentTasks]  = useState(0);
+  const [trustTasks,         setTrustTasks]         = useState(0);
 
   useEffect(() => {
     const saved = localStorage.getItem("adminSidebarCollapsed");
@@ -109,9 +113,24 @@ export default function AdminSidebar() {
     } catch { /* silent */ }
   }, []);
 
+  const loadLobbyPayments = useCallback(async () => {
+    try {
+      const res  = await fetch("/api/admin/lobby-payments");
+      const s    = (await res.json()).summary ?? {};
+      setLobbyPaymentTasks((s.receiptsToCheck ?? 0) + (s.payoutsDue ?? 0) + (s.refundsDue ?? 0));
+    } catch { /* silent */ }
+  }, []);
+
+  const loadTrust = useCallback(async () => {
+    try {
+      const s = (await (await fetch("/api/admin/trust")).json()).summary ?? {};
+      setTrustTasks((s.reportsToReview ?? 0) + (s.unresolved ?? 0));
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => {
-    loadPending(); loadCommissions(); loadRefunds(); loadComplaints(); loadReportedReviews(); loadCancellationAlerts(); loadOpenMatchAlerts();
-  }, [loadPending, loadCommissions, loadRefunds, loadComplaints, loadReportedReviews, loadCancellationAlerts, loadOpenMatchAlerts]);
+    loadPending(); loadCommissions(); loadRefunds(); loadComplaints(); loadReportedReviews(); loadCancellationAlerts(); loadOpenMatchAlerts(); loadLobbyPayments(); loadTrust();
+  }, [loadPending, loadCommissions, loadRefunds, loadComplaints, loadReportedReviews, loadCancellationAlerts, loadOpenMatchAlerts, loadLobbyPayments, loadTrust]);
 
   const toggle = () => {
     setCollapsed((c) => {
@@ -170,7 +189,9 @@ export default function AdminSidebar() {
               id === "refunds"      && refundNeeded    > 0 ? refundNeeded    :
               id === "complaints"   && openComplaints  > 0 ? openComplaints  :
               id === "reviews"      && reportedReviews > 0 ? reportedReviews :
-              id === "open-matches" && openMatchAlerts > 0 ? openMatchAlerts : 0;
+              id === "open-matches" && openMatchAlerts > 0 ? openMatchAlerts :
+              id === "lobby-payments" && lobbyPaymentTasks > 0 ? lobbyPaymentTasks :
+              id === "trust"        && trustTasks        > 0 ? trustTasks        : 0;
             const showLabel = !collapsed || onClose;
             return (
               <li key={id}>

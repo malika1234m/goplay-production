@@ -32,7 +32,14 @@ export async function POST(req: NextRequest) {
     const DUMMY_HASH = "$2b$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012345";
     const match = await bcrypt.compare(password, user?.password ?? DUMMY_HASH);
 
-    if (!user || !user.isActive || !match) {
+    // Only after the right password: say the account is blocked rather than "wrong password"
+    if (user && match && !user.isActive) {
+      return Response.json(
+        { error: "This account has been blocked. Check your email for details, or contact official.goplay.support@gmail.com." },
+        { status: 403 },
+      );
+    }
+    if (!user || !match) {
       return Response.json(
         { error: "Invalid email or password." },
         { status: 401 }

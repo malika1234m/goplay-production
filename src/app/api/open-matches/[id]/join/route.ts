@@ -6,8 +6,9 @@ import { isAllowed } from "@/lib/rateLimiter";
 import { calcHours, calcSpotAmount } from "@/lib/open-match-engine";
 import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
 import { getReceiptWindowMinutes } from "@/lib/settings";
+import { getPlatformPaymentDetails } from "@/lib/lobby-payments";
 
-// POST /api/open-matches/[id]/join — hold a spot; the player then transfers to the ground and uploads the receipt
+// POST /api/open-matches/[id]/join — hold a spot; the player then transfers (to GoPlay, or the ground for older lobbies) and uploads the receipt
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession(req);
   if (!session?.user) return Response.json({ error: "Login required." }, { status: 401 });
@@ -61,9 +62,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
 
-  const paymentDetails = resolvePaymentDetails(match.facility);
-  if (!paymentDetails || match.facility.paymentOptions === "ON_ARRIVAL_ONLY") {
-    return Response.json({ error: "This ground has not set up online payments yet." }, { status: 400 });
+  const paymentDetails = match.payee === "PLATFORM"
+    ? await getPlatformPaymentDetails()
+    : match.facility.paymentOptions === "ON_ARRIVAL_ONLY" ? null : resolvePaymentDetails(match.facility);
+  if (!paymentDetails) {
+    return Response.json({ error: "Payments for this lobby aren't available right now. Please try again later." }, { status: 400 });
   }
   const chargeAmount = calcSpotAmount(
     match.facility.hourlyRate * calcHours(match.preferredStartTime, match.preferredEndTime),
@@ -113,6 +116,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   return Response.json({
     spot:                 held.spot,
     chargeAmount,
+    payTo:                match.payee === "PLATFORM" ? "GOPLAY" : "GROUND",
     paymentDetails,
     receiptWindowMinutes: await getReceiptWindowMinutes(),
   }, { status: 201 });

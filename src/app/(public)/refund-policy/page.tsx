@@ -139,9 +139,10 @@ export default function RefundPolicyPage() {
               Open match lobbies operate under a separate payment model:
             </p>
             <ul className="list-disc pl-5 space-y-1.5">
-              <li><strong>No charge until matched:</strong> Payment is only collected when the lobby fills and the court is auto-booked. If the lobby expires without filling, your spot is released and no payment is taken.</li>
-              <li><strong>Spot cancellations:</strong> Cancelling a reserved (unmatched) open match spot counts as a <strong>cancellation strike</strong> on your account — the same as cancelling a cash booking. At 5 strikes your account is suspended.</li>
-              <li><strong>Expiry is not a cancellation:</strong> If a lobby expires because it didn't fill in time, this does <em>not</em> count as a strike and no payment is taken.</li>
+              <li><strong>You pay GoPlay to hold your spot:</strong> After joining, you transfer your share to GoPlay&apos;s bank account and upload the receipt. Your spot counts once GoPlay confirms the money arrived. GoPlay pays the ground when the lobby fills and the court is booked.</li>
+              <li><strong>Lobby doesn&apos;t fill:</strong> If a lobby expires, or the slot is taken before it fills, GoPlay refunds your transfer in full. Add the bank account to refund to on the lobby page; you&apos;ll be notified when it&apos;s sent.</li>
+              <li><strong>Spot cancellations:</strong> Leaving a reserved (unmatched) spot counts as a <strong>cancellation strike</strong> on your account — the same as cancelling a cash booking — and any refund follows the timing tiers above. At 5 strikes your account is suspended.</li>
+              <li><strong>Expiry is not a cancellation:</strong> If a lobby expires because it didn&apos;t fill in time, this does <em>not</em> count as a strike.</li>
               <li><strong>Post-match cancellations:</strong> Once a lobby is matched (court auto-booked), spots are locked. You cannot cancel through the app. Contact GoPlay support directly — refunds are assessed case by case.</li>
             </ul>
           </Section>

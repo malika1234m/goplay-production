@@ -4,6 +4,8 @@ import { getSession } from "@/lib/mobile-auth";
 import { slotInstant } from "@/lib/local-time";
 import { NO_SHOW_ONLINE_THRESHOLD, NO_SHOW_SUSPEND_THRESHOLD } from "@/lib/cancellation-policy";
 import { createNotification } from "@/lib/notify";
+import { sendNoShowRecordedEmail } from "@/lib/email";
+import { notifyAdmins } from "@/lib/lobby-payments";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -55,7 +57,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     await db.facilityBooking.update({
       where: { id },
-      data:  { status: "NO_SHOW", noShowMarkedAt: now },
+      // Every report goes to GoPlay's review queue; the player can dispute it
+      data:  { status: "NO_SHOW", noShowMarkedAt: now, noShowMarkedBy: session.user.id, noShowReview: "PENDING" },
     });
 
     await db.user.update({
@@ -81,9 +84,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     await createNotification({
       userId:  booking.userId,
       title:   "No-Show Recorded",
-      message: playerMsg,
+      message: `${playerMsg} If you did play, you can dispute it from your booking.`,
       type:    "warning",
+      link:    `/my-bookings`,
     });
+    void sendNoShowRecordedEmail({
+      to: booking.contactEmail ?? booking.user.email, name: booking.user.name, facilityName: booking.facility.name,
+      date: dateStr, startTime: booking.startTime, endTime: booking.endTime, bookingId: booking.id,
+    });
+    await notifyAdmins("No-show to review", `${booking.facility.name} reported ${booking.user.name} as a no-show on ${dateStr} ${booking.startTime}.`, "/admin/trust");
 
     if (suspend || requireOnline) {
       const admins = await db.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });

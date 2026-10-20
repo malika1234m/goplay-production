@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import ContactNumberField, { useContactNumber } from "@/components/shared/ContactNumberField";
 import type { Complaint, PaymentDetails, PaymentStatus } from "@/components/payments/types";
+import RefundDetailsForm from "@/components/payments/RefundDetailsForm";
 
 interface UserInfo { id: string; name: string; avatar: string | null; phone: string | null; email: string | null; }
 interface Spot { id: string; groupSize: number; status: string; paymentStatus: string; amountPaid: number; createdAt: string; user: UserInfo; }
@@ -20,7 +21,7 @@ interface Match {
   lobbyCode: string | null;
   preferredDate: string; preferredStartTime: string; preferredEndTime: string;
   totalSpotsNeeded: number; spotsReserved: number; status: string;
-  expiresAt: string; serviceFeePct: number; matchBookingId: string | null;
+  expiresAt: string; pricePerPerson: number; payee: "GROUND" | "PLATFORM"; matchBookingId: string | null;
   facility: { id: string; name: string; address: string; city: string; images: string[]; hourlyRate: number; latitude: number | null; longitude: number | null; capacity: number | null; };
   category: { id: string; name: string; icon: string; minPlayers: number };
   spots: Spot[];
@@ -28,6 +29,8 @@ interface Match {
     id: string; groupSize: number; status: string; paymentStatus: PaymentStatus; amountDue: number;
     receiptUrl: string | null; receiptRejectReason: string | null;
     latestComplaint: Complaint | null; paymentDetails: PaymentDetails | null; receiptWindowMinutes: number | null;
+    refundStatus: "NONE" | "NEEDED" | "PROCESSED"; refundAmount: number | null; refundDetailsAt: string | null;
+    refundedAt: string | null; refundReference: string | null;
   } | null;
 }
 
@@ -94,11 +97,11 @@ function LobbyDetailInner({ id }: { id: string }) {
        new Date(`1970-01-01T${match.preferredStartTime}`).getTime()) / 3600000) || 0
     : 0;
   const totalCost       = match ? match.facility.hourlyRate * hours : 0;
-  const costDivisor     = match ? (match.status === "COLLECTING" ? minPlayers : Math.max(match.spotsReserved, 1)) : 1;
-  const perPersonBase   = match ? totalCost / costDivisor : 0;
-  const perPersonGoPlay = Math.round(perPersonBase * (match?.serviceFeePct ?? 0) / 100);
-  const perPersonTotal  = Math.round(perPersonBase + perPersonGoPlay);
+  // What each spot actually charges, worked out by the server
+  const perPersonTotal  = match?.pricePerPerson ?? 0;
   const myGroupCost     = Math.round(perPersonTotal * groupSize);
+  // Who the player pays and gets refunds from: GoPlay for new lobbies, the ground for older ones
+  const payer           = match?.payee === "PLATFORM" ? "GoPlay" : "the ground";
 
   async function handlePay() {
     if (!contact.validate()) {
@@ -401,19 +404,8 @@ function LobbyDetailInner({ id }: { id: string }) {
                   <span className="font-medium">Rs. {totalCost.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
-                  <span>
-                    {match.status === "COLLECTING"
-                      ? `Split by ${minPlayers} (minimum players)`
-                      : `Split by ${match.spotsReserved} player${match.spotsReserved !== 1 ? "s" : ""}`}
-                  </span>
-                  <span className="font-medium">Rs. {Math.round(perPersonBase).toLocaleString()}/person</span>
+                  <span>Split between {minPlayers} players (minimum)</span>
                 </div>
-                {perPersonGoPlay > 0 && (
-                  <div className="flex justify-between text-slate-500">
-                    <span>Tax & service charge</span>
-                    <span>+ Rs. {perPersonGoPlay.toLocaleString()}</span>
-                  </div>
-                )}
                 <div className="flex justify-between font-bold text-slate-900 pt-2 border-t border-slate-100 text-base">
                   <span>Per person total</span>
                   <span className="text-green-700">Rs. {perPersonTotal.toLocaleString()}</span>
@@ -434,7 +426,9 @@ function LobbyDetailInner({ id }: { id: string }) {
                     <span className="text-2xl font-bold text-slate-900">Rs. {perPersonTotal.toLocaleString()}</span>
                     <span className="text-sm text-slate-400">/ person</span>
                   </div>
-                  <p className="text-xs text-slate-400 mb-5">Paid straight to the ground by bank transfer</p>
+                  <p className="text-xs text-slate-400 mb-5">
+                    {match.payee === "PLATFORM" ? "Paid to GoPlay by bank transfer — refunded if the lobby doesn't fill" : "Paid straight to the ground by bank transfer"}
+                  </p>
 
                   <div className="mb-4">
                     <p className="text-sm font-semibold text-slate-700 mb-1">How many spots do you need?</p>
@@ -477,7 +471,7 @@ function LobbyDetailInner({ id }: { id: string }) {
                   <div className="flex items-center justify-center gap-3 mb-2">
                     <div className="flex items-center gap-1 text-[10px] text-slate-400">
                       <ShieldCheck className="w-3 h-3 text-green-500" />
-                      Pay the ground directly
+                      {match.payee === "PLATFORM" ? "Secure transfer to GoPlay" : "Pay the ground directly"}
                     </div>
                     <span className="text-slate-200">·</span>
                     <div className="flex items-center gap-1 text-[10px] text-slate-400">
@@ -486,9 +480,23 @@ function LobbyDetailInner({ id }: { id: string }) {
                     </div>
                   </div>
                   <p className="text-[11px] text-slate-400 text-center leading-relaxed">
-                    After reserving, you&apos;ll see the ground&apos;s bank details. Transfer and upload the receipt — your spot counts once the owner confirms it. Full refund from the ground if the lobby expires without enough players.
+                    {match.payee === "PLATFORM"
+                      ? "After reserving, you'll see GoPlay's bank details. Transfer and upload the receipt — your spot counts once GoPlay confirms it. Full refund from GoPlay if the lobby expires without enough players."
+                      : "After reserving, you'll see the ground's bank details. Transfer and upload the receipt — your spot counts once the owner confirms it. Full refund from the ground if the lobby expires without enough players."}
                   </p>
                 </div>
+              )}
+
+              {/* A refund GoPlay owes this player for the lobby */}
+              {match.payee === "PLATFORM" && match.mySpot && match.mySpot.refundStatus !== "NONE" && (
+                <RefundDetailsForm
+                  matchId={id}
+                  refundStatus={match.mySpot.refundStatus}
+                  refundAmount={match.mySpot.refundAmount}
+                  refundDetailsAt={match.mySpot.refundDetailsAt}
+                  refundedAt={match.mySpot.refundedAt}
+                  refundReference={match.mySpot.refundReference}
+                />
               )}
 
               {/* Sign in prompt */}
@@ -516,7 +524,7 @@ function LobbyDetailInner({ id }: { id: string }) {
                     </div>
                     <div>
                       <p className="font-bold text-slate-900">
-                        {mySpot?.paymentStatus === "PAID" ? "You're in!" : mySpot?.paymentStatus === "RECEIPT_SUBMITTED" ? "Receipt with the ground" : "Spot held — payment needed"}
+                        {mySpot?.paymentStatus === "PAID" ? "You're in!" : mySpot?.paymentStatus === "RECEIPT_SUBMITTED" ? `Receipt with ${payer}` : "Spot held — payment needed"}
                       </p>
                       <p className="text-xs text-slate-400">{mySpot?.groupSize} spot{(mySpot?.groupSize ?? 1) > 1 ? "s" : ""} reserved</p>
                     </div>
@@ -532,10 +540,10 @@ function LobbyDetailInner({ id }: { id: string }) {
                     }`}>
                       <p className="text-sm text-pitch-deep">
                         {match.mySpot.paymentStatus === "REJECTED"
-                          ? "The ground couldn't match your receipt."
+                          ? `${payer === "GoPlay" ? "GoPlay" : "The ground"} couldn't match your receipt.`
                           : match.mySpot.paymentStatus === "RECEIPT_SUBMITTED"
-                          ? "Receipt sent. Your spot counts once the ground confirms it."
-                          : `Transfer Rs. ${match.mySpot.amountDue.toLocaleString()} to the ground to lock in your spot.`}
+                          ? `Receipt sent. Your spot counts once ${payer} confirms it.`
+                          : `Transfer Rs. ${match.mySpot.amountDue.toLocaleString()} to ${payer} to lock in your spot.`}
                       </p>
                       <Link href={`/open-matches/${id}/pay`}
                         className="mt-3 inline-flex items-center justify-center w-full bg-pitch hover:bg-pitch-deep text-white text-sm font-semibold py-2.5 rounded-lg">

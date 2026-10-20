@@ -454,3 +454,66 @@ export async function sendBookingOtpEmail(to: string, code: string): Promise<boo
   `);
   return send(to, `${code} is your GoPlay booking code`, html);
 }
+
+// ── Trust & safety (to player) ─────────────────────────────────────────────
+export async function sendNoShowRecordedEmail(opts: {
+  to: string; name: string; facilityName: string; date: string; startTime: string; endTime: string; bookingId: string;
+}) {
+  const html = layout(`
+    <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">You were marked as a no-show</h2>
+    <p style="color:#475569;font-size:14px;margin:0 0 16px">
+      Hi ${escapeHtml(opts.name)}, <strong>${escapeHtml(opts.facilityName)}</strong> reported that you didn't turn up for your booking.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;padding:16px;border:1px solid #e2e8f0">
+      ${infoRow("Ground", escapeHtml(opts.facilityName))}
+      ${infoRow("Date", opts.date)}
+      ${infoRow("Time", `${opts.startTime} – ${opts.endTime}`)}
+    </table>
+    <p style="color:#475569;font-size:14px;margin:16px 0 0">
+      Repeated no-shows lead to restrictions on your account. <strong>If you did play</strong>, tell us from your booking —
+      the GoPlay team reviews every no-show report.
+    </p>
+    ${button(`${APP_URL}/my-bookings`, "Dispute this no-show")}
+  `);
+  await send(opts.to, `No-show recorded — ${opts.facilityName} on ${opts.date}`, html);
+}
+
+export async function sendNoShowClearedEmail(opts: { to: string; name: string; facilityName: string; date: string }) {
+  const html = layout(`
+    <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">No-show removed from your account ✅</h2>
+    <p style="color:#475569;font-size:14px;margin:0">
+      Hi ${escapeHtml(opts.name)}, the GoPlay team reviewed the no-show reported by <strong>${escapeHtml(opts.facilityName)}</strong>
+      for ${opts.date} and removed it. Any restriction it caused has been lifted. Sorry for the trouble.
+    </p>
+  `);
+  await send(opts.to, "No-show removed from your GoPlay account", html);
+}
+
+export async function sendAccountWarningEmail(opts: { to: string; name: string; message: string }) {
+  const html = layout(`
+    <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">A note from the GoPlay team</h2>
+    <p style="color:#475569;font-size:14px;margin:0 0 16px">Hi ${escapeHtml(opts.name)},</p>
+    <p style="color:#0f172a;font-size:14px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 16px;margin:0 0 16px;line-height:1.6">${escapeHtml(opts.message)}</p>
+    <p style="color:#64748b;font-size:13px;margin:0">Grounds hold slots for every booking, so missed or fake bookings cost them real money. If this continues, your account may be blocked. Reply to this email if you think we've got it wrong.</p>
+  `);
+  await send(opts.to, "Important: your GoPlay bookings", html);
+}
+
+export async function sendAccountBlockedEmail(opts: { to: string; name: string; reason: string; details?: string | null }) {
+  const html = layout(`
+    <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">Your GoPlay account has been blocked</h2>
+    <p style="color:#475569;font-size:14px;margin:0 0 16px">
+      Hi ${escapeHtml(opts.name)}, after reviewing your booking history the GoPlay team has blocked this account.
+      You can no longer sign in or make bookings, and any unpaid upcoming bookings have been cancelled.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;padding:16px;border:1px solid #e2e8f0">
+      ${infoRow("Reason", escapeHtml(opts.reason))}
+      ${opts.details ? infoRow("Details", escapeHtml(opts.details)) : ""}
+    </table>
+    <p style="color:#64748b;font-size:13px;margin:16px 0 0">
+      If you believe this is a mistake, reply to this email or contact
+      <a href="mailto:official.goplay.support@gmail.com" style="color:#16a34a">official.goplay.support@gmail.com</a> and we'll look again.
+    </p>
+  `);
+  await send(opts.to, "Your GoPlay account has been blocked", html);
+}

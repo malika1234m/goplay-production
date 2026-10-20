@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
     const [user, bookingStats] = await Promise.all([
       db.user.findUnique({
         where: { id: session.user.id },
-        select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true },
+        // requiresOnlinePayment: after repeated no-shows, only "Pay online" is offered
+        select: { id: true, name: true, email: true, phone: true, role: true, createdAt: true, requiresOnlinePayment: true },
       }),
       db.facilityBooking.groupBy({
         by: ["status"],

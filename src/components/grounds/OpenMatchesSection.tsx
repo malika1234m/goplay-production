@@ -12,7 +12,7 @@ interface Lobby {
   totalSpotsNeeded: number;
   spotsReserved: number;
   status: string;
-  serviceFeePct: number;
+  pricePerPerson: number;
   expiresAt: string;
   category: { id: string; name: string; icon: string; minPlayers: number };
   spots: { id: string; user: { name: string } }[];
@@ -24,7 +24,7 @@ interface Props {
   hourlyRate: number;
 }
 
-export default function OpenMatchesSection({ facilityId, facilityName, hourlyRate }: Props) {
+export default function OpenMatchesSection({ facilityId, facilityName }: Props) {
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,12 +38,8 @@ export default function OpenMatchesSection({ facilityId, facilityName, hourlyRat
 
   const spotsLeft   = (l: Lobby) => l.totalSpotsNeeded - l.spotsReserved;
   const pctFilled   = (l: Lobby) => Math.round((l.spotsReserved / l.totalSpotsNeeded) * 100);
-  const costPreview = (l: Lobby) => {
-    const hrs   = (new Date(`1970-01-01T${l.preferredEndTime}`).getTime() -
-                   new Date(`1970-01-01T${l.preferredStartTime}`).getTime()) / 3600000;
-    const total = hourlyRate * hrs;
-    return Math.round((total / l.totalSpotsNeeded) * (1 + l.serviceFeePct / 100));
-  };
+  // The server works out the price — it's what each spot actually charges
+  const costPreview = (l: Lobby) => l.pricePerPerson;
 
   return (
     <section id="open-matches" className="bg-white rounded-2xl border border-slate-100 p-6">

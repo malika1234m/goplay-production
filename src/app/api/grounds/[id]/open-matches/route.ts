@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { publicLobby } from "@/lib/open-match-engine";
 
 // GET /api/grounds/[id]/open-matches — active lobbies at a specific facility
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -12,6 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       expiresAt:  { gt: new Date() },
     },
     include: {
+      facility: { select: { hourlyRate: true } },
       category: { select: { id: true, name: true, icon: true, minPlayers: true } },
       spots: {
         where:  { status: { in: ["RESERVED", "CONFIRMED"] } },
@@ -21,5 +23,5 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     orderBy: { preferredDate: "asc" },
   });
 
-  return Response.json(matches);
+  return Response.json(matches.map(publicLobby));
 }

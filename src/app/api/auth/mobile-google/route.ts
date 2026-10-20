@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     if (!profile) return Response.json({ error: "Google sign-in failed. Please try again." }, { status: 401 });
 
     const user = await findOrCreateGoogleUser(profile);
-    if (!user.isActive) {
+    if (!user || !user.isActive) {
       return Response.json({ error: "Your account has been deactivated. Please contact support." }, { status: 403 });
     }
     if (!["USER", "GROUND_OWNER", "GROUND_WORKER"].includes(user.role)) {

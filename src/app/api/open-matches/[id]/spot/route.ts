@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
 import { createNotification } from "@/lib/notify";
+import { notifyAdmins } from "@/lib/lobby-payments";
 import {
   getCancellationPolicyFromTiers,
   loadPolicyTiers,
@@ -72,7 +73,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const outcome = await db.$transaction(async (tx) => {
     const released = await tx.openMatchSpot.updateMany({
       where: { id: spot.id, status: "RESERVED" },
-      data:  { status: refundAmount > 0 ? "REFUNDED" : "CANCELLED", cancelledAt: new Date() },
+      data:  {
+        status: refundAmount > 0 ? "REFUNDED" : "CANCELLED",
+        cancelledAt: new Date(),
+        // GoPlay collected this lobby, so GoPlay owes and tracks the refund
+        ...(refundAmount > 0 && match.payee === "PLATFORM" ? { refundStatus: "NEEDED" as const, refundAmount } : {}),
+      },
     });
     if (released.count === 0) return null;
 
@@ -121,12 +127,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   await createNotification({
     userId:  session.user.id,
     title:   willSuspend ? "Account Suspended" : "Spot Cancelled",
-    message: `You left the ${match.category.name} lobby at ${match.facility.name} on ${dateStr}. ${fineLabel}${refundAmount > 0 ? ` The ground will refund Rs. ${refundAmount.toLocaleString()} to you.` : ""}`,
+    message: `You left the ${match.category.name} lobby at ${match.facility.name} on ${dateStr}. ${fineLabel}${refundAmount <= 0 ? ""
+      : match.payee === "PLATFORM" ? ` GoPlay will refund Rs. ${refundAmount.toLocaleString()} — open the lobby and add the bank account to send it to.`
+      : ` The ground will refund Rs. ${refundAmount.toLocaleString()} to you.`}`,
     type:    willSuspend ? "error" : "warning",
     link:    `/open-matches/${id}`,
   });
 
-  if (refundAmount > 0) {
+  if (refundAmount > 0 && match.payee === "PLATFORM") {
+    await notifyAdmins("Lobby refund due", `${session.user.name ?? "A player"} left the ${match.category.name} lobby at ${match.facility.name} on ${dateStr}. Refund Rs. ${refundAmount.toLocaleString()}.`);
+  } else if (refundAmount > 0) {
     await createNotification({
       userId:  match.facility.owner.userId,
       title:   "Open match refund due",

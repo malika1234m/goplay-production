@@ -41,7 +41,8 @@ export async function GET(req: NextRequest) {
         },
       }),
       db.openMatchSpot.findMany({
-        where:   { paymentStatus: "RECEIPT_SUBMITTED", status: "RESERVED", match: { facilityId: { in: ids } } },
+        // Lobbies GoPlay collected for are checked by GoPlay, not the ground
+        where:   { paymentStatus: "RECEIPT_SUBMITTED", status: "RESERVED", match: { facilityId: { in: ids }, payee: "GROUND" } },
         orderBy: { receiptUploadedAt: "asc" },
         select:  {
           id: true, groupSize: true, amountDue: true, receiptUrl: true, receiptUploadedAt: true, user: player,

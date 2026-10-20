@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
 import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
 import { getReceiptWindowMinutes } from "@/lib/settings";
+import { getPlatformPaymentDetails } from "@/lib/lobby-payments";
+import { publicLobby } from "@/lib/open-match-engine";
 
 // GET /api/open-matches/[id] — lobby detail
 // Players see co-player contact info only after they have a RESERVED/CONFIRMED spot
@@ -50,6 +52,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         select:  {
           id: true, groupSize: true, status: true, paymentStatus: true, amountDue: true, amountPaid: true, createdAt: true,
           receiptUrl: true, receiptUploadedAt: true, receiptReviewedAt: true, receiptRejectReason: true,
+          refundStatus: true, refundAmount: true, refundDetailsAt: true, refundedAt: true, refundReference: true,
           complaints: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true, adminNote: true, createdAt: true } },
         },
       })
@@ -58,16 +61,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (mine) {
     const { complaints, ...spot } = mine;
     const unpaid = spot.status === "RESERVED" && spot.paymentStatus !== "PAID";
-    const facilityPayment = unpaid
-      ? await db.sportsFacility.findUnique({ where: { id: match.facilityId }, select: paymentDetailsSelect })
-      : null;
+    // GoPlay-collected lobbies pay GoPlay's account; older lobbies still pay the ground
+    let paymentDetails = null;
+    if (unpaid && match.payee === "PLATFORM") paymentDetails = await getPlatformPaymentDetails();
+    else if (unpaid) {
+      const f = await db.sportsFacility.findUnique({ where: { id: match.facilityId }, select: paymentDetailsSelect });
+      paymentDetails = f ? resolvePaymentDetails(f) : null;
+    }
     mySpot = {
       ...spot,
       latestComplaint:      complaints[0] ?? null,
-      paymentDetails:       facilityPayment ? resolvePaymentDetails(facilityPayment) : null,
+      payTo:                match.payee === "PLATFORM" ? "GOPLAY" : "GROUND",
+      paymentDetails,
       receiptWindowMinutes: unpaid ? await getReceiptWindowMinutes() : null,
     };
   }
 
-  return Response.json({ ...match, spots: spotsForResponse, mySpot });
+  return Response.json({ ...publicLobby(match), spots: spotsForResponse, mySpot });
 }

@@ -116,6 +116,7 @@ model SportsFacility {
   workers              FacilityWorker[]
   earnings             GroundEarning[]
   openMatches          OpenMatch[]
+  lobbyPayouts         LobbyPayout[]
   paymentComplaints    PaymentComplaint[]
   owner                GroundOwnerProfile     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   categories           SportsCategory[]       @relation("SportsCategoryToSportsFacility")
@@ -198,6 +199,14 @@ model FacilityBooking {
   receiptReviewedAt   DateTime?
   receiptReviewedBy   String?
   receiptRejectReason String?
+  /// No-show reports are reviewed by GoPlay: who reported it, the player's side, and the verdict
+  noShowMarkedBy      String?
+  noShowReview        NoShowReview?
+  noShowDispute       String?
+  noShowDisputedAt    DateTime?
+  noShowReviewedAt    DateTime?
+  noShowReviewedBy    String?
+  noShowReviewNote    String?
   court               FacilityCourt?     @relation(fields: [courtId], references: [id])
   facility            SportsFacility     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   openMatch           OpenMatch?         @relation(fields: [openMatchId], references: [id])
@@ -212,6 +221,7 @@ model FacilityBooking {
   @@index([bookingDate])
   @@index([userId, status])
   @@index([facilityId, bookingDate])
+  @@index([noShowReview])
 }
 
 model FacilityReview {
@@ -355,6 +365,9 @@ model OpenMatch {
   status             OpenMatchStatus   @default(COLLECTING)
   matchBookingId     String?
   serviceFeePct      Float             @default(18)
+  /// Who players transfer to. New lobbies pay GoPlay, which pays the ground once the lobby fills;
+  /// lobbies created before that change keep paying the ground directly.
+  payee              LobbyPayee        @default(GROUND)
   matchedAt          DateTime?
   expiresAt          DateTime
   createdAt          DateTime          @default(now())
@@ -364,6 +377,7 @@ model OpenMatch {
   court              FacilityCourt?    @relation(fields: [courtId], references: [id])
   facility           SportsFacility    @relation(fields: [facilityId], references: [id])
   spots              OpenMatchSpot[]
+  payout             LobbyPayout?
 
   @@index([facilityId, status])
   @@index([status, preferredDate])
@@ -385,6 +399,17 @@ model OpenMatchSpot {
   receiptReviewedBy   String?
   receiptRejectReason String?
   cancelledAt         DateTime?
+  /// Refunds GoPlay owes for lobbies it collected (expired, slot lost, or the player left)
+  refundStatus        RefundStatus       @default(NONE)
+  refundAmount        Float?
+  refundBankName      String?
+  refundBankBranch    String?
+  refundAccountName   String?
+  refundAccountNumber String?
+  refundDetailsAt     DateTime?
+  refundReference     String?
+  refundedAt          DateTime?
+  refundedBy          String?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   match               OpenMatch          @relation(fields: [matchId], references: [id], onDelete: Cascade)
@@ -401,6 +426,20 @@ enum Role {
   GROUND_OWNER
   ADMIN
   GROUND_WORKER
+}
+
+enum NoShowReview {
+  PENDING
+  CONFIRMED
+  OVERTURNED
+}
+
+enum BlockReason {
+  NO_SHOWS
+  FAKE_BOOKINGS
+  PAYMENT_FRAUD
+  ABUSE
+  OTHER
 }
 
 enum BookingStatus {
@@ -512,4 +551,59 @@ model RateLimit {
   key         String   @id
   windowStart DateTime
   count       Int
+}
+
+enum LobbyPayee {
+  GROUND
+  PLATFORM
+}
+
+enum PayoutStatus {
+  DUE
+  PAID
+  CANCELLED
+}
+
+/// What GoPlay owes a ground for a filled lobby it collected the money for. Admin-only figures:
+/// the owner is shown the payout amount, never the commission or what GoPlay kept.
+model LobbyPayout {
+  id               String         @id @default(cuid())
+  matchId          String         @unique
+  facilityId       String
+  collectedAmount  Float          // paid spots at the moment the lobby filled
+  courtAmount      Float          // hourly rate × hours
+  commissionRate   Float          // fraction, e.g. 0.1
+  commissionAmount Float
+  amount           Float          // what the ground receives
+  status           PayoutStatus   @default(DUE)
+  reference        String?
+  paidAt           DateTime?
+  paidBy           String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  match            OpenMatch      @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  facility         SportsFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([facilityId])
+}
+
+/// An email (and optionally phone) barred from GoPlay. Survives account deletion, so a blocked
+/// person can't simply sign up again — by password or Google. Lifted, not deleted, for the record.
+model AccountBlock {
+  id        String      @id @default(cuid())
+  email     String      // lower-cased
+  phone     String?     // normalised 07XXXXXXXX
+  userId    String?
+  reason    BlockReason
+  details   String?
+  blockedBy String
+  createdAt DateTime    @default(now())
+  liftedAt  DateTime?
+  liftedBy  String?
+  liftNote  String?
+
+  @@index([email])
+  @@index([phone])
+  @@index([userId])
 }
