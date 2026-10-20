@@ -269,7 +269,8 @@ export async function POST(req: NextRequest) {
         paymentStatus:   "PENDING",
         contactNumber:   contactNumber  || null,
         contactEmail:    cleanedEmail,
-        specialRequests: specialRequests || null,
+        // "[Walk-in]" marks owner-entered walk-ins (no commission) — a player's note can't claim it
+        specialRequests: String(specialRequests ?? "").replace(/^\s*\[walk-in\]\s*/i, "") || null,
       },
       include: {
         facility: { select: { name: true } },
