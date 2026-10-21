@@ -521,3 +521,34 @@ export async function sendAccountBlockedEmail(opts: { to: string; name: string; 
   `);
   await send(opts.to, "Your GoPlay account has been blocked", html);
 }
+
+export async function sendWorkerInviteEmail(opts: { to: string; name: string; facilityName: string; ownerName: string }) {
+  const html = layout(`
+    <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">You're invited to work at ${escapeHtml(opts.facilityName)}</h2>
+    <p style="color:#475569;font-size:14px;margin:0 0 16px">
+      Hi ${escapeHtml(opts.name)}, ${escapeHtml(opts.ownerName)} invited you to help run <strong>${escapeHtml(opts.facilityName)}</strong> on GoPlay.
+      Nothing changes on your account unless you accept.
+    </p>
+    <p style="color:#64748b;font-size:13px;margin:0 0 16px">
+      If you accept, your account becomes a ground worker account for this ground: you'll manage its bookings
+      from the GoPlay Owner app or the website. If you don't know this ground, just ignore the invitation.
+    </p>
+    ${button(`${APP_URL}/worker-invites`, "View invitation")}
+  `);
+  await send(opts.to, `Invitation to work at ${opts.facilityName}`, html);
+}
+
+export async function sendPayoutAccountChangedEmail(opts: { to: string; name: string; where: string; accountLast4: string | null }) {
+  const html = layout(`
+    <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">Your payout bank account was changed</h2>
+    <p style="color:#475569;font-size:14px;margin:0 0 16px">
+      Hi ${escapeHtml(opts.name)}, the bank account players pay into for <strong>${escapeHtml(opts.where)}</strong> was just changed
+      ${opts.accountLast4 ? `to an account ending in <strong>${escapeHtml(opts.accountLast4)}</strong>` : "(removed)"}.
+    </p>
+    <p style="color:#b91c1c;font-size:14px;margin:0 0 16px;font-weight:600">
+      If you didn't make this change, change your password now and contact
+      <a href="mailto:official.goplay.support@gmail.com" style="color:#b91c1c">official.goplay.support@gmail.com</a> straight away.
+    </p>
+  `);
+  await send(opts.to, "Your GoPlay payout account was changed", html);
+}

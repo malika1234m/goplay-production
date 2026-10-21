@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { announcePayoutAccountChange, payoutChangeAllowed } from "@/lib/payout-alerts";
 import { getSession } from "@/lib/mobile-auth";
 
 export async function GET(req: NextRequest) {
@@ -43,6 +44,12 @@ export async function PUT(req: NextRequest) {
     if ((accountHolderName as string).trim().length < 2)       return Response.json({ error: "Account holder name must be at least 2 characters." }, { status: 400 });
     if ((accountHolderName as string).trim().length > 50)      return Response.json({ error: "Account holder name must be under 50 characters." }, { status: 400 });
 
+    const before = await db.groundOwnerProfile.findUnique({ where: { userId: session.user.id }, select: { accountNumber: true } });
+    const accountChanges = (before?.accountNumber ?? "").replace(/\D/g, "") !== accountNumber.trim().replace(/\D/g, "");
+    if (accountChanges && !(await payoutChangeAllowed(session.user.id))) {
+      return Response.json({ error: "You've changed your payout account several times today. Try again tomorrow or contact GoPlay support." }, { status: 429 });
+    }
+
     const profile = await db.groundOwnerProfile.update({
       where: { userId: session.user.id },
       data: {
@@ -54,6 +61,7 @@ export async function PUT(req: NextRequest) {
       select: { bankName: true, bankBranch: true, accountNumber: true, accountHolderName: true },
     });
 
+    await announcePayoutAccountChange({ ownerUserId: session.user.id, where: "your grounds", before: before?.accountNumber ?? null, after: profile.accountNumber });
     return Response.json({ bankDetails: profile, message: "Bank details saved." });
   } catch (err) {
     console.error("[PUT /api/ground-owner/bank-details]", err);

@@ -39,6 +39,7 @@ model User {
   providerApplications  ProviderApplication[]
   phoneVerifications    PhoneVerification[]
   emailVerifications    EmailVerification[]
+  workerInvites         WorkerInvite[]
 }
 
 model PasswordResetToken {
@@ -127,6 +128,7 @@ model SportsFacility {
   @@index([status])
   @@index([city])
   @@index([status, city])
+  workerInvites        WorkerInvite[]
 }
 
 model FacilityCourt {
@@ -608,4 +610,28 @@ model AccountBlock {
   @@index([email])
   @@index([phone])
   @@index([userId])
+}
+
+/// A ground owner's invitation for an existing player account to become one of its workers.
+/// Nothing changes on the player's account until they accept it themselves.
+model WorkerInvite {
+  id          String             @id @default(cuid())
+  facilityId  String
+  userId      String
+  invitedBy   String
+  status      WorkerInviteStatus @default(PENDING)
+  createdAt   DateTime           @default(now())
+  respondedAt DateTime?
+  facility    SportsFacility     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([facilityId, status])
+}
+
+enum WorkerInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
 }

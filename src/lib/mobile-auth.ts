@@ -37,7 +37,7 @@ async function fromBearer(req: NextRequest): Promise<MobileSession | null> {
       typeof payload.role !== "string"
     ) return null;
     // Tokens are stateless — this is how a password reset or account recovery signs devices out
-    const user = await db.user.findUnique({ where: { id: payload.sub }, select: { isActive: true, sessionsValidAfter: true } });
+    const user = await db.user.findUnique({ where: { id: payload.sub }, select: { isActive: true, sessionsValidAfter: true, role: true } });
     if (!user?.isActive) return null;
     if (user.sessionsValidAfter && (payload.iat ?? 0) * 1000 < user.sessionsValidAfter.getTime()) return null;
     return {
@@ -45,7 +45,9 @@ async function fromBearer(req: NextRequest): Promise<MobileSession | null> {
         id:    payload.sub,
         name:  (payload.name as string) ?? "",
         email: (payload.email as string) ?? "",
-        role:  payload.role,
+        // The account's current role, not the one in the token: a worker who was removed, or a
+        // player who became a worker, gets the right access on their next request
+        role:  user.role,
       },
     };
   } catch {

@@ -26,7 +26,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = await db.user.findUnique({ where: { email } });
+    // Case-insensitive, like the rate limit and Google sign-in: "Ana@x.lk" and "ana@x.lk" are one account
+    const user = await db.user.findFirst({ where: { email: { equals: account, mode: "insensitive" } } });
 
     // Always run bcrypt even when user not found — prevents email enumeration via timing
     const DUMMY_HASH = "$2b$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012345";

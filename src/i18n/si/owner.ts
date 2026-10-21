@@ -614,5 +614,14 @@ const d: Record<string, string> = {
   "Only needed if players book courts separately.": "ක්‍රීඩකයින් කෝට් වෙන වෙනම වෙන්කරනවා නම් පමණක්.",
   "Finish setup": "සැකසීම අවසන් කරන්න",
   "Separate account": "වෙනම ගිණුමක්",
+  // Health-report fixes (Oct 2026): ground removal keeps history; workers join by invitation
+  "Booking history is always kept": "වෙන්කිරීම් ඉතිහාසය සැමවිටම තබා ගනී",
+  "Delete “{name}”? If it has ever had bookings it is taken off GoPlay and its bookings and earnings are kept. A ground that was never used is removed completely.": "“{name}” මකන්නද? එහි කවදා හෝ වෙන්කිරීම් තිබී ඇත්නම් එය GoPlay වෙතින් ඉවත් කරන අතර එහි වෙන්කිරීම් සහ ආදායම් තබා ගනී. කිසිදා භාවිත නොකළ ක්‍රීඩාංගණයක් සම්පූර්ණයෙන්ම ඉවත් කෙරේ.",
+  "Waiting for them to accept": "ඔවුන් පිළිගන්නා තෙක් රැඳී සිටී",
+  "Invited {when}": "ආරාධනා කළේ {when}",
+  "Withdraw": "ආපසු ගන්න",
+  "Invitation sent": "ආරාධනාව යැව්වා",
+  "This person already has a GoPlay account, so we sent them an invitation.": "මෙම පුද්ගලයාට දැනටමත් GoPlay ගිණුමක් ඇති නිසා අපි ඔවුන්ට ආරාධනාවක් යැව්වා.",
+  "They become your worker once they accept it from their account.": "ඔවුන් තම ගිණුමෙන් එය පිළිගත් පසු ඔබේ සේවකයා වේ.",
 };
 export default d;

@@ -16,7 +16,9 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Too many registration attempts. Please try again later." }, { status: 429 });
     }
 
-    const { name, email, password, phone, turnstileToken } = await req.json();
+    const { name, email: rawEmail, password, phone, turnstileToken } = await req.json();
+    // One account per address whatever the letter case: store it lower-cased
+    const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : rawEmail;
     if (!app && !(await verifyTurnstile(turnstileToken, ip))) {
       return Response.json({ error: "Please complete the security check and try again.", code: "CAPTCHA_FAILED" }, { status: 400 });
     }
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "This email or phone number can't be used to create a GoPlay account. Contact support if you think this is a mistake." }, { status: 403 });
     }
 
-    const existing = await db.user.findUnique({ where: { email } });
+    const existing = await db.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, select: { id: true } });
     if (existing) {
       return Response.json({ error: "An account with this email already exists." }, { status: 409 });
     }

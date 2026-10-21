@@ -32,6 +32,12 @@ export async function PATCH(
       return Response.json({ error: "Admin accounts cannot be deactivated." }, { status: 400 });
     }
 
+    // A blocked player comes back only by lifting the block, which keeps the record and the reason
+    if (isActive) {
+      const block = await db.accountBlock.findFirst({ where: { userId: id, liftedAt: null }, select: { id: true } });
+      if (block) return Response.json({ error: "This player is blocked. Lift the block on the Cash & Trust page to let them back in." }, { status: 409 });
+    }
+
     const updated = await db.user.update({
       where: { id },
       data:  { isActive },

@@ -8,6 +8,7 @@ import type { T } from "@/i18n/core";
 interface Facility { id: string; name: string; city: string }
 
 interface Worker   { id: string; userId: string; name: string; email: string; joinedAt: string }
+interface Invite   { id: string; name: string; email: string; sentAt: string }
 
 function timeAgo(d: string, t: T) {
   const diff = Date.now() - new Date(d).getTime();
@@ -20,6 +21,8 @@ export default function WorkersPage() {
   const [facilities,  setFacilities]  = useState<Facility[]>([]);
   const [facilityId,  setFacilityId]  = useState("");
   const [workers,     setWorkers]     = useState<Worker[]>([]);
+  const [invites,     setInvites]     = useState<Invite[]>([]);
+  const [withdrawing, setWithdrawing] = useState<string|null>(null);
   const [loading,     setLoading]     = useState(true);
   const [removing,        setRemoving]        = useState<string|null>(null);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string|null>(null);
@@ -53,7 +56,7 @@ export default function WorkersPage() {
         const text = await r.text();
         if (!text) return;
         const d = JSON.parse(text);
-        if (r.ok) setWorkers(d.workers ?? []);
+        if (r.ok) { setWorkers(d.workers ?? []); setInvites(d.invites ?? []); }
         else console.error("[workers]", d.error);
       })
       .finally(() => setLoading(false));
@@ -74,19 +77,29 @@ export default function WorkersPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setWorkers((prev) => [data.worker, ...prev]);
         setEmail(""); setWorkerName("");
-        if (data.tempPassword) {
-          setNewPass(data.tempPassword);
-        } else if (!data.isNewAccount) {
+        if (data.invited) {
+          // An existing account: they were invited and join once they accept
+          setInvites((prev) => prev.some((i) => i.id === data.inviteId) ? prev
+            : [{ id: data.inviteId, name: data.worker.name, email: data.worker.email, sentAt: new Date().toISOString() }, ...prev]);
           setPromoted(true);
         } else {
-          setShowInvite(false);
+          setWorkers((prev) => [data.worker, ...prev]);
+          if (data.tempPassword) setNewPass(data.tempPassword);
+          else setShowInvite(false);
         }
       } else {
         setInviteError(data.error ?? t("Failed to add worker."));
       }
     } finally { setInviting(false); }
+  };
+
+  const withdraw = async (id: string) => {
+    setWithdrawing(id);
+    try {
+      const res = await fetch(`/api/ground-owner/workers/invites/${id}`, { method: "DELETE" });
+      if (res.ok || res.status === 409) setInvites((prev) => prev.filter((i) => i.id !== id));
+    } finally { setWithdrawing(null); }
   };
 
   const remove = async (id: string) => {
@@ -161,6 +174,26 @@ export default function WorkersPage() {
             <span className="ml-2 text-slate-400 font-normal text-sm">({workers.length})</span>
           </h2>
         </div>
+
+        {!loading && invites.length > 0 && (
+          <div className="border-b border-slate-100 bg-amber-50/40">
+            <p className="px-6 pt-4 text-xs font-semibold uppercase tracking-wide text-amber-700">{t("Waiting for them to accept")}</p>
+            <div className="divide-y divide-amber-100/60">
+              {invites.map((i) => (
+                <div key={i.id} className="px-6 py-3 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">{i.name}</p>
+                    <p className="text-xs text-slate-500 truncate">{i.email} · {t("Invited {when}", { when: timeAgo(i.sentAt, t) })}</p>
+                  </div>
+                  <button onClick={() => withdraw(i.id)} disabled={withdrawing === i.id}
+                    className="text-xs font-semibold text-slate-500 hover:text-red-600 transition-colors disabled:opacity-50">
+                    {withdrawing === i.id ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Withdraw")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
@@ -237,12 +270,12 @@ export default function WorkersPage() {
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <UserCheck className="w-6 h-6 text-blue-600" />
                 </div>
-                <h3 className="text-base font-semibold text-slate-900 mb-1">{t("Worker Added!")}</h3>
+                <h3 className="text-base font-semibold text-slate-900 mb-1">{t("Invitation sent")}</h3>
                 <p className="text-sm text-slate-500 mb-2">
-                  {t("This person already had a GoPlay account. Their role has been upgraded to Ground Worker.")}
+                  {t("This person already has a GoPlay account, so we sent them an invitation.")}
                 </p>
                 <p className="text-xs text-slate-400 mb-5">
-                  {t("They need to log out and log back in to access the worker dashboard.")}
+                  {t("They become your worker once they accept it from their account.")}
                 </p>
                 <button onClick={() => { setShowInvite(false); setPromoted(false); }}
                   className="w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors">

@@ -218,3 +218,102 @@ test.describe("Open match money", () => {
     expect(res.status()).toBe(400);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe("Accounts and access", () => {
+  test("an owner can't turn a player into a worker — the player accepts an invitation, and access follows the account", async ({ request }) => {
+    const add = await request.post(`${BASE}/api/ground-owner/workers`, { headers: bearer(tokens.owner), data: { facilityId: ground.id, email: ACCOUNTS.ana.email.toUpperCase() } });
+    expect(add.status()).toBe(202);
+    const body = await add.json();
+    expect(body.invited).toBe(true);
+    expect(body.worker.name).toBeTruthy();   // older owner-app builds read worker.name
+    const [before] = await q<{ role: string }>(`select role from "User" where id = $1`, [ids.ana]);
+    expect(before.role).toBe("USER");
+
+    // The same token is a player's until they accept…
+    expect((await request.get(`${BASE}/api/worker/facility`, { headers: bearer(tokens.ana) })).status()).toBe(403);
+    const mine = (await (await request.get(`${BASE}/api/worker-invites`, { headers: bearer(tokens.ana) })).json()).invites;
+    expect(mine).toHaveLength(1);
+    const accept = await request.post(`${BASE}/api/worker-invites/${mine[0].id}`, { headers: bearer(tokens.ana), data: { action: "accept" } });
+    expect(accept.status()).toBe(200);
+
+    // …and a worker's from the next request, without signing in again
+    expect((await request.get(`${BASE}/api/worker/facility`, { headers: bearer(tokens.ana) })).status()).toBe(200);
+    const list = await (await request.get(`${BASE}/api/ground-owner/workers?facilityId=${ground.id}`, { headers: bearer(tokens.owner) })).json();
+    const w = list.workers.find((x: { userId: string }) => x.userId === ids.ana);
+    expect(w).toBeTruthy();
+    expect(list.invites).toHaveLength(0);
+
+    // Removing them takes the access away at once, with the same token
+    expect((await request.delete(`${BASE}/api/ground-owner/workers/${w.id}`, { headers: bearer(tokens.owner) })).status()).toBe(200);
+    expect((await request.get(`${BASE}/api/worker/facility`, { headers: bearer(tokens.ana) })).status()).toBe(403);
+  });
+
+  test("a declined or withdrawn invitation changes nothing", async ({ request }) => {
+    await request.post(`${BASE}/api/ground-owner/workers`, { headers: bearer(tokens.owner), data: { facilityId: ground.id, email: ACCOUNTS.ben.email } });
+    const [inv] = (await (await request.get(`${BASE}/api/worker-invites`, { headers: bearer(tokens.ben) })).json()).invites;
+    expect((await request.post(`${BASE}/api/worker-invites/${inv.id}`, { headers: bearer(tokens.ben), data: { action: "decline" } })).status()).toBe(200);
+    expect((await request.post(`${BASE}/api/worker-invites/${inv.id}`, { headers: bearer(tokens.ben), data: { action: "accept" } })).status()).toBe(409);
+
+    await request.post(`${BASE}/api/ground-owner/workers`, { headers: bearer(tokens.owner), data: { facilityId: ground.id, email: ACCOUNTS.ben.email } });
+    const [inv2] = (await (await request.get(`${BASE}/api/worker-invites`, { headers: bearer(tokens.ben) })).json()).invites;
+    expect((await request.delete(`${BASE}/api/ground-owner/workers/invites/${inv2.id}`, { headers: bearer(tokens.owner) })).status()).toBe(200);
+    expect((await request.post(`${BASE}/api/worker-invites/${inv2.id}`, { headers: bearer(tokens.ben), data: { action: "accept" } })).status()).toBe(409);
+    const [ben] = await q<{ role: string }>(`select role from "User" where id = $1`, [ids.ben]);
+    expect(ben.role).toBe("USER");
+  });
+
+  test("signing in ignores the letter case of the email", async ({ request }) => {
+    const res = await request.post(`${BASE}/api/auth/mobile-login`, { data: { email: ACCOUNTS.ben.email.toUpperCase(), password: PASSWORD } });
+    expect(res.status()).toBe(200);
+  });
+
+  test("only players who have paid into a lobby see co-players' phone numbers, and never emails", async ({ request }) => {
+    const m = await seedLobby({ daysFromToday: 6 });
+    await seedSpot({ matchId: m, userId: ids.ana, paymentStatus: "PAID", amountPaid: 1000 });
+    await seedSpot({ matchId: m, userId: ids.ben, paymentStatus: "PENDING" });
+    const asBen = await (await request.get(`${BASE}/api/open-matches/${m}`, { headers: bearer(tokens.ben) })).json();
+    expect(asBen.spots.every((s: { user: { phone: string | null; email: string | null } }) => s.user.phone === null && s.user.email === null)).toBe(true);
+    const asAna = await (await request.get(`${BASE}/api/open-matches/${m}`, { headers: bearer(tokens.ana) })).json();
+    const benSpot = asAna.spots.find((s: { user: { id: string } }) => s.user.id === ids.ben);
+    expect(benSpot.user.phone).toBe(ACCOUNTS.ben.phone);
+    expect(benSpot.user.email).toBeNull();
+  });
+
+  test("a blocked player can't be switched back on from the users page", async () => {
+    expect((await admin.post(`${BASE}/api/admin/trust/block`, { data: { userId: ids.ben, reason: "ABUSE", details: "e2e" } })).status()).toBe(200);
+    const res = await admin.patch(`${BASE}/api/admin/users/${ids.ben}/status`, { data: { isActive: true } });
+    expect(res.status()).toBe(409);
+    const [block] = await q<{ id: string }>(`select id from "AccountBlock" where "userId" = $1 and "liftedAt" is null`, [ids.ben]);
+    expect((await admin.post(`${BASE}/api/admin/trust/unblock`, { data: { blockId: block.id } })).status()).toBe(200);
+  });
+
+  test("changing a ground's payout account alerts the owner", async ({ request }) => {
+    const [orig] = await q<Record<string, string | null>>(
+      `select "paymentBankName", "paymentBankBranch", "paymentAccountName", "paymentAccountNumber", "paymentInstructions" from "SportsFacility" where id = $1`, [ground.id]);
+    const alertsNow = async () => (await q(`select 1 from "Notification" where "userId" = $1 and title = 'Payout bank account changed'`, [ground.ownerUserId])).length;
+    const before = await alertsNow();
+    try {
+      const res = await request.put(`${BASE}/api/ground-owner/grounds/${ground.id}/payment-details`, {
+        headers: bearer(tokens.owner),
+        data: { paymentBankName: "E2E Bank", paymentAccountName: "E2E Owner", paymentAccountNumber: `99${Date.now().toString().slice(-8)}` },
+      });
+      expect(res.status()).toBe(200);
+      expect(await alertsNow()).toBe(before + 1);
+    } finally {
+      await q(
+        `update "SportsFacility" set "paymentBankName" = $2, "paymentBankBranch" = $3, "paymentAccountName" = $4, "paymentAccountNumber" = $5, "paymentInstructions" = $6 where id = $1`,
+        [ground.id, orig.paymentBankName, orig.paymentBankBranch, orig.paymentAccountName, orig.paymentAccountNumber, orig.paymentInstructions]);
+      await q(`delete from "Notification" where "userId" = $1 and title = 'Payout bank account changed'`, [ground.ownerUserId]);
+      await q(`delete from "RateLimit" where key like 'payout-account:%'`);
+    }
+  });
+
+  test("the application-status lookup doesn't reveal names", async ({ request }) => {
+    const res = await request.post(`${BASE}/api/auth/mobile-application-status`, { data: { email: OWNER.email } });
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe("APPROVED");
+    expect(body.name).toBeUndefined();
+  });
+});

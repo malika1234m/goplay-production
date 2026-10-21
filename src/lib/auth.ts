@@ -41,9 +41,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const attempt = await reserveLoginAttempt(email, ip);
         if (!attempt.ok) throw new RateLimitError();
 
-        const user = await db.user.findUnique({
-          where: { email: credentials.email as string },
-        });
+        // Case-insensitive, like the rate limit and Google sign-in: "Ana@x.lk" and "ana@x.lk" are one account
+        const user = await db.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
 
         // Always run bcrypt even when user not found — prevents email enumeration via timing
         const DUMMY_HASH = "$2b$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012345";
@@ -103,9 +102,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Later requests: end the session if the account was deactivated, or its sessions were
       // revoked (password reset, account recovered through Google) after this sign-in
       if (token.id) {
-        const current = await db.user.findUnique({ where: { id: token.id as string }, select: { isActive: true, sessionsValidAfter: true } });
+        const current = await db.user.findUnique({ where: { id: token.id as string }, select: { isActive: true, sessionsValidAfter: true, role: true } });
         if (!current?.isActive) return null;
         if (current.sessionsValidAfter && Number(token.signedInAt ?? 0) < current.sessionsValidAfter.getTime()) return null;
+        token.role = current.role;   // role changes (worker added or removed, demotion) apply on the next request
       }
       return token;
     },

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { announcePayoutAccountChange, payoutChangeAllowed } from "@/lib/payout-alerts";
 import { getSession } from "@/lib/mobile-auth";
 
 const FIELDS = {
@@ -49,6 +50,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
     if (instructions.length > 500) return Response.json({ error: "Instructions must be under 500 characters." }, { status: 400 });
 
+    const before = await db.sportsFacility.findUnique({ where: { id }, select: { name: true, paymentAccountNumber: true } });
+    const accountChanges = (before?.paymentAccountNumber ?? "").replace(/\D/g, "") !== accountNumber.replace(/\D/g, "");
+    if (accountChanges && !(await payoutChangeAllowed(session.user.id))) {
+      return Response.json({ error: "You've changed payout accounts several times today. Try again tomorrow or contact GoPlay support." }, { status: 429 });
+    }
+
     const facility = await db.sportsFacility.update({
       where:  { id },
       data:   {
@@ -60,6 +67,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       },
       select: FIELDS,
     });
+    await announcePayoutAccountChange({ ownerUserId: session.user.id, where: before?.name ?? "your ground", before: before?.paymentAccountNumber ?? null, after: accountNumber || null });
     return Response.json({ paymentDetails: facility, message: "Payment details saved." });
   } catch (err) {
     console.error("[PUT /api/ground-owner/grounds/[id]/payment-details]", err);

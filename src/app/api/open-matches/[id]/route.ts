@@ -31,17 +31,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (!match) return Response.json({ error: "Lobby not found." }, { status: 404 });
 
-  // Hide contact details (phone/email) for users who haven't paid into this lobby
+  // Co-players' phone numbers are for people who have actually paid into this lobby, and only for
+  // players still in it. Emails are never shared; joining alone (free until paid) reveals nothing.
   const currentUserId = session?.user?.id;
-  const isParticipant = match.spots.some(
-    (s) => s.user.id === currentUserId && ["RESERVED", "CONFIRMED"].includes(s.status),
-  );
+  const live          = (s: { status: string }) => ["RESERVED", "CONFIRMED"].includes(s.status);
+  const isParticipant = match.spots.some((s) => s.user.id === currentUserId && live(s) && s.paymentStatus === "PAID");
 
   const spotsForResponse = match.spots.map((s) => ({
     ...s,
-    user: isParticipant
-      ? s.user
-      : { id: s.user.id, name: s.user.name, avatar: s.user.avatar, phone: null, email: null },
+    user: {
+      id: s.user.id, name: s.user.name, avatar: s.user.avatar,
+      phone: isParticipant && live(s) ? s.user.phone : null,
+      email: null,
+    },
   }));
 
   // The caller's own spot, with what they owe and where to send it while it is unpaid
