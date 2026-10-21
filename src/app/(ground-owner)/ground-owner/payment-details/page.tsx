@@ -65,7 +65,7 @@ export default function PaymentAccountsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function useDefault(g: Ground) {
+  async function switchToDefault(g: Ground) {
     setBusy(g.id);
     setError("");
     try {
@@ -182,7 +182,7 @@ export default function PaymentAccountsPage() {
                   </div>
                   <div className="flex gap-2 shrink-0">
                     {hasOwn && !open && (
-                      <button onClick={() => useDefault(g)} disabled={busy === g.id || !hasDefault} title={hasDefault ? undefined : t("Add a default account first")}
+                      <button onClick={() => switchToDefault(g)} disabled={busy === g.id || !hasDefault} title={hasDefault ? undefined : t("Add a default account first")}
                         className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-pitch-deep disabled:opacity-40">
                         {busy === g.id ? <Loader2 className="w-4 h-4 animate-spin" /> : t("Use default instead")}
                       </button>

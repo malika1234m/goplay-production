@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
           playerPhone:     walkInPhone ?? b.user.phone ?? null,
           contactNumber:   b.contactNumber ?? null,
           specialRequests: (isOpenMatch || isPhoneBooking) ? null : (b.specialRequests ?? null),
-          courtName:       (b as any).court?.name ?? null,
+          courtName:       b.court?.name ?? null,
           isOpenMatch,
           isPhoneBooking,
           openMatchId:     b.openMatchId ?? null,

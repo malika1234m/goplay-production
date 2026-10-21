@@ -42,7 +42,7 @@ export default function PaymentDetailsForm({ mode, groundId, onSaved, bare }: { 
       })
       .catch(() => setError(t("Could not load payment details.")))
       .finally(() => setLoading(false));
-  }, [url, mode]);
+  }, [url, mode, t]);
 
   const set = (k: keyof Fields) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setSaved(false);

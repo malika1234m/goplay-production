@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, use, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   ArrowLeft, MapPin, Calendar, Clock, Users, Loader2,
@@ -55,6 +55,8 @@ function Countdown({ target }: { target: string }) {
 }
 
 function LobbyDetailInner({ id }: { id: string }) {
+  const router = useRouter();
+  const [mountedAt] = useState(() => Date.now());   // fixed at mount: server and client render the same
   const { data: ses } = useSession();
   const contact       = useContactNumber();
   const searchParams  = useSearchParams();
@@ -119,7 +121,7 @@ function LobbyDetailInner({ id }: { id: string }) {
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to reserve a spot."); return; }
       // Transfer and receipt happen on the spot's own checkout page
-      window.location.assign(`/open-matches/${id}/pay`);
+      router.push(`/open-matches/${id}/pay`);
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -128,7 +130,7 @@ function LobbyDetailInner({ id }: { id: string }) {
   }
 
   const hoursUntilMatch = match
-    ? (new Date(`${match.preferredDate.split("T")[0]}T${match.preferredStartTime}:00`).getTime() - Date.now()) / 3_600_000
+    ? (new Date(`${match.preferredDate.split("T")[0]}T${match.preferredStartTime}:00`).getTime() - mountedAt) / 3_600_000
     : 0;
 
   const cancelWarning =

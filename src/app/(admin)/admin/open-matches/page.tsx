@@ -120,6 +120,7 @@ function ConfirmCancel({ lobbyName, onConfirm, onCancel, loading }:
 
 /* ── Main page ───────────────────────────────────────────── */
 export default function AdminOpenMatchesPage() {
+  const [mountedAt] = useState(() => Date.now());   // fixed at mount: server and client render the same
   const [matches,     setMatches]     = useState<Match[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
@@ -453,7 +454,7 @@ export default function AdminOpenMatchesPage() {
                   {collecting.map((m) => {
                     const pct       = Math.round(m.spotsReserved / m.totalSpotsNeeded * 100);
                     const spotsLeft = m.totalSpotsNeeded - m.spotsReserved;
-                    const isUrgent  = new Date(m.expiresAt).getTime() - Date.now() < 3600000;
+                    const isUrgent  = new Date(m.expiresAt).getTime() - mountedAt < 3600000;
                     return (
                       <div key={m.id} className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${isUrgent ? "border-red-200 bg-red-50/30" : "border-slate-100 hover:border-amber-200 hover:bg-amber-50/20"}`}>
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${isUrgent ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>

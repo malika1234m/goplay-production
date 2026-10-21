@@ -441,6 +441,7 @@ interface WalkInModalProps {
 }
 
 function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
+  const [mountedAt] = useState(() => Date.now());   // fixed at mount: server and client render the same
   const { t, tn, locale } = useT();
   const activeFacilities = facilities.filter((f) => f.status === "ACTIVE");
   const today = isoDateStr(new Date());
@@ -503,7 +504,7 @@ function WalkInModal({ facilities, onClose, onCreated }: WalkInModalProps) {
   const estimatedAmt = selectedFacility ? Math.round(durationHrs * selectedFacility.hourlyRate) : 0;
 
   const isToday    = bookingDate === today;
-  const isTomorrow = bookingDate === isoDateStr(new Date(Date.now() + 86400000));
+  const isTomorrow = bookingDate === isoDateStr(new Date(mountedAt + 86400000));
 
   const handleSubmit = async () => {
     setError("");
@@ -856,7 +857,7 @@ export default function GroundOwnerBookingsPage() {
       if (pageNum === 1) setLoading(false);
       else setLoadingMore(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, t]);
 
   useEffect(() => { load(1); }, [load]);
 

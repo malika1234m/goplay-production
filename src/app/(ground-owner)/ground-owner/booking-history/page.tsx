@@ -59,9 +59,10 @@ function displayName(b: Booking) {
 const PAGE_SIZE = 20;
 
 export default function BookingHistoryPage() {
+  const [mountedAt] = useState(() => Date.now());   // fixed at mount: server and client render the same
   const { t, locale, tn } = useT();
   const today = new Date().toISOString().slice(0, 10);
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const thirtyDaysAgo = new Date(mountedAt - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const [from, setFrom]       = useState(thirtyDaysAgo);
   const [to, setTo]           = useState(today);
@@ -89,7 +90,7 @@ export default function BookingHistoryPage() {
     }
   }, [from, to, statusFilter]);
 
-  useEffect(() => { load(); }, []);   // load on mount with default range
+  useEffect(() => { load(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps -- first load only; filters apply when the user presses Apply
 
   const filtered = bookings.filter((b) => {
     if (!search.trim()) return true;

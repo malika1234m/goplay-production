@@ -79,7 +79,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             isOpen:     true,
           })),
         });
-      } catch (stepErr: any) {
+      } catch (stepErr) {
         // Rollback what we can
         if (facilityId) await db.sportsFacility.delete({ where: { id: facilityId } }).catch(() => {});
         if (profile)    await db.groundOwnerProfile.delete({ where: { id: profile.id } }).catch(() => {});
@@ -90,8 +90,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         console.error("[APPROVE STEP FAILED]", stepErr);
         return Response.json({
           error:  "Approval failed at a specific step.",
-          detail: stepErr?.message ?? String(stepErr),
-          code:   stepErr?.code,
+          detail: (stepErr as { message?: string })?.message ?? String(stepErr),
+          code:   (stepErr as { code?: string })?.code,
         }, { status: 500 });
       }
 
@@ -161,12 +161,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     return Response.json({ message: "Application rejected." });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[PUT /api/admin/applications/[id]]", err);
+    const e = err as { message?: string; code?: string };
     return Response.json({
       error:   "Failed to process application.",
-      detail:  err?.message ?? String(err),
-      code:    err?.code,
+      detail:  e?.message ?? String(err),
+      code:    e?.code,
     }, { status: 500 });
   }
 }

@@ -76,7 +76,6 @@ export default function BookingForm({
   const [specialRequests, setSpecialRequests] = useState("");
   const [selectedCourt,   setSelectedCourt]   = useState<string | null>(courts.length === 1 ? courts[0].id : null);
   const [paymentMethod,   setPaymentMethod]   = useState<PaymentMethod>(groundMethods.cash ? "ON_ARRIVAL" : "ONLINE");
-  useEffect(() => { if (onlineOnly && groundMethods.online) { setPaymentMethod("ONLINE"); void choosePayOnline(); } }, [onlineOnly]);
   const [verifying,       setVerifying]       = useState(false);   // phone check — only if the server asks (REQUIRE_PHONE_OTP)
   const [askEmail,        setAskEmail]        = useState(false);   // email code before a pay-at-ground booking
   const [slots,           setSlots]           = useState<Slot[]>([]);
@@ -89,12 +88,6 @@ export default function BookingForm({
   // "Pay online" = bank transfer to the ground; details load when the player picks it
   const [bankDetails,     setBankDetails]     = useState<PaymentDetails | null>(null);
   const [bankState,       setBankState]       = useState<"idle" | "loading" | "ready" | "unavailable">("idle");
-
-  // Online-only grounds: show the bank details straight away
-  useEffect(() => {
-    if (!paymentMethods.cash && paymentMethods.online && session && bankState === "idle") void choosePayOnline();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
 
   const choosePayOnline = async () => {
     setPaymentMethod("ONLINE");
@@ -109,6 +102,15 @@ export default function BookingForm({
       setBankState("unavailable");
     }
   };
+
+  // Online-only grounds: show the bank details straight away
+  useEffect(() => {
+    if (!paymentMethods.cash && paymentMethods.online && session && bankState === "idle") void choosePayOnline();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
+  // A player who must pay online starts on "Pay online" (declared after choosePayOnline, which it calls)
+  useEffect(() => { if (onlineOnly && groundMethods.online) { setPaymentMethod("ONLINE"); void choosePayOnline(); } }, [onlineOnly]);   // eslint-disable-line react-hooks/exhaustive-deps -- runs when the requirement changes, not on every render
 
   useEffect(() => {
     if (!date) return;

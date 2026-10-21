@@ -278,9 +278,10 @@ interface WalkInModalProps {
 }
 
 function WalkInModal({ facility, onClose, onCreated }: WalkInModalProps) {
+  const [mountedAt] = useState(() => Date.now());   // fixed at mount: server and client render the same
   const { t, tn, locale } = useT();
   const today   = isoDate(new Date());
-  const maxDate = isoDate(new Date(Date.now() + 60 * 24 * 60 * 60 * 1000));
+  const maxDate = isoDate(new Date(mountedAt + 60 * 24 * 60 * 60 * 1000));
   const courts = facility?.courts ?? [];
   const [courtId,       setCourtId]       = useState(() => courts.length === 1 ? courts[0].id : "");
   const [bookingDate,   setBookingDate]   = useState(today);

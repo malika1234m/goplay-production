@@ -98,7 +98,7 @@ export default function EditGroundPage() {
       })
       .catch(() => setError(t("Failed to load ground.")))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, t]);
 
   const toggleAmenity = (a: string) =>
     setForm((f) => ({

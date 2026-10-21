@@ -223,7 +223,7 @@ export default function WorkerProfilePage() {
               </p>
             </div>
             <span className="ml-auto text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium shrink-0">
-              {(facility.categories ?? []).map((c: any) => `${c.icon ?? ""} ${t(c.name)}`.trim()).join(" · ") || "—"}
+              {(facility.categories ?? []).map((c: { icon?: string | null; name: string }) => `${c.icon ?? ""} ${t(c.name)}`.trim()).join(" · ") || "—"}
             </span>
           </div>
         )}

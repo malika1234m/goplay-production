@@ -67,9 +67,19 @@ export default function BecomeProviderPage() {
    
   }, []);
 
+  // Prefill the phone from the player's profile (the session doesn't carry it)
+  const [profilePhone, setProfilePhone] = useState("");
   useEffect(() => {
-    if (session?.user) setForm((f) => ({ ...f, phone: f.phone || (session.user as any).phone || "" }));
-  }, [session]);
+    if (!session?.user) return;
+    fetch("/api/user/profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const phone: string = d?.user?.phone ?? "";
+        setProfilePhone(phone);
+        if (phone) setForm((f) => ({ ...f, phone: f.phone || phone }));
+      })
+      .catch(() => {});
+  }, [session?.user]);
 
   // Auto-save draft on form change
   useEffect(() => {
@@ -228,7 +238,7 @@ export default function BecomeProviderPage() {
             onClick={() => {
               localStorage.removeItem(DRAFT_KEY);
               setForm({
-                phone: (session?.user as any)?.phone ?? "", address: "", city: "",
+                phone: profilePhone, address: "", city: "",
                 facilityName: "", facilityAddress: "", facilityCity: "",
                 categoryIds: [], proposedHourlyRate: "", capacity: "",
                 amenities: [], facilityDescription: "",
@@ -287,16 +297,16 @@ export default function BecomeProviderPage() {
               </div>
             </div>
 
-            {[
+            {([
               { label: "Phone Number", key: "phone", icon: Phone, placeholder: "+94 77 123 4567", type: "tel" },
               { label: "Your Address", key: "address", icon: MapPin, placeholder: "Your home or business address", type: "text" },
               { label: "City", key: "city", icon: MapPin, placeholder: "e.g. Colombo", type: "text" },
-            ].map(({ label, key, icon: Icon, placeholder, type }) => (
+            ] as const).map(({ label, key, icon: Icon, placeholder, type }) => (
               <div key={key}>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{label} <span className="text-red-400">*</span></label>
                 <div className="flex items-center gap-3 border border-slate-200 rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-green-500 transition-all">
                   <Icon className="w-4 h-4 text-slate-400 shrink-0" />
-                  <input type={type} value={(form as any)[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                  <input type={type} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                     placeholder={placeholder} className="flex-1 text-sm outline-none bg-transparent placeholder:text-slate-400" />
                 </div>
               </div>

@@ -65,7 +65,7 @@ export default function AdminGeocodePage() {
     });
     const d = await res.json();
     setBulkLoading(false);
-    const ok = d.results?.filter((r: any) => r.success).length ?? 0;
+    const ok = d.results?.filter((r: { success?: boolean }) => r.success).length ?? 0;
     showToast(`Geocoded ${ok} facilities.`, ok > 0);
     load();
   }

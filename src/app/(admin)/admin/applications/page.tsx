@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   ClipboardList, Search, CheckCircle, XCircle, Clock,
   User, Building2, MapPin, Phone, DollarSign, Users,
@@ -244,12 +245,12 @@ function Modal({ app, onClose, onDone }: { app: Application; onClose: () => void
                     <span className="font-medium">&quot;{approvedFacility.name}&quot;</span> has been created and is waiting in Ground Management.
                     The owner has been asked to add photos. Review and activate the ground once they&apos;re uploaded.
                   </p>
-                  <a
+                  <Link
                     href="/admin/grounds"
                     className="inline-flex items-center gap-1.5 mt-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-colors"
                   >
                     Go to Ground Management →
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>

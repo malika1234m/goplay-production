@@ -18,7 +18,7 @@ export default function GroundPaymentMethod({ groundId }: { groundId: string }) 
       .then((r) => r.json())
       .then((d) => setValue((d.ground ?? d).paymentOptions ?? null))
       .catch(() => setError(t("Couldn't load the payment method.")));
-  }, [groundId]);
+  }, [groundId, t]);
 
   async function choose(v: PayOpt) {
     const before = value;
