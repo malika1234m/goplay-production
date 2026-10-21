@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { financeSummary } from "@/lib/admin-finance";
+import { financeSummary, lkMonthStart } from "@/lib/admin-finance";
 
 export async function GET() {
   try {
@@ -9,47 +9,23 @@ export async function GET() {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const now        = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastMonth  = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    // Sri Lanka calendar months — the same periods the finance figures use
+    const [monthStart, lastMonth] = [lkMonthStart(0), lkMonthStart(-1)];
 
-    const [
-      totalUsers,
-      newUsersThisMonth,
-      newUsersLastMonth,
-      activeGrounds,
-      pendingGrounds,
-      totalRevenueAgg,
-      monthRevenue,
-      lastMonthRevenue,
-    ] = await Promise.all([
+    const [totalUsers, newUsersThisMonth, newUsersLastMonth, activeGrounds, pendingGrounds, finance] = await Promise.all([
       db.user.count(),
       db.user.count({ where: { createdAt: { gte: monthStart } } }),
       db.user.count({ where: { createdAt: { gte: lastMonth, lt: monthStart } } }),
       db.sportsFacility.count({ where: { status: "ACTIVE" } }),
       db.sportsFacility.count({ where: { status: "PENDING" } }),
-      db.facilityBooking.aggregate({
-        where: { status: "COMPLETED" },
-        _sum: { totalAmount: true },
-      }),
-      db.facilityBooking.aggregate({
-        where: { status: "COMPLETED", bookingDate: { gte: monthStart } },
-        _sum: { totalAmount: true },
-      }),
-      db.facilityBooking.aggregate({
-        where: { status: "COMPLETED", bookingDate: { gte: lastMonth, lt: monthStart } },
-        _sum: { totalAmount: true },
-      }),
+      financeSummary(),
     ]);
 
-    const totalRevenue  = totalRevenueAgg._sum.totalAmount ?? 0;
-    const thisMonthRev  = monthRevenue._sum.totalAmount ?? 0;
-    const lastMonthRev  = lastMonthRevenue._sum.totalAmount ?? 0;
-    const revenueChange = lastMonthRev > 0
-      ? Math.round(((thisMonthRev - lastMonthRev) / lastMonthRev) * 100)
-      : 0;
+    // Booking value comes from financeSummary, so the dashboard and the Earnings page can't disagree
+    const totalRevenue  = finance.bookingValue.total;
+    const thisMonthRev  = finance.bookingValue.month;
+    const revenueChange = finance.bookingValue.change ?? 0;
     const usersChange   = newUsersThisMonth - newUsersLastMonth;
-    const finance       = await financeSummary();
 
     return Response.json({
       stats: {

@@ -64,8 +64,28 @@ export async function GET() {
   const unresolved = unresolvedRaw.filter((b) => slotInstant(b.bookingDate, b.endTime).getTime() < Date.now() - DAY);
   for (const b of unresolved) unresolvedByGround.set(b.facility.id, (unresolvedByGround.get(b.facility.id) ?? 0) + 1);
 
-  const facilityIds = [...new Set([...byGround.keys(), ...unresolvedByGround.keys()])];
-  const facilities  = await db.sportsFacility.findMany({ where: { id: { in: facilityIds } }, ...ground });
+  // Everything below depends only on the first batch, so it is fetched in one parallel round trip
+  const facilityIds  = [...new Set([...byGround.keys(), ...unresolvedByGround.keys()])];
+  const activeBlocks = new Map(blocks.filter((b) => !b.liftedAt && b.userId).map((b) => [b.userId!, b]));
+  const reporterIds  = [...new Set(reports.map((r) => r.noShowMarkedBy).filter((x): x is string => !!x))];
+  const reportedIds  = [...new Set(reports.map((r) => r.userId))];
+  const [facilities, riskyUsers, reporters, otherNoShows, completedCounts] = await Promise.all([
+    db.sportsFacility.findMany({ where: { id: { in: facilityIds } }, ...ground }),
+    db.user.findMany({
+      where:  { role: "USER", OR: [{ noShowCount: { gt: 0 } }, { cashCancelCount: { gt: 0 } }, { isActive: false }, { id: { in: [...activeBlocks.keys()] } }] },
+      take:   300,
+      select: {
+        ...player.select,
+        bookings: { where: { paymentMethod: "ON_ARRIVAL", isOpenMatch: false }, select: { facilityId: true, status: true, noShowReview: true, bookingDate: true } },
+      },
+    }),
+    db.user.findMany({ where: { id: { in: reporterIds } }, select: { id: true, name: true, role: true } }),
+    db.facilityBooking.findMany({
+      where:  { userId: { in: reportedIds }, status: "NO_SHOW", NOT: { noShowReview: "OVERTURNED" } },
+      select: { id: true, userId: true, facilityId: true },
+    }),
+    db.facilityBooking.groupBy({ by: ["userId"], where: { userId: { in: reportedIds }, status: "COMPLETED" }, _count: true }),
+  ]);
   const grounds = facilities.map((f) => {
     const g = byGround.get(f.id) ?? { completed: 0, noShows: 0, overturned: 0, total: 0 };
     const noShowRate = rate(g.noShows, g.noShows + g.completed);
@@ -78,18 +98,7 @@ export async function GET() {
   const groundById = new Map(grounds.map((g) => [g.id, g]));
 
   // ── Players ──────────────────────────────────────────────────────────────
-  const activeBlocks = new Map(blocks.filter((b) => !b.liftedAt && b.userId).map((b) => [b.userId!, b]));
-  const riskyUsers = await db.user.findMany({
-    where:  { role: "USER", OR: [{ noShowCount: { gt: 0 } }, { cashCancelCount: { gt: 0 } }, { isActive: false }, { id: { in: [...activeBlocks.keys()] } }] },
-    take:   300,
-    ...player,
-  });
-  const playerHistory = await db.facilityBooking.findMany({
-    where:  { userId: { in: riskyUsers.map((u) => u.id) }, paymentMethod: "ON_ARRIVAL", isOpenMatch: false },
-    select: { userId: true, facilityId: true, status: true, noShowReview: true, bookingDate: true },
-  });
-  const players = riskyUsers.map((u) => {
-    const mine       = playerHistory.filter((b) => b.userId === u.id);
+  const players = riskyUsers.map(({ bookings: mine, ...u }) => {
     const noShowRows = mine.filter((b) => b.status === "NO_SHOW" && b.noShowReview !== "OVERTURNED");
     const completed  = mine.filter((b) => b.status === "COMPLETED").length;
     const grounds    = new Set(noShowRows.map((b) => b.facilityId)).size;
@@ -104,15 +113,6 @@ export async function GET() {
   }).sort((a, b) => b.risk - a.risk);
 
   // ── No-show reports with the evidence an admin needs ─────────────────────
-  const reporterIds = [...new Set(reports.map((r) => r.noShowMarkedBy).filter((x): x is string => !!x))];
-  const [reporters, otherNoShows, completedCounts] = await Promise.all([
-    db.user.findMany({ where: { id: { in: reporterIds } }, select: { id: true, name: true, role: true } }),
-    db.facilityBooking.findMany({
-      where:  { userId: { in: [...new Set(reports.map((r) => r.userId))] }, status: "NO_SHOW", NOT: { noShowReview: "OVERTURNED" } },
-      select: { id: true, userId: true, facilityId: true },
-    }),
-    db.facilityBooking.groupBy({ by: ["userId"], where: { userId: { in: [...new Set(reports.map((r) => r.userId))] }, status: "COMPLETED" }, _count: true }),
-  ]);
   const reporterById  = new Map(reporters.map((r) => [r.id, r]));
   const completedById = new Map(completedCounts.map((c) => [c.userId, c._count]));
 

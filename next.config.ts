@@ -54,6 +54,20 @@ const DEV_IMAGE_HOSTS: NonNullable<NonNullable<NextConfig["images"]>["remotePatt
         { protocol: "http", hostname: "localhost", pathname: "/**" },
       ];
 
+// A production deploy missing any of these would go live broken or unprotected (no bot check,
+// unauthenticated crons, no sessions), so the build stops instead and the current version stays up.
+const REQUIRED_IN_PRODUCTION = [
+  "DATABASE_URL",
+  "AUTH_SECRET",
+  "CRON_SECRET",
+  "TURNSTILE_SECRET_KEY",
+  "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+];
+if (process.env.VERCEL_ENV === "production") {
+  const missing = REQUIRED_IN_PRODUCTION.filter((k) => !process.env[k]?.trim());
+  if (missing.length) throw new Error(`Missing production environment variables: ${missing.join(", ")}`);
+}
+
 const nextConfig: NextConfig = {
   compress: true,
   images: {

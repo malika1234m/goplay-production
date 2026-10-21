@@ -11,12 +11,19 @@ export function isAppRequest(req: { headers: { get(name: string): string | null 
   return !!req.headers.get(APP_HEADER);
 }
 
-/** Check a Turnstile token with Cloudflare. Allows everything until TURNSTILE_SECRET_KEY is set. */
+/**
+ * Check a Turnstile token with Cloudflare. Without TURNSTILE_SECRET_KEY the check is skipped in
+ * development and refused on the live site (next.config.ts also stops a production build without it).
+ */
 export async function verifyTurnstile(token: unknown, ip?: string): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) {
-    if (!warned) { console.warn("[turnstile] TURNSTILE_SECRET_KEY not set — bot check skipped"); warned = true; }
-    return true;
+    const live = process.env.VERCEL_ENV === "production";
+    if (!warned) {
+      console[live ? "error" : "warn"](`[turnstile] TURNSTILE_SECRET_KEY not set — ${live ? "refusing every check" : "bot check skipped"}`);
+      warned = true;
+    }
+    return !live;
   }
   if (typeof token !== "string" || !token) return false;
 

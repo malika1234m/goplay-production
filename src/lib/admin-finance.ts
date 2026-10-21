@@ -22,6 +22,11 @@ function lkMonth(offset = 0) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
 }
 
+/** The instant a Sri Lanka calendar month begins — for timestamp columns such as createdAt. */
+export function lkMonthStart(offset = 0) {
+  return new Date(lkMonth(offset).getTime() - LK_OFFSET_MS);
+}
+
 const round = (n: number) => Math.round(n * 100) / 100;
 const change = (now: number, before: number) => (before > 0 ? Math.round(((now - before) / before) * 100) : null);
 
@@ -31,7 +36,7 @@ export async function financeSummary() {
   const sumBookings = (where: object) => db.facilityBooking.aggregate({ where: { status: "COMPLETED", ...where }, _sum: { totalAmount: true }, _count: true });
   const sumFees     = (where: object, played?: object) => db.groundEarning.aggregate({ where: { ...where, ...(played && { booking: { bookingDate: played } }) }, _sum: { platformFee: true } });
 
-  const [bAll, bMonth, bLast, cAll, cMonth, cLast, cOpen, payouts, held] = await Promise.all([
+  const [bAll, bMonth, bLast, cAll, cMonth, cLast, cOpen, payouts, held, defaultRate] = await Promise.all([
     sumBookings({}),
     sumBookings({ bookingDate: { gte: m0, lt: next } }),
     sumBookings({ bookingDate: { gte: m1, lt: m0 } }),
@@ -42,6 +47,7 @@ export async function financeSummary() {
     db.lobbyPayout.findMany({ where: { status: { not: "CANCELLED" } }, select: { collectedAmount: true, amount: true, status: true, match: { select: { preferredDate: true } } } }),
     // Lobby money GoPlay holds for players: paid spots in lobbies that haven't filled yet
     db.openMatchSpot.aggregate({ where: { paymentStatus: "PAID", status: "RESERVED", match: { payee: "PLATFORM", status: "COLLECTING" } }, _sum: { amountPaid: true } }),
+    getDefaultCommissionRate(),
   ]);
 
   const margin = (from?: Date, to?: Date) => round(payouts
@@ -79,7 +85,7 @@ export async function financeSummary() {
       payoutsDue: round(payouts.filter((p) => p.status === "DUE").reduce((s, p) => s + p.amount, 0)),
       inOpenLobbies: round(held._sum.amountPaid ?? 0),
     },
-    defaultCommissionRate: Math.round((await getDefaultCommissionRate()) * 10000) / 100,
+    defaultCommissionRate: Math.round(defaultRate * 10000) / 100,
   };
 }
 
