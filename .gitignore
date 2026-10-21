@@ -15,8 +15,6 @@
 /test-results
 /playwright-report
 /tests/e2e/.auth
-/tests/
-/playwright.config.ts
 
 # docs (internal)
 /docs/
@@ -53,6 +51,7 @@ yarn-error.log*
 # Claude Code working files
 .claude/
 memory/
+.rune/
 
 # typescript
 *.tsbuildinfo
