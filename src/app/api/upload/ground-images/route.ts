@@ -36,10 +36,6 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Too many uploads. Please try again in a while." }, { status: 429 });
     }
 
-    if (!isConfigured()) {
-      return Response.json({ error: "Image upload is not configured on this server." }, { status: 503 });
-    }
-
     const formData = await req.formData();
     const files    = formData.getAll("images") as File[];
 
@@ -67,6 +63,11 @@ export async function POST(req: NextRequest) {
     const notImage = files.find((_, i) => !["jpeg", "png", "webp", "heic"].includes(sniffReceipt(buffers[i]) ?? ""));
     if (notImage) {
       return Response.json({ error: `"${notImage.name}" isn't a photo. Use a JPEG, PNG, WebP or HEIC image.` }, { status: 400 });
+    }
+
+    // Checked after the files, so a bad file is reported as such wherever storage isn't set up
+    if (!isConfigured()) {
+      return Response.json({ error: "Image upload is not configured on this server." }, { status: 503 });
     }
 
     // Upload all files in parallel
