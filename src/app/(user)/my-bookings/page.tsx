@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useDialog } from "@/components/shared/useDialog";
 import Link from "next/link";
 import {
   MapPin, Clock, Loader2, Search, Calendar, XCircle, CreditCard,
@@ -101,7 +102,8 @@ function ReviewModal({
   booking: Booking;
   onClose: () => void;
   onSubmit: (rating: number, text: string) => Promise<void>;
-}) {
+}) {  const { panelProps } = useDialog(onClose, "Write a review");
+
   const [rating,     setRating]     = useState(0);
   const [text,       setText]       = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -122,7 +124,7 @@ function ReviewModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+      <div {...panelProps} className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
@@ -190,7 +192,8 @@ function CancelModal({
   confirming:   boolean;
   onClose:      () => void;
   onConfirm:    () => void;
-}) {
+}) {  const { panelProps } = useDialog(onClose, "Cancel booking");
+
   const dateStr = new Date(booking.bookingDate).toLocaleDateString("en-US", {
     weekday: "short", month: "short", day: "numeric", year: "numeric",
   });
@@ -205,7 +208,7 @@ function CancelModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+      <div {...panelProps} className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
 
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -418,10 +421,19 @@ export default function MyBookingsPage() {
     setTimeout(() => setReviewSuccess(""), 4000);
   };
 
-  const filtered = bookings.filter((b) =>
-    b.facility.name.toLowerCase().includes(search.toLowerCase()) ||
-    b.facility.city.toLowerCase().includes(search.toLowerCase())
-  );
+  // Upcoming bookings first, soonest at the top; then everything else, most recent first
+  const startsAt = (b: Booking) => slotInstant(new Date(b.bookingDate), b.startTime).getTime();
+  const upcoming = (b: Booking) => (b.status === "PENDING" || b.status === "CONFIRMED") && startsAt(b) > now;
+  const filtered = bookings
+    .filter((b) =>
+      b.facility.name.toLowerCase().includes(search.toLowerCase()) ||
+      b.facility.city.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      const ua = upcoming(a), ub = upcoming(b);
+      if (ua !== ub) return ua ? -1 : 1;
+      return ua ? startsAt(a) - startsAt(b) : startsAt(b) - startsAt(a);
+    });
 
   return (
     <div className="flex flex-col gap-6">
@@ -440,6 +452,7 @@ export default function MyBookingsPage() {
           <Search className="w-4 h-4 text-slate-400 shrink-0" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by ground name or city..."
+            aria-label="Search your bookings by ground name or city"
             className="bg-transparent text-sm text-slate-900 placeholder-slate-400 outline-none w-full" />
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}

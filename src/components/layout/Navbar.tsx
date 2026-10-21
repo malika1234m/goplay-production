@@ -139,7 +139,8 @@ export default function Navbar() {
           </div>
 
           {/* Mobile menu toggle */}
-          <button className="md:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>
+          <button className="md:hidden p-2.5 -mr-1" onClick={() => setMenuOpen(!menuOpen)}
+            aria-label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen} aria-controls="mobile-menu">
             {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
@@ -147,7 +148,7 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-slate-100 bg-white px-4 py-4 flex flex-col gap-3">
+        <div id="mobile-menu" className="md:hidden border-t border-slate-100 bg-white px-4 py-4 flex flex-col gap-3">
           <Link href="/grounds" className="text-sm font-medium text-slate-700 py-2" onClick={() => setMenuOpen(false)}>
             Browse Grounds
           </Link>

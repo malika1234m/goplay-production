@@ -144,14 +144,14 @@ function FacilityBlock({
             style={{ width: `${pct}%` }}
           />
         </div>
-        <p className="text-[10px] text-slate-400 mt-1">{pct}% of total earnings</p>
+        <p className="text-[11px] text-slate-400 mt-1">{pct}% of total earnings</p>
       </div>
 
       {/* Expanded booking list */}
       {open && (
         <div className="border-t border-slate-100">
           {/* Table header */}
-          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-5 py-2.5 bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-5 py-2.5 bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             <span>{t("Booking")}</span>
             <span className="text-right hidden sm:block">{t("Payment")}</span>
             <span className="text-right">{t("Gross")}</span>
@@ -177,7 +177,7 @@ function FacilityBlock({
                         {walkInPlayerName ?? e.booking.user.name}
                       </span>
                       {isWalkIn && (
-                        <span className="text-[10px] font-medium bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">{t("Walk-in")}</span>
+                        <span className="text-[11px] font-medium bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">{t("Walk-in")}</span>
                       )}
                       <PayBadge method={e.paymentMethod} confirmed={e.cashConfirmed} />
                     </div>
@@ -186,7 +186,7 @@ function FacilityBlock({
                       {" "}({e.booking.totalHours} hr{e.booking.totalHours !== 1 ? "s" : ""})
                     </p>
                     {e.booking.court && (
-                      <span className="mt-1 inline-flex items-center text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full">
+                      <span className="mt-1 inline-flex items-center text-[11px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full">
                         {e.booking.court.name}
                       </span>
                     )}

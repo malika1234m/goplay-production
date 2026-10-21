@@ -119,7 +119,7 @@ export default function OpenMatchesSection({ facilityId, facilityName }: Props) 
 
               <div className="shrink-0 text-right">
                 <p className="text-xs font-bold text-green-700">~Rs. {costPreview(l).toLocaleString()}</p>
-                <p className="text-[10px] text-slate-400">/person</p>
+                <p className="text-[11px] text-slate-400">/person</p>
               </div>
 
               <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-green-500 transition-colors shrink-0" />

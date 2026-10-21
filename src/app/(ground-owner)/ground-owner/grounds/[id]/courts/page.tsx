@@ -378,7 +378,7 @@ function CourtCard({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-slate-900">{court.name}</span>
               {!court.isActive && (
-                <span className="text-[10px] font-medium bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">{t("Inactive")}</span>
+                <span className="text-[11px] font-medium bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">{t("Inactive")}</span>
               )}
             </div>
             {court.description && (

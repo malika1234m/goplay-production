@@ -26,3 +26,8 @@ export function slotInstant(bookingDate: Date, time: string): Date {
     ) - SL_UTC_OFFSET_MINUTES * 60_000,
   );
 }
+
+/** Sri Lanka calendar date ("YYYY-MM-DD") `daysAhead` days from now — what "today" means to players. */
+export function slDateString(daysAhead = 0, now = Date.now()): string {
+  return new Date(now + SL_UTC_OFFSET_MINUTES * 60_000 + daysAhead * 86_400_000).toISOString().slice(0, 10);
+}

@@ -362,16 +362,16 @@ export default function OpenMatchesPage() {
                                 <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
                                   <span className="font-semibold text-slate-900 text-sm">{m.category.name}</span>
                                   {m.lobbyCode && (
-                                    <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded tracking-wider">
+                                    <span className="text-[11px] font-mono font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded tracking-wider">
                                       #{m.lobbyCode}
                                     </span>
                                   )}
                                   {filling && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded-md font-semibold bg-orange-100 text-orange-700 flex items-center gap-0.5">
+                                    <span className="text-[11px] px-1.5 py-0.5 rounded-md font-semibold bg-orange-100 text-orange-700 flex items-center gap-0.5">
                                       <Zap className="w-2.5 h-2.5" /> Filling fast
                                     </span>
                                   )}
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${
+                                  <span className={`text-[11px] px-1.5 py-0.5 rounded-md font-semibold ${
                                     toTrigger === 0 ? "bg-green-100 text-green-700"   :
                                     urgent          ? "bg-red-100 text-red-700"       :
                                     toTrigger <= 5  ? "bg-amber-100 text-amber-700"   :
@@ -382,7 +382,7 @@ export default function OpenMatchesPage() {
                                 </div>
                                 <div className="sm:hidden text-right shrink-0">
                                   <p className="text-sm font-bold text-green-700">~Rs. {costPreview(m).toLocaleString()}</p>
-                                  <p className="text-[10px] text-slate-400">/person at min</p>
+                                  <p className="text-[11px] text-slate-400">/person at min</p>
                                 </div>
                               </div>
 
@@ -426,18 +426,18 @@ export default function OpenMatchesPage() {
                             <div className="flex items-center gap-0.5">
                               {m.spots.slice(0, 4).map((s) => (
                                 <div key={s.id}
-                                  className="w-6 h-6 rounded-full bg-green-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-green-700"
+                                  className="w-6 h-6 rounded-full bg-green-100 border-2 border-white flex items-center justify-center text-[11px] font-bold text-green-700"
                                   title={s.user.name}>
                                   {s.user.name.charAt(0)}
                                 </div>
                               ))}
                               {m.spots.length > 4 && (
-                                <span className="text-[10px] text-slate-400 ml-0.5">+{m.spots.length - 4}</span>
+                                <span className="text-[11px] text-slate-400 ml-0.5">+{m.spots.length - 4}</span>
                               )}
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-bold text-green-700">~Rs. {costPreview(m).toLocaleString()}</p>
-                              <p className="text-[10px] text-slate-400">/person at min</p>
+                              <p className="text-[11px] text-slate-400">/person at min</p>
                             </div>
                           </div>
                           <ChevronRight className="hidden sm:block w-4 h-4 text-slate-300 group-hover:text-green-500 transition-colors shrink-0" />

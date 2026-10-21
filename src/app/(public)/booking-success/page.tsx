@@ -106,7 +106,7 @@ function SuccessContent() {
               <CreditCard className="w-4 h-4 text-slate-400 shrink-0" />
               <p className="text-sm font-bold text-slate-900">Rs. {booking.totalAmount.toLocaleString()}</p>
             </div>
-            <p className="text-[10px] text-slate-300 pt-1">Booking ID: {booking.id}</p>
+            <p className="text-[11px] text-slate-300 pt-1">Booking ID: {booking.id}</p>
           </div>
         ) : bookingId ? (
           <p className="text-xs text-slate-400 mb-6">Booking ID: {bookingId}</p>

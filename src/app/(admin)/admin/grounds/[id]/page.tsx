@@ -382,7 +382,7 @@ export default function AdminGroundDetailPage({ params }: { params: Promise<{ id
               {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PauseCircle className="w-4 h-4" />}
               Deactivate
               {activeLobbies.length > 0 && (
-                <span className="ml-0.5 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">
+                <span className="ml-0.5 bg-amber-500 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-full leading-none">
                   {activeLobbies.length}
                 </span>
               )}
@@ -535,7 +535,7 @@ export default function AdminGroundDetailPage({ params }: { params: Promise<{ id
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-amber-600" />
                 <h2 className="text-sm font-semibold text-amber-900">Active Lobbies</h2>
-                <span className="text-[10px] bg-amber-200 text-amber-800 font-bold px-2 py-0.5 rounded-full">
+                <span className="text-[11px] bg-amber-200 text-amber-800 font-bold px-2 py-0.5 rounded-full">
                   {activeLobbies.length}
                 </span>
               </div>
@@ -549,7 +549,7 @@ export default function AdminGroundDetailPage({ params }: { params: Promise<{ id
                       <div>
                         <p className="text-sm font-semibold text-slate-800">
                           {lobby.category.icon} {lobby.category.name}
-                          <span className="ml-1.5 text-[10px] text-slate-400 font-mono">#{lobby.lobbyCode}</span>
+                          <span className="ml-1.5 text-[11px] text-slate-400 font-mono">#{lobby.lobbyCode}</span>
                         </p>
                         <p className="text-xs text-slate-500 mt-0.5">
                           {new Date(lobby.preferredDate).toLocaleDateString("en-LK", { weekday: "short", month: "short", day: "numeric" })}
@@ -574,7 +574,7 @@ export default function AdminGroundDetailPage({ params }: { params: Promise<{ id
                           style={{ width: `${Math.min(100, (lobby.spotsReserved / lobby.totalSpotsNeeded) * 100)}%` }}
                         />
                       </div>
-                      <p className="text-[10px] text-amber-700 font-medium whitespace-nowrap">
+                      <p className="text-[11px] text-amber-700 font-medium whitespace-nowrap">
                         {lobby.spotsReserved}/{lobby.totalSpotsNeeded} spots
                       </p>
                     </div>
@@ -695,7 +695,7 @@ function DetailTile({ icon, label, value }: { icon: React.ReactNode; label: stri
     <div className="flex items-start gap-2.5 p-3 bg-slate-50 rounded-xl">
       <span className="text-slate-400 mt-0.5 shrink-0">{icon}</span>
       <div>
-        <p className="text-[10px] text-slate-400 uppercase font-semibold tracking-wide">{label}</p>
+        <p className="text-[11px] text-slate-400 uppercase font-semibold tracking-wide">{label}</p>
         <p className="text-sm font-semibold text-slate-700 mt-0.5">{value}</p>
       </div>
     </div>

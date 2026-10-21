@@ -141,7 +141,7 @@ export default function AdminReviewsPage() {
         >
           <Flag className="w-3.5 h-3.5 inline mr-1.5" />Reported Reviews
           {totalReported > 0 && (
-            <span className="ml-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{totalReported}</span>
+            <span className="ml-2 bg-red-500 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-full">{totalReported}</span>
           )}
         </button>
         <button

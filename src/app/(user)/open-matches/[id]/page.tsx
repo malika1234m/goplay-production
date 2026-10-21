@@ -471,12 +471,12 @@ function LobbyDetailInner({ id }: { id: string }) {
 
                   {/* Trust badges */}
                   <div className="flex items-center justify-center gap-3 mb-2">
-                    <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                    <div className="flex items-center gap-1 text-[11px] text-slate-400">
                       <ShieldCheck className="w-3 h-3 text-green-500" />
                       {match.payee === "PLATFORM" ? "Secure transfer to GoPlay" : "Pay the ground directly"}
                     </div>
                     <span className="text-slate-200">·</span>
-                    <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                    <div className="flex items-center gap-1 text-[11px] text-slate-400">
                       <CheckCircle2 className="w-3 h-3 text-green-500" />
                       Refund guaranteed
                     </div>

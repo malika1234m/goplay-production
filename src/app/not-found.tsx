@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { HardHat, ArrowLeft, Home } from "lucide-react";
+import { SearchX, ArrowLeft, Home } from "lucide-react";
 
 export default function NotFound() {
   return (
@@ -9,21 +9,20 @@ export default function NotFound() {
       <div className="text-center max-w-md">
         {/* Icon */}
         <div className="w-24 h-24 bg-yellow-400/10 border-2 border-yellow-400/30 rounded-3xl flex items-center justify-center mx-auto mb-8">
-          <HardHat className="w-12 h-12 text-yellow-400" />
+          <SearchX className="w-12 h-12 text-yellow-400" />
         </div>
 
         {/* Badge */}
         <span className="inline-block bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 text-xs font-semibold px-3 py-1 rounded-full mb-5 tracking-wide uppercase">
-          Under Construction
+          404
         </span>
 
         {/* Heading */}
         <h1 className="text-4xl font-black text-white mb-3">
-          Coming Soon
+          Page not found
         </h1>
         <p className="text-slate-400 text-sm leading-relaxed mb-8">
-          This page is still being built. We&apos;re working hard to get it ready —
-          check back soon!
+          We couldn&apos;t find that page. The link may be mistyped, or the page may have moved.
         </p>
 
         {/* Divider */}

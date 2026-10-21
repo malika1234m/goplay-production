@@ -406,7 +406,7 @@ export default async function UserDashboard() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-white text-base">GoPlay Connect</h3>
-              <span className="text-[10px] bg-white/25 text-white px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">New</span>
+              <span className="text-[11px] bg-white/25 text-white px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">New</span>
             </div>
             <p className="text-green-100 text-sm leading-relaxed">
               No full team? Create or join an open match lobby. GoPlay auto-books the court when all spots fill.

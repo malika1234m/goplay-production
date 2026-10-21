@@ -12,7 +12,7 @@ export default async function UserLayout({ children }: { children: React.ReactNo
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
       <Navbar />
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+      <main id="main" tabIndex={-1} className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
         <EnglishOnly>{children}</EnglishOnly>
       </main>
       {/* Player-facing pages only. The owner, worker and admin portals stay

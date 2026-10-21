@@ -196,7 +196,7 @@ function UserReviewDrawer({
                 <div className="flex flex-col gap-2">
                   {data.noShows.map((ns, i) => (
                     <div key={ns.id} className="flex items-start gap-3 bg-purple-50 border border-purple-100 rounded-xl px-4 py-3">
-                      <span className="w-5 h-5 rounded-full bg-purple-200 text-purple-800 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="w-5 h-5 rounded-full bg-purple-200 text-purple-800 text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                         {i + 1}
                       </span>
                       <div className="min-w-0 flex-1 text-xs">
@@ -403,7 +403,7 @@ function FacilityReviewDrawer({
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="w-5 h-5 rounded-full bg-red-200 text-red-800 text-[10px] font-bold flex items-center justify-center shrink-0">
+                            <span className="w-5 h-5 rounded-full bg-red-200 text-red-800 text-[11px] font-bold flex items-center justify-center shrink-0">
                               {i + 1}
                             </span>
                             <p className="font-semibold text-slate-800">Booked by {c.user.name}</p>
@@ -422,7 +422,7 @@ function FacilityReviewDrawer({
                           </div>
                           {c.cancelledAt && <p className="text-slate-400 mt-0.5">Cancelled {fmtDT(c.cancelledAt)}</p>}
                         </div>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
                           c.cancelledBy === "worker"
                             ? "bg-orange-50 text-orange-700 border-orange-200"
                             : "bg-red-50 text-red-700 border-red-200"
@@ -572,7 +572,7 @@ export default function AdminCancellationsPage() {
             }`}>
             {label}
             {badge != null && badge > 0 && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${
                 tab === key ? "bg-slate-100 text-slate-600" : "bg-slate-200 text-slate-500"
               }`}>{badge}</span>
             )}

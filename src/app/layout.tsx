@@ -72,6 +72,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={lang} className={`h-full ${inter.variable} ${scoreboard.variable} ${sinhala.variable}`}>
       <body className="min-h-full antialiased font-sans">
+        <a href="#main" className="skip-link">{lang === "si" ? "ප්‍රධාන අන්තර්ගතයට යන්න" : "Skip to main content"}</a>
         <Providers lang={lang}>{children}</Providers>
       </body>
     </html>

@@ -165,17 +165,17 @@ export default function WorkerDashboard() {
                       </p>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {isOpenMatch && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium bg-teal-50 text-teal-700 border border-teal-100 px-1.5 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-0.5 text-[11px] font-medium bg-teal-50 text-teal-700 border border-teal-100 px-1.5 py-0.5 rounded-full">
                             <Zap className="w-2.5 h-2.5" /> {t("Open Match")}
                           </span>
                         )}
                         {isPhoneBook && !isOpenMatch && (
-                          <span className="text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-full">{t("Phone")}</span>
+                          <span className="text-[11px] font-medium bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-full">{t("Phone")}</span>
                         )}
                         <p className="text-xs text-slate-400">{b.playerName}</p>
                       </div>
                       {b.courtName && (
-                        <span className="mt-0.5 inline-flex items-center text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full">
+                        <span className="mt-0.5 inline-flex items-center text-[11px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full">
                           {b.courtName}
                         </span>
                       )}
@@ -183,7 +183,7 @@ export default function WorkerDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-slate-900">Rs. {b.totalAmount.toLocaleString()}</p>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
                       isOpenMatch             ? "bg-teal-100 text-teal-700"   :
                       b.status === "CONFIRMED" ? "bg-green-100 text-green-700" :
                       b.status === "PENDING"   ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
@@ -208,7 +208,7 @@ export default function WorkerDashboard() {
             }`}>
               <span className={`text-sm font-medium ${a.dayOfWeek === todayDow ? "text-blue-700" : "text-slate-700"}`}>
                 {t(DAYS[a.dayOfWeek])}
-                {a.dayOfWeek === todayDow && <span className="ml-2 text-[10px] bg-blue-200 text-blue-700 rounded px-1.5 py-0.5">{t("Today")}</span>}
+                {a.dayOfWeek === todayDow && <span className="ml-2 text-[11px] bg-blue-200 text-blue-700 rounded px-1.5 py-0.5">{t("Today")}</span>}
               </span>
               {a.isOpen ? (
                 <span className="text-xs text-slate-500">{a.openTime} – {a.closeTime}</span>

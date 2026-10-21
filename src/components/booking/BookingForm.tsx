@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { slDateString } from "@/lib/local-time";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -67,8 +68,9 @@ export default function BookingForm({
   }, [session]);
   const paymentMethods = onlineOnly ? { ...groundMethods, cash: false } : groundMethods;
 
-  const today   = new Date().toISOString().split("T")[0];
-  const maxDate = (() => { const d = new Date(); d.setDate(d.getDate() + 60); return d.toISOString().split("T")[0]; })();
+  // Sri Lanka dates: between midnight and 05:30 a UTC date would still be yesterday
+  const today   = slDateString();
+  const maxDate = slDateString(60);
   const [date,            setDate]            = useState(() => firstOpenDate(availability));
   const [duration,        setDuration]        = useState(1);
   const [selectedSlot,    setSelectedSlot]    = useState<string | null>(null);
@@ -430,7 +432,7 @@ export default function BookingForm({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-green-800">{slot.start} — {slot.openMatch.categoryName} Open Match</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
                           slot.openMatch.spotsLeft === 1 ? "bg-red-100 text-red-700" :
                           slot.openMatch.spotsLeft <= 3  ? "bg-amber-100 text-amber-700" :
                                                            "bg-green-200 text-green-800"
@@ -458,7 +460,7 @@ export default function BookingForm({
                     className="text-xs text-center py-2 rounded-lg bg-red-50 text-red-400 cursor-not-allowed border border-red-100 font-medium"
                   >
                     {slot.start}
-                    <span className="block text-[9px] text-red-300 leading-tight">blocked</span>
+                    <span className="block text-[11px] text-red-300 leading-tight">blocked</span>
                   </div>
                 );
               }
@@ -498,16 +500,16 @@ export default function BookingForm({
         {/* Legend */}
         {slots.length > 0 && (
           <div className="flex flex-wrap gap-3 mt-2">
-            <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
               <span className="w-3 h-3 rounded bg-white border border-slate-200 inline-block" />Available
             </span>
-            <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
               <span className="w-3 h-3 rounded bg-green-50 border-2 border-green-300 inline-block" />Open Match
             </span>
-            <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
               <span className="w-3 h-3 rounded bg-red-50 border border-red-100 inline-block" />Blocked
             </span>
-            <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+            <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
               <span className="w-3 h-3 rounded bg-slate-50 border border-slate-100 inline-block" />Booked
             </span>
           </div>

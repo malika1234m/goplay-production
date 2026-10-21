@@ -167,7 +167,7 @@ export default function AdminSidebar() {
             <Image src="/logo.jpeg" alt="GoPlay" width={36} height={36} className="rounded-lg bg-white p-0.5 object-contain shrink-0" />
             <div className="flex flex-col leading-tight">
               <span className="text-base font-extrabold text-white tracking-wide">GoPlay</span>
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Admin</span>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Admin</span>
             </div>
           </Link>
         )}
@@ -217,14 +217,14 @@ export default function AdminSidebar() {
                   <div className="relative shrink-0">
                     <Icon className="w-5 h-5" />
                     {badge > 0 && !showLabel && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full text-[9px] font-bold text-slate-900 flex items-center justify-center">
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full text-[11px] font-bold text-slate-900 flex items-center justify-center">
                         {badge > 9 ? "9+" : badge}
                       </span>
                     )}
                   </div>
                   {showLabel && <span className="text-sm whitespace-nowrap flex-1">{label}</span>}
                   {showLabel && badge > 0 && (
-                    <span className="ml-auto bg-yellow-400 text-slate-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    <span className="ml-auto bg-yellow-400 text-slate-900 text-[11px] font-bold px-1.5 py-0.5 rounded-full">
                       {badge}
                     </span>
                   )}

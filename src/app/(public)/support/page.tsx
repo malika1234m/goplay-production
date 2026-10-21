@@ -157,7 +157,7 @@ export default function SupportPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold text-slate-900">GoPlay Connect — Open Matches</h2>
-                <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">New</span>
+                <span className="text-[11px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">New</span>
               </div>
               <p className="text-sm text-slate-500">Play without a full team — we find the players for you.</p>
             </div>

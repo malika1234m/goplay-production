@@ -7,7 +7,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
-      <main className="flex-1"><EnglishOnly>{children}</EnglishOnly></main>
+      <main id="main" tabIndex={-1} className="flex-1"><EnglishOnly>{children}</EnglishOnly></main>
       <Footer />
       {/* Loaded on public pages only — never on dashboards or the payment flow. */}
       <AdSenseScript />

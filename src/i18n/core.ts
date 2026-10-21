@@ -65,3 +65,13 @@ export function formatDay(d: Date | string | number, locale: string, opts: Intl.
   if (!opts.month && !opts.day && !opts.year) return w || date.toLocaleDateString("en-GB");
   return w ? `${parts}, ${w}` : parts;
 }
+
+/** A week like "18–24 October 2026" (Sinhala "2026 ඔක්තෝබර් 18–24"), or "28 Sept – 4 Oct 2026" across months. */
+export function formatDayRange(start: Date, end: Date, locale: string): string {
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    return locale.startsWith("si")
+      ? `${start.getFullYear()} ${SI_MONTHS[start.getMonth()]} ${start.getDate()}–${end.getDate()}`
+      : `${start.getDate()}–${formatDay(end, locale, { day: "numeric", month: "long", year: "numeric" })}`;
+  }
+  return `${formatDay(start, locale, { month: "short", day: "numeric" })} – ${formatDay(end, locale, { month: "short", day: "numeric", year: "numeric" })}`;
+}

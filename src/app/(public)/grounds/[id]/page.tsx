@@ -279,7 +279,7 @@ export default async function GroundDetailsPage({
                         className={`flex items-center justify-between text-sm px-3 py-2 rounded-lg ${isToday ? "bg-green-50 border border-green-100" : ""}`}
                       >
                         <span className={`font-medium ${isToday ? "text-green-700" : "text-slate-600"}`}>
-                          {dayName}{isToday && <span className="ml-1.5 text-[10px] font-semibold bg-green-600 text-white px-1.5 py-0.5 rounded-full">Today</span>}
+                          {dayName}{isToday && <span className="ml-1.5 text-[11px] font-semibold bg-green-600 text-white px-1.5 py-0.5 rounded-full">Today</span>}
                         </span>
                         {isOpen && entry ? (
                           <div className="flex items-center gap-1.5 text-slate-500">

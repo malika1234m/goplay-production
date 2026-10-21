@@ -314,7 +314,7 @@ export default function AdminOpenMatchesPage() {
             <Icon className="w-3.5 h-3.5" />
             {label}
             {badge && badge > 0 && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${badgeColor}`}>
+              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full leading-none ${badgeColor}`}>
                 {badge > 99 ? "99+" : badge}
               </span>
             )}
@@ -372,7 +372,7 @@ export default function AdminOpenMatchesPage() {
                         </div>
                         <div className="shrink-0 text-right">
                           <p className="text-sm font-bold text-green-700">{fmt(lobbyCollected(m))}</p>
-                          <p className="text-[10px] text-slate-400">{m.totalSpotsNeeded} players</p>
+                          <p className="text-[11px] text-slate-400">{m.totalSpotsNeeded} players</p>
                         </div>
                       </Link>
                     ))}
@@ -414,7 +414,7 @@ export default function AdminOpenMatchesPage() {
                   ].map(({ label, value, color }) => (
                     <div key={label} className="bg-slate-50 rounded-xl p-3 text-center">
                       <p className={`text-lg font-bold ${color}`}>{value}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{label}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{label}</p>
                     </div>
                   ))}
                 </div>
@@ -473,7 +473,7 @@ export default function AdminOpenMatchesPage() {
                             <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                               <div className={`h-full rounded-full transition-all ${isUrgent ? "bg-red-400" : "bg-amber-400"}`} style={{ width: `${pct}%` }} />
                             </div>
-                            <span className="text-[10px] text-slate-400 shrink-0">{pct}%</span>
+                            <span className="text-[11px] text-slate-400 shrink-0">{pct}%</span>
                           </div>
                         </div>
                         <div className="shrink-0 text-right space-y-1 min-w-[80px]">
@@ -516,7 +516,7 @@ export default function AdminOpenMatchesPage() {
                     }`}>
                     {s && <span className={`w-1.5 h-1.5 rounded-full ${STATUS[s]?.dot}`} />}
                     {s ? STATUS[s]?.label : "All"}
-                    <span className="text-[10px] text-slate-400">({s ? matches.filter((m) => m.status === s).length : matches.length})</span>
+                    <span className="text-[11px] text-slate-400">({s ? matches.filter((m) => m.status === s).length : matches.length})</span>
                   </button>
                 ))}
               </div>
@@ -583,13 +583,13 @@ export default function AdminOpenMatchesPage() {
                         <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-1">
                           <div className={`h-full rounded-full ${m.status === "MATCHED" ? "bg-green-500" : "bg-amber-400"}`} style={{ width: `${pct}%` }} />
                         </div>
-                        <p className="text-[10px] text-slate-400 text-right">{pct}% full</p>
+                        <p className="text-[11px] text-slate-400 text-right">{pct}% full</p>
                       </div>
 
                       {m.status === "MATCHED" && (
                         <div className="shrink-0 hidden md:block text-right">
                           <p className="text-sm font-bold text-green-700">{fmt(revenue)}</p>
-                          <p className="text-[10px] text-slate-400">revenue</p>
+                          <p className="text-[11px] text-slate-400">revenue</p>
                         </div>
                       )}
 
@@ -597,7 +597,7 @@ export default function AdminOpenMatchesPage() {
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="hidden md:block text-right">
                             <Countdown target={m.expiresAt} compact />
-                            <p className="text-[10px] text-slate-400">expires</p>
+                            <p className="text-[11px] text-slate-400">expires</p>
                           </div>
                           <button
                             onClick={(e) => { e.stopPropagation(); setCancelTarget(m); }}
@@ -633,7 +633,7 @@ export default function AdminOpenMatchesPage() {
                             ] : []),
                           ].map(({ label, value, mono, highlight }) => (
                             <div key={label} className="bg-white rounded-xl p-3 border border-slate-100">
-                              <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">{label}</p>
+                              <p className="text-[11px] text-slate-400 uppercase tracking-wide mb-1">{label}</p>
                               <p className={`text-sm font-semibold ${highlight ? "text-green-700" : "text-slate-800"} ${mono ? "font-mono text-xs" : ""}`}>{value}</p>
                             </div>
                           ))}
@@ -937,11 +937,11 @@ export default function AdminOpenMatchesPage() {
                           </td>
                           <td className="px-4 py-3.5 text-slate-700 font-medium whitespace-nowrap">
                             {fmt(lobbyCollected(m))}
-                            <p className="text-[10px] text-slate-400 font-normal">{m.payee === "PLATFORM" ? "by GoPlay" : "by the ground"}</p>
+                            <p className="text-[11px] text-slate-400 font-normal">{m.payee === "PLATFORM" ? "by GoPlay" : "by the ground"}</p>
                           </td>
                           <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">
                             {fmt(toGround)}
-                            {m.payout && <p className={`text-[10px] font-semibold ${m.payout.status === "PAID" ? "text-green-600" : "text-amber-600"}`}>{m.payout.status === "PAID" ? "Paid" : m.payout.status === "DUE" ? "Payout due" : "Cancelled"}</p>}
+                            {m.payout && <p className={`text-[11px] font-semibold ${m.payout.status === "PAID" ? "text-green-600" : "text-amber-600"}`}>{m.payout.status === "PAID" ? "Paid" : m.payout.status === "DUE" ? "Payout due" : "Cancelled"}</p>}
                           </td>
                           <td className="px-4 py-3.5">
                             {m.payout

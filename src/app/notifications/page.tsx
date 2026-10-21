@@ -279,7 +279,7 @@ export default function NotificationsPage() {
                 {t === "all" ? <Inbox className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
                 {t}
                 {t === "unread" && unreadCount > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1">
+                  <span className="bg-red-500 text-white text-[11px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1">
                     {Math.min(unreadCount, 99)}
                   </span>
                 )}
@@ -325,7 +325,7 @@ export default function NotificationsPage() {
                     {label}
                   </span>
                   <div className="flex-1 h-px bg-slate-200" />
-                  <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                  <span className="text-[11px] text-slate-400 whitespace-nowrap">
                     {items.length} item{items.length !== 1 ? "s" : ""}
                   </span>
                 </div>
@@ -362,12 +362,12 @@ export default function NotificationsPage() {
                                 <p className={`text-sm font-semibold leading-snug ${!n.isRead ? "text-slate-900" : "text-slate-600"}`}>
                                   {n.title}
                                 </p>
-                                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cfg.badgeBg} ${cfg.badgeText}`}>
+                                <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${cfg.badgeBg} ${cfg.badgeText}`}>
                                   <Icon className="w-2.5 h-2.5" />
                                   {cfg.label}
                                 </span>
                                 {!n.isRead && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
                                     New
                                   </span>
                                 )}

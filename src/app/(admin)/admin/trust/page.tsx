@@ -128,7 +128,7 @@ export default function TrustPage() {
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap ${tab === t.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
               <t.icon className="w-4 h-4" /> {t.label}
-              {t.count > 0 && <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">{t.count}</span>}
+              {t.count > 0 && <span className="bg-red-500 text-white text-[11px] font-bold rounded-full px-1.5 py-0.5">{t.count}</span>}
             </button>
           ))}
         </div>
@@ -152,9 +152,9 @@ export default function TrustPage() {
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold text-slate-900">{r.user.name}</p>
-                  {r.blocked && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">BLOCKED</span>}
-                  {!r.blocked && r.user.isBookingSuspended && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600">SUSPENDED</span>}
-                  {!r.blocked && !r.user.isBookingSuspended && r.user.requiresOnlinePayment && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">ONLINE ONLY</span>}
+                  {r.blocked && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700">BLOCKED</span>}
+                  {!r.blocked && r.user.isBookingSuspended && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600">SUSPENDED</span>}
+                  {!r.blocked && !r.user.isBookingSuspended && r.user.requiresOnlinePayment && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">ONLINE ONLY</span>}
                 </div>
                 <p className="text-xs text-slate-500">{r.user.email} · {r.contactNumber ?? r.user.phone ?? "no phone"}</p>
                 <p className="text-sm text-slate-700 mt-1"><strong>{r.facility.name}</strong>, {r.facility.city}</p>
@@ -241,7 +241,7 @@ export default function TrustPage() {
                     <div key={u.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                       <span className="text-slate-700">{day(u.bookingDate)} · {u.startTime}–{u.endTime}</span>
                       <span className="text-slate-500 truncate">{u.user.name} · {u.user.phone ?? u.user.email}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${u.status === "PENDING" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{u.status === "PENDING" ? "NEVER CONFIRMED" : "CONFIRMED"}</span>
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${u.status === "PENDING" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{u.status === "PENDING" ? "NEVER CONFIRMED" : "CONFIRMED"}</span>
                       <span className="font-semibold text-slate-800">{fmt(u.totalAmount)}</span>
                     </div>
                   ))}
@@ -270,10 +270,10 @@ export default function TrustPage() {
                     <td className="px-4 py-3 text-slate-700">{p.noShowGrounds}</td>
                     <td className="px-4 py-3 text-slate-700">{p.cashCancelCount}</td>
                     <td className="px-4 py-3">
-                      {p.block ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700" title={p.block.details ?? ""}>BLOCKED · {p.block.reason}</span>
-                        : p.isBookingSuspended ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600">SUSPENDED</span>
-                        : p.requiresOnlinePayment ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">ONLINE ONLY</span>
-                        : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700">OK</span>}
+                      {p.block ? <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700" title={p.block.details ?? ""}>BLOCKED · {p.block.reason}</span>
+                        : p.isBookingSuspended ? <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600">SUSPENDED</span>
+                        : p.requiresOnlinePayment ? <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">ONLINE ONLY</span>
+                        : <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700">OK</span>}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5 justify-end">

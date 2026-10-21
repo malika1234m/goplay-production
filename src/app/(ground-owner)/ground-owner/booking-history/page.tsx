@@ -276,7 +276,7 @@ export default function BookingHistoryPage() {
                       <p className="text-slate-300 text-sm font-medium">{b.facility.name}</p>
                       <p className="text-slate-500 text-xs">{b.facility.city}</p>
                       {b.court && (
-                        <span className="mt-1 inline-flex items-center text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.5 rounded-full">
+                        <span className="mt-1 inline-flex items-center text-[11px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.5 rounded-full">
                           {b.court.name}
                         </span>
                       )}

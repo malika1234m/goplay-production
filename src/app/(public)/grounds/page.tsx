@@ -123,22 +123,23 @@ export default async function GroundsPage({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Category pills */}
-        <div className="flex gap-2 flex-wrap mb-8">
+        {/* Category pills: one scrolling row on phones, so the grounds start on the first screen */}
+        <nav aria-label="Filter by sport" className="flex gap-2 overflow-x-auto snap-x -mx-4 px-4 pb-2 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible mb-6 sm:mb-8">
           {CATEGORIES.map((cat) => (
             <Link
               key={cat}
               href={cat === "All" ? "/grounds" : `/grounds?category=${cat}`}
-              className={`px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
+              aria-current={(category === cat) || (cat === "All" && !category) ? "page" : undefined}
+              className={`shrink-0 snap-start whitespace-nowrap px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
                 (category === cat) || (cat === "All" && !category)
                   ? "bg-green-600 border-green-600 text-white"
                   : "bg-white border-slate-200 text-slate-600 hover:border-green-500 hover:text-green-600"
               }`}
             >
-              {categoryEmoji[cat] ?? ""} {cat}
+              <span aria-hidden="true">{categoryEmoji[cat] ?? ""}</span> {cat}
             </Link>
           ))}
-        </div>
+        </nav>
 
         <GroundsClient grounds={grounds} q={q} category={category} />
 

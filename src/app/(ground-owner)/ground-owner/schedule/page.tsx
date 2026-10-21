@@ -7,7 +7,7 @@ import {
   X, Clock, User, Phone, Mail, CreditCard, StickyNote, CheckCircle2,
   AlertCircle, XCircle, CalendarCheck, Zap, Users,
 } from "lucide-react";
-import { tk, formatDay } from "@/i18n/core";
+import { tk, formatDay, formatDayRange } from "@/i18n/core";
 import { useT } from "@/i18n/I18nProvider";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -298,11 +298,11 @@ function BookingPill({
       style={{ top, height: Math.max(h, 24) }}
       title={`${openMatch?"⚡ ":phone?"📞 ":""}${bk.playerName}${bk.courtName?` · ${bk.courtName}`:""} · ${t("Rs.")} ${bk.totalAmount.toLocaleString()}`}
     >
-      <p className={`text-[10px] font-bold leading-tight ${txt}`}>
+      <p className={`text-[11px] font-bold leading-tight ${txt}`}>
         {bk.startTime}–{bk.endTime}
       </p>
       {h >= 24 && (
-        <p className={`text-[9px] leading-tight truncate ${sub}`}>
+        <p className={`text-[11px] leading-tight truncate ${sub}`}>
           {openMatch ? "⚡ " : phone ? "📞 " : ""}{bk.playerName}
         </p>
       )}
@@ -310,7 +310,7 @@ function BookingPill({
         <p className={`text-[8px] leading-tight truncate opacity-70 ${sub}`}>{bk.courtName}</p>
       )}
       {h >= 52 && (
-        <p className={`text-[9px] font-semibold ${txt}`}>
+        <p className={`text-[11px] font-semibold ${txt}`}>
           {t("Rs.")} {bk.totalAmount.toLocaleString()}
         </p>
       )}
@@ -332,16 +332,16 @@ function OpenMatchPill({ om }: { om: OpenMatchEv }) {
       style={{ top, height: Math.max(h, 24) }}
       title={`${t("Open Match")}: ${t(om.categoryName)} · ${t("{n}/{min} players", { n: om.spotsReserved, min: om.minPlayers })}${om.lobbyCode ? ` · #${om.lobbyCode}` : ""}`}
     >
-      <p className="text-[10px] font-bold leading-tight text-blue-700">
+      <p className="text-[11px] font-bold leading-tight text-blue-700">
         ⚡ {om.preferredStartTime}–{om.preferredEndTime}
       </p>
       {h >= 24 && (
-        <p className="text-[9px] leading-tight truncate text-blue-600">
+        <p className="text-[11px] leading-tight truncate text-blue-600">
           {om.categoryName} lobby
         </p>
       )}
       {h >= 40 && (
-        <p className="text-[9px] text-blue-600 flex items-center gap-0.5">
+        <p className="text-[11px] text-blue-600 flex items-center gap-0.5">
           <Users style={{ width: 8, height: 8, display: "inline" }} />
           {" "}{om.spotsReserved}/{om.minPlayers}
           {om.lobbyCode && <span className="ml-1 font-mono">#{om.lobbyCode}</span>}
@@ -412,7 +412,7 @@ function DayColumn({
             style={{ top, height: Math.max(h,18) }}
             title={b.reason ? t("Blocked: {reason}", { reason: b.reason }) : t("Maintenance")}
           >
-            <p className="text-[10px] font-medium text-red-600 leading-tight truncate">
+            <p className="text-[11px] font-medium text-red-600 leading-tight truncate">
               {b.startTime}–{b.endTime}{b.reason && ` · ${b.reason}`}
             </p>
           </div>
@@ -488,7 +488,7 @@ function DayView({
               <div key={col.id ?? "gen"}
                 className="flex-1 px-3 py-3 border-l border-slate-100 text-center bg-indigo-50/60">
                 <p className="text-xs font-semibold text-indigo-700">{col.label}</p>
-                <p className="text-[10px] text-indigo-400 mt-0.5">
+                <p className="text-[11px] text-indigo-400 mt-0.5">
                   {col.bookings.length} booking{col.bookings.length !== 1 ? "s" : ""}
                 </p>
               </div>
@@ -502,7 +502,7 @@ function DayView({
           <div className="w-14 shrink-0 relative border-r border-slate-100">
             {HOURS.map((h) => (
               <div key={h}
-                className="absolute right-2 text-[10px] text-slate-300 -translate-y-2"
+                className="absolute right-2 text-[11px] text-slate-300 -translate-y-2"
                 style={{ top: h*HOUR_H }}>
                 {h===0 ? "12 AM" : h<12 ? `${h} AM` : h===12 ? "12 PM" : `${h-12} PM`}
               </div>
@@ -573,8 +573,8 @@ function WeekView({
                   {day.getDate()}
                 </p>
                 {sched?.isOpen
-                  ? <p className="text-[10px] text-slate-400">{fmtTime(sched.openTime)}–{fmtTime(sched.closeTime)}</p>
-                  : <p className="text-[10px] text-red-400">{t("Closed")}</p>
+                  ? <p className="text-[11px] text-slate-400">{fmtTime(sched.openTime)}–{fmtTime(sched.closeTime)}</p>
+                  : <p className="text-[11px] text-red-400">{t("Closed")}</p>
                 }
               </button>
             );
@@ -585,7 +585,7 @@ function WeekView({
         <div className="relative flex" style={{ height: 24*HOUR_H }}>
           <div className="w-14 shrink-0 relative border-r border-slate-100">
             {HOURS.map((h) => (
-              <div key={h} className="absolute right-2 text-[10px] text-slate-300 -translate-y-2"
+              <div key={h} className="absolute right-2 text-[11px] text-slate-300 -translate-y-2"
                 style={{ top: h*HOUR_H }}>
                 {h===0 ? "12 AM" : h<12 ? `${h} AM` : h===12 ? "12 PM" : `${h-12} PM`}
               </div>
@@ -687,40 +687,40 @@ function MonthView({
               </div>
 
               {isClosed && !fullBlock && (
-                <span className="text-[9px] text-slate-400 font-medium">{t("Closed")}</span>
+                <span className="text-[11px] text-slate-400 font-medium">{t("Closed")}</span>
               )}
               {fullBlock && (
-                <div className="rounded-md text-[9px] font-semibold text-orange-700 bg-orange-100 px-1.5 py-0.5 mb-0.5 truncate">
+                <div className="rounded-md text-[11px] font-semibold text-orange-700 bg-orange-100 px-1.5 py-0.5 mb-0.5 truncate">
                   {fullBlock.reason ?? t("Closed")}
                 </div>
               )}
               {partials.length > 0 && (
-                <div className="rounded-md text-[9px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 mb-0.5">
+                <div className="rounded-md text-[11px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 mb-0.5">
                   {partials.length} block{partials.length > 1 ? "s" : ""}
                 </div>
               )}
               {confirmed > 0 && (
-                <div className="rounded-md text-[9px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 mb-0.5">
+                <div className="rounded-md text-[11px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 mb-0.5">
                   {confirmed} confirmed
                 </div>
               )}
               {openMatchBooked > 0 && (
-                <div className="rounded-md text-[9px] font-semibold text-teal-700 bg-teal-100 px-1.5 py-0.5 mb-0.5">
+                <div className="rounded-md text-[11px] font-semibold text-teal-700 bg-teal-100 px-1.5 py-0.5 mb-0.5">
                   ⚡ {openMatchBooked} open match
                 </div>
               )}
               {collecting > 0 && (
-                <div className="rounded-md text-[9px] font-semibold text-blue-700 bg-blue-100 px-1.5 py-0.5 mb-0.5">
+                <div className="rounded-md text-[11px] font-semibold text-blue-700 bg-blue-100 px-1.5 py-0.5 mb-0.5">
                   ⚡ {collecting} lobby
                 </div>
               )}
               {phone > 0 && (
-                <div className="rounded-md text-[9px] font-semibold text-purple-700 bg-purple-100 px-1.5 py-0.5 mb-0.5">
+                <div className="rounded-md text-[11px] font-semibold text-purple-700 bg-purple-100 px-1.5 py-0.5 mb-0.5">
                   📞 {phone} phone
                 </div>
               )}
               {pending > 0 && (
-                <div className="rounded-md text-[9px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5">
+                <div className="rounded-md text-[11px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5">
                   {pending} pending
                 </div>
               )}
@@ -878,9 +878,7 @@ export default function SchedulePage() {
     }
     if (view === "week") {
       const end = addDays(weekStart, 6); const s = weekStart;
-      return s.getMonth() === end.getMonth()
-        ? `${formatDay(s, locale, { month: "long", day: "numeric" })} – ${formatDay(end, locale, { day: "numeric", year: "numeric" })}`
-        : `${formatDay(s, locale, { month: "short", day: "numeric" })} – ${formatDay(end, locale, { month: "short", day: "numeric", year: "numeric" })}`;
+      return formatDayRange(s, end, locale);
     }
     return formatDay(monthDate, locale, { month: "long", year: "numeric" });
   }, [view, selectedDay, weekStart, monthDate, locale]);

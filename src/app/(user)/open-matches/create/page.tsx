@@ -629,7 +629,7 @@ function CreatePageInner() {
                             title={`${slot.categoryName} open match lobby — tap to join`}
                           >
                             <p className="text-xs font-semibold text-amber-700 leading-tight">{slot.time}</p>
-                            <p className="text-[9px] text-amber-600 leading-tight">⚡ Join lobby</p>
+                            <p className="text-[11px] text-amber-600 leading-tight">⚡ Join lobby</p>
                           </a>
                         );
                       }
@@ -641,7 +641,7 @@ function CreatePageInner() {
                             title="Already booked"
                           >
                             <p className="text-xs font-medium text-slate-300 leading-tight">{slot.time}</p>
-                            <p className="text-[9px] text-slate-300 leading-tight">Booked</p>
+                            <p className="text-[11px] text-slate-300 leading-tight">Booked</p>
                           </div>
                         );
                       }

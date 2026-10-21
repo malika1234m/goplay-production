@@ -64,6 +64,7 @@ export default function HomePage() {
     <div className="flex flex-col min-h-screen">
       <Navbar />
 
+      <main id="main" tabIndex={-1} className="flex-1">
       {/* Hero */}
       <section className="relative overflow-hidden text-white py-12 sm:py-20 lg:py-24 px-4 min-h-[480px] sm:min-h-[580px] flex items-center">
 
@@ -183,7 +184,7 @@ export default function HomePage() {
                   <div className="relative z-10 flex-1">
                     <div className="flex items-center gap-2 mb-1 sm:mb-2">
                       <h3 className="text-sm sm:text-base font-semibold text-white">{title}</h3>
-                      <span className="text-[10px] bg-white/25 text-white px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">New</span>
+                      <span className="text-[11px] bg-white/25 text-white px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">New</span>
                     </div>
                     <p className="text-xs sm:text-sm text-green-100 leading-relaxed">{desc}</p>
                   </div>
@@ -438,6 +439,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      </main>
 
       <Footer />
       <AdSenseScript />

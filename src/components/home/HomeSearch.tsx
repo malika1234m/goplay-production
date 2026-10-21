@@ -29,6 +29,7 @@ export default function HomeSearch() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search by sport or ground name..."
+          aria-label="Search by sport or ground name"
           className="bg-transparent text-slate-900 placeholder-slate-400 text-sm w-full outline-none"
         />
       </div>
@@ -39,6 +40,7 @@ export default function HomeSearch() {
           value={city}
           onChange={(e) => setCity(e.target.value)}
           placeholder="City"
+          aria-label="City"
           className="bg-transparent text-slate-900 placeholder-slate-400 text-sm w-full outline-none"
         />
       </div>

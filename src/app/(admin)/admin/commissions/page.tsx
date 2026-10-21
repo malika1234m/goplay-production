@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useDialog } from "@/components/shared/useDialog";
 import {
   Loader2, ChevronDown, ChevronUp, BadgeDollarSign, CheckCircle,
   Users, AlertCircle, Banknote, CreditCard, Calendar, MapPin, X, Download, Bell,
@@ -131,7 +132,7 @@ function OwnerCard({
               { label: "Collected",                 value: fmt(owner.paidCommission),   color: "text-green-600" },
             ].map(({ label, value, color }) => (
               <div key={label} className="px-4 py-3">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wide">{label}</p>
+                <p className="text-[11px] text-slate-400 uppercase tracking-wide">{label}</p>
                 <p className={`text-sm font-semibold mt-0.5 ${color}`}>{value}</p>
               </div>
             ))}
@@ -139,7 +140,7 @@ function OwnerCard({
 
           {/* Per-booking commission table */}
           <div className="bg-white">
-            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-5 py-2 bg-slate-50 border-t border-slate-100 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-5 py-2 bg-slate-50 border-t border-slate-100 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               <span>Booking</span>
               <span className="text-center">Method</span>
               <span className="text-right">Commission</span>
@@ -161,11 +162,11 @@ function OwnerCard({
 
                   <div className="flex justify-center">
                     {e.paymentMethod === "ONLINE" ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
+                      <span className="inline-flex items-center gap-1 text-[11px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
                         <CreditCard className="w-2.5 h-2.5" />Online
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">
+                      <span className="inline-flex items-center gap-1 text-[11px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium">
                         <Banknote className="w-2.5 h-2.5" />Cash
                       </span>
                     )}
@@ -175,11 +176,11 @@ function OwnerCard({
 
                   <div className="flex justify-center">
                     {e.commissionPaid ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
+                      <span className="inline-flex items-center gap-1 text-[11px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
                         <CheckCircle className="w-2.5 h-2.5" />Paid
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded-full font-medium">
+                      <span className="inline-flex items-center gap-1 text-[11px] bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded-full font-medium">
                         <AlertCircle className="w-2.5 h-2.5" />Pending
                       </span>
                     )}
@@ -203,7 +204,8 @@ function RequestModal({
   owner:   OwnerCommission;
   onClose: () => void;
   onDone:  () => void;
-}) {
+}) {  const { panelProps } = useDialog(onClose, "Request commission");
+
   const [note,    setNote]    = useState("");
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
@@ -229,7 +231,7 @@ function RequestModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+      <div {...panelProps} className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-bold text-slate-900 text-base">Request Commission Payment</h3>
@@ -287,7 +289,8 @@ function SettleModal({
   owner: OwnerCommission;
   onClose: () => void;
   onDone:  () => void;
-}) {
+}) {  const { panelProps } = useDialog(onClose, "Settle commission");
+
   const [note,      setNote]      = useState("");
   const [reference, setReference] = useState("");
   const [loading,  setLoading]  = useState(false);
@@ -315,7 +318,7 @@ function SettleModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+      <div {...panelProps} className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-bold text-slate-900 text-base">Settle Commission</h3>

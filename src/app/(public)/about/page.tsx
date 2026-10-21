@@ -117,7 +117,7 @@ export default function AboutPage() {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="text-lg font-bold">GoPlay Connect</h3>
-              <span className="text-[10px] bg-white/25 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">New</span>
+              <span className="text-[11px] bg-white/25 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">New</span>
             </div>
             <p className="text-green-100 text-sm leading-relaxed max-w-lg">
               Don&apos;t have a full team? Create or join an open match lobby. When all spots fill, GoPlay automatically books the court for everyone — no team needed, no calls required.

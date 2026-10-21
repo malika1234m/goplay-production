@@ -371,12 +371,12 @@ export default function GroundOwnerDashboard() {
                       <p className="text-sm font-medium text-slate-900 truncate">{b.facilityName}</p>
                       <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                         {isOpenMatch && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium bg-teal-50 text-teal-700 border border-teal-100 px-1.5 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-0.5 text-[11px] font-medium bg-teal-50 text-teal-700 border border-teal-100 px-1.5 py-0.5 rounded-full">
                             <Zap className="w-2.5 h-2.5" /> {t("Open Match")}
                           </span>
                         )}
                         {isPhoneBook && !isOpenMatch && (
-                          <span className="text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-full">{t("Phone")}</span>
+                          <span className="text-[11px] font-medium bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-full">{t("Phone")}</span>
                         )}
                         <p className="text-xs text-slate-500 truncate">{b.userName}</p>
                       </div>
@@ -385,7 +385,7 @@ export default function GroundOwnerDashboard() {
                         {b.startTime} – {b.endTime}
                       </div>
                       {b.courtName && (
-                        <span className="mt-0.5 inline-flex items-center text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full">
+                        <span className="mt-0.5 inline-flex items-center text-[11px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full">
                           {b.courtName}
                         </span>
                       )}

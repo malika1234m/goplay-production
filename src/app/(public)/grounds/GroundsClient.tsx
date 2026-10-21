@@ -163,6 +163,7 @@ export default function GroundsClient({ grounds, q, category }: Props) {
           <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
             <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
             <select
+              aria-label="Sort grounds"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               className="text-sm text-slate-600 outline-none bg-transparent"
@@ -328,7 +329,7 @@ export default function GroundsClient({ grounds, q, category }: Props) {
                         </span>
                       </div>
                       {ground.images && ground.images.length > 1 && (
-                        <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                        <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[11px] px-1.5 py-0.5 rounded-full">
                           +{ground.images.length - 1} photos
                         </div>
                       )}

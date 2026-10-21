@@ -134,7 +134,7 @@ export default function LobbyPaymentsPage() {
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px ${tab === t.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-700"}`}>
             <t.icon className="w-4 h-4" /> {t.label}
-            {t.count > 0 && <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">{t.count}</span>}
+            {t.count > 0 && <span className="bg-red-500 text-white text-[11px] font-bold rounded-full px-1.5 py-0.5">{t.count}</span>}
           </button>
         ))}
       </div>
@@ -187,7 +187,7 @@ export default function LobbyPaymentsPage() {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-slate-900">{p.facility.name}</p>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.status === "DUE" ? "bg-amber-100 text-amber-800" : p.status === "PAID" ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}`}>{p.status}</span>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${p.status === "DUE" ? "bg-amber-100 text-amber-800" : p.status === "PAID" ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}`}>{p.status}</span>
                   </div>
                   <LobbyLine m={p.match} />
                   <p className="text-xs text-slate-500 mt-1">Owner: {o.user.name} · {o.user.phone ?? o.user.email}</p>
@@ -238,7 +238,7 @@ export default function LobbyPaymentsPage() {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-slate-900">{r.user.name}</p>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${r.refundStatus === "NEEDED" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"}`}>{r.refundStatus === "NEEDED" ? "DUE" : "REFUNDED"}</span>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${r.refundStatus === "NEEDED" ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"}`}>{r.refundStatus === "NEEDED" ? "DUE" : "REFUNDED"}</span>
                   </div>
                   <p className="text-xs text-slate-500">{r.user.phone ?? r.user.email}</p>
                   <LobbyLine m={r.match} />

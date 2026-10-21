@@ -207,13 +207,13 @@ export default function MyMatchesPage() {
                     <div className="flex items-center gap-0.5">
                       {s.match.spots.slice(0, 7).map((sp) => (
                         <div key={sp.id}
-                          className="w-6 h-6 rounded-full bg-green-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-green-700"
+                          className="w-6 h-6 rounded-full bg-green-100 border-2 border-white flex items-center justify-center text-[11px] font-bold text-green-700"
                           title={sp.user.name}>
                           {sp.user.name.charAt(0).toUpperCase()}
                         </div>
                       ))}
                       {s.match.spots.length > 7 && (
-                        <span className="text-[10px] text-slate-400 ml-0.5">+{s.match.spots.length - 7}</span>
+                        <span className="text-[11px] text-slate-400 ml-0.5">+{s.match.spots.length - 7}</span>
                       )}
                     </div>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-green-500 transition-colors ml-auto" />

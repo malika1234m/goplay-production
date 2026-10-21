@@ -36,3 +36,40 @@ html {
 
 /* Sinhala letters sit taller than Latin ones; give wrapped lines a little more room */
 :lang(si) body { line-height: 1.6; }
+
+/* Keyboard focus is always visible, including on controls styled with outline-none */
+:where(a, button, [role="button"], summary, select, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--color-pitch) !important;
+  outline-offset: 2px;
+}
+
+/* iPhone zooms the whole page when a field under 16px is focused */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* People who ask for less motion get none */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* "Skip to main content": off-screen until a keyboard user tabs to it */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 12px;
+  z-index: 100;
+  background: var(--color-pitch-deep);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.skip-link:focus { left: 12px; }

@@ -125,7 +125,7 @@ export default function NotificationBell() {
       >
         <Bell className="w-5 h-5" />
         {badge > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 ring-2 ring-white leading-none">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center px-1 ring-2 ring-white leading-none">
             {badge}
           </span>
         )}
@@ -199,7 +199,7 @@ export default function NotificationBell() {
                         <p className={`text-xs font-semibold leading-snug truncate ${!n.isRead ? "text-slate-900" : "text-slate-600"}`}>
                           {n.title}
                         </p>
-                        <span className="shrink-0 text-[10px] text-slate-400 whitespace-nowrap mt-px">
+                        <span className="shrink-0 text-[11px] text-slate-400 whitespace-nowrap mt-px">
                           {timeAgo(n.createdAt)}
                         </span>
                       </div>

@@ -67,7 +67,7 @@ export default function AdSlot({
     return (
       <div className={`w-full ${className}`}>
         <div className="border-2 border-dashed border-amber-300 bg-amber-50/60 rounded-xl py-10 px-4 text-center">
-          <p className="text-[10px] uppercase tracking-wider text-amber-600 font-semibold mb-1">
+          <p className="text-[11px] uppercase tracking-wider text-amber-600 font-semibold mb-1">
             Ad slot · dev preview · {def?.tier ?? "?"} value
           </p>
           <p className="text-xs text-amber-700/80">
@@ -83,7 +83,7 @@ export default function AdSlot({
   return (
     <div className={`w-full overflow-hidden ${className}`}>
       {label && (
-        <p className="text-[10px] uppercase tracking-wider text-slate-400 mb-1 text-center">
+        <p className="text-[11px] uppercase tracking-wider text-slate-400 mb-1 text-center">
           Advertisement
         </p>
       )}

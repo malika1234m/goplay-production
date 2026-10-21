@@ -390,7 +390,7 @@ export default function EditGroundPage() {
                     <X className="w-3.5 h-3.5" />
                   </button>
                   {i === 0 && (
-                    <div className="absolute bottom-1 left-1 bg-green-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-semibold">
+                    <div className="absolute bottom-1 left-1 bg-green-600 text-white text-[11px] px-1.5 py-0.5 rounded-full font-semibold">
                       {t("COVER")}
                     </div>
                   )}

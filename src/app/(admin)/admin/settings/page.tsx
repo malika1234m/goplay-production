@@ -107,7 +107,7 @@ export default function AdminSettingsPage() {
               onChange={set("commissionRate")}
               className="w-full accent-orange-500"
             />
-            <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+            <div className="flex justify-between text-[11px] text-slate-400 mt-1">
               <span>0%</span>
               <span>15%</span>
               <span>30%</span>

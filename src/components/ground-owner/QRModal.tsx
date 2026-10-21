@@ -112,7 +112,7 @@ export default function QRModal({ groundId, groundName, city, address, onClose }
             <span className="text-green-600">Go</span>
             <span className="text-slate-900">Play</span>
           </p>
-          <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-4">
+          <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-4">
             {t("Book Sports Grounds Instantly")}
           </p>
           <div className="bg-white border border-slate-100 rounded-xl p-3 inline-block shadow-sm mb-4">

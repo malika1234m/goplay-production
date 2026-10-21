@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useDialog } from "@/components/shared/useDialog";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -40,11 +41,12 @@ const statusConfig: Record<string, { label: string; style: string; icon: React.E
   REJECTED: { label: tk("Rejected"), style: "bg-red-50 text-red-600 border-red-100",        icon: XCircle },
 };
 
-function DeleteConfirmModal({ ground, onClose, onConfirm }: { ground: Ground; onClose: () => void; onConfirm: () => void }) {
+function DeleteConfirmModal({ ground, onClose, onConfirm }: { ground: Ground; onClose: () => void; onConfirm: () => void }) {  const { panelProps } = useDialog(onClose, "Delete ground");
+
   const { t } = useT();
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+      <div {...panelProps} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
             <Trash2 className="w-5 h-5 text-red-600" />
@@ -243,7 +245,7 @@ export default function GroundOwnerGrounds() {
                         >
                           <Grid3X3 className="w-4 h-4" />
                           {g.courtCount > 0 && (
-                            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-indigo-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-indigo-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center">
                               {g.courtCount}
                             </span>
                           )}
