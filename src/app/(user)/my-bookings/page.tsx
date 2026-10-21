@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import AdSlot from "@/components/ads/AdSlot";
 import NoShowDispute from "@/components/bookings/NoShowDispute";
+import { slotInstant } from "@/lib/local-time";
 
 interface Booking {
   id: string;
@@ -322,6 +323,7 @@ function CancelModal({
 }
 
 export default function MyBookingsPage() {
+  const [now] = useState(() => Date.now());   // when the page opened — decides which slots have started
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading]   = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -483,7 +485,9 @@ export default function MyBookingsPage() {
           {filtered.map((b) => {
             const primaryCat   = b.facility.categories?.[0];
             const icon         = primaryCat?.icon ?? categoryEmoji[primaryCat?.name ?? ""] ?? "🏟️";
-            const isCancellable = b.status === "PENDING" || b.status === "CONFIRMED";
+            // Same rule as the server: no cancelling once the slot has started
+            const isCancellable = (b.status === "PENDING" || b.status === "CONFIRMED")
+              && slotInstant(new Date(b.bookingDate), b.startTime).getTime() > now;
             const canReview     = b.status === "COMPLETED" && !b.hasReview;
 
             return (

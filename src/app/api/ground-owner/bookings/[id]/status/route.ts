@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { earningFigures } from "@/lib/lobby-payments";
+import { groundTransitionError, moveBooking } from "@/lib/booking-status";
 import { slotInstant } from "@/lib/local-time";
 import { getSession } from "@/lib/mobile-auth";
 import { sendSMS } from "@/lib/sms";
@@ -60,21 +61,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
 
-    // "Pay online" bookings are confirmed by accepting the transfer receipt, not directly
-    if (status === "CONFIRMED" && booking.paymentMethod === "ONLINE" && booking.paymentStatus !== "PAID") {
-      return Response.json(
-        { error: "This booking is paid by bank transfer. Review the player's receipt under Payments to confirm it." },
-        { status: 400 },
-      );
-    }
-
-    // Guard: state transition rules
-    if (booking.status === "COMPLETED") {
-      return Response.json({ error: "This booking is already completed and cannot be changed." }, { status: 400 });
-    }
-    if (booking.status === "CANCELLED" && status === "COMPLETED") {
-      return Response.json({ error: "Cannot complete a cancelled booking." }, { status: 400 });
-    }
+    // One set of transition rules for owners and workers (no-shows go through GoPlay's review)
+    const transitionError = groundTransitionError(booking, status);
+    if (transitionError) return Response.json({ error: transitionError }, { status: 400 });
 
     // Guard: cannot mark complete before the session has ended
     if (status === "COMPLETED") {
@@ -92,37 +81,46 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       updateData.paymentStatus = cashReceived ? "PAID" : "PENDING";
     }
 
-    const updated = await db.facilityBooking.update({
-      where: { id },
-      data: updateData,
-    });
+    // Owner cancellation always refunds a transfer in full
+    const now          = new Date();
+    const isOnlinePaid = booking.paymentMethod === "ONLINE" && ["PAID", "RECEIPT_SUBMITTED"].includes(booking.paymentStatus);
+    if (status === "CANCELLED") {
+      Object.assign(updateData, {
+        cancelledAt:   now,
+        cancelledBy:   "owner",
+        refundPercent: 100,
+        refundAmount:  booking.totalAmount,
+        ...(isOnlinePaid ? { refundStatus: "NEEDED" } : {}),
+      });
+    }
+
+    // Only applies if nobody (a worker, another tap) changed the booking since it was read
+    if (!(await moveBooking(id, booking.status, updateData))) {
+      return Response.json({ error: "This booking was just changed by someone else. Refresh and try again." }, { status: 409 });
+    }
+    const updated = await db.facilityBooking.findUniqueOrThrow({ where: { id } });
 
     // Create earnings record when marking complete (one-time, idempotent via bookingId unique)
     if (status === "COMPLETED") {
-      const existingEarning = await db.groundEarning.findUnique({ where: { bookingId: id } });
-
-      if (!existingEarning) {
-        const figures    = await earningFigures(booking);
-        const isOnline   = booking.paymentMethod === "ONLINE";
-        const confirmed  = isOnline ? booking.paymentStatus === "PAID" : (cashReceived === true);
-
-        await db.groundEarning.create({
-          data: {
-            bookingId:      id,
-            facilityId:     booking.facilityId,
-            ownerId:        profile.id,
-            ...figures,
-            paymentMethod:  booking.paymentMethod,
-            cashConfirmed:  confirmed,
-          },
-        });
-
-      }
+      const isOnline  = booking.paymentMethod === "ONLINE";
+      const confirmed = isOnline ? booking.paymentStatus === "PAID" : (cashReceived === true);
+      // upsert: a concurrent completion can't fail on the unique bookingId
+      await db.groundEarning.upsert({
+        where:  { bookingId: id },
+        update: {},
+        create: {
+          bookingId:      id,
+          facilityId:     booking.facilityId,
+          ownerId:        profile.id,
+          ...(await earningFigures(booking)),
+          paymentMethod:  booking.paymentMethod,
+          cashConfirmed:  confirmed,
+        },
+      });
     }
 
     // Owner cancellation: apply strike system + full refund
     if (status === "CANCELLED") {
-      const now      = new Date();
       const facility = booking.facility;
 
       // Reset strike window if 90 days have passed
@@ -139,19 +137,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           cancelStrikeCount:  newStrikes,
           strikeResetAt:      resetDue ? now : undefined,
           isListingSuspended: suspend ? true : undefined,
-        },
-      });
-
-      // Store cancellation info + always 100% refund to player
-      const isOnlinePaid = booking.paymentMethod === "ONLINE" && ["PAID", "RECEIPT_SUBMITTED"].includes(booking.paymentStatus);
-      await db.facilityBooking.update({
-        where: { id },
-        data: {
-          cancelledAt:   now,
-          cancelledBy:   "owner",
-          refundPercent: 100,
-          refundAmount:  booking.totalAmount,
-          ...(isOnlinePaid ? { refundStatus: "NEEDED" } : {}),
         },
       });
 

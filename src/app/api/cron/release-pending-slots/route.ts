@@ -20,12 +20,17 @@ export async function GET(req: NextRequest) {
     where:  staleUnpaidBookingWhere(cutoff),
     select: { id: true, user: { select: { id: true } }, facility: { select: { name: true } } },
   });
-  if (expired.length > 0) {
-    await db.facilityBooking.updateMany({
-      where: { id: { in: expired.map((b) => b.id) }, status: "PENDING" },
+  // Re-check the full "unpaid and stale" condition on write: a receipt uploaded since the read keeps the slot
+  const released: typeof expired = [];
+  for (const b of expired) {
+    const { count } = await db.facilityBooking.updateMany({
+      where: { id: b.id, ...staleUnpaidBookingWhere(cutoff) },
       data:  { status: "CANCELLED", cancelledAt: new Date(), cancelledBy: "system" },
     });
-    await Promise.allSettled(expired.map((b) => createNotification({
+    if (count === 1) released.push(b);
+  }
+  if (released.length > 0) {
+    await Promise.allSettled(released.map((b) => createNotification({
       userId:  b.user.id,
       title:   "Booking Expired",
       message: `Your booking at ${b.facility.name} was cancelled because no accepted payment receipt was received in time. The slot is available again.`,
@@ -38,11 +43,11 @@ export async function GET(req: NextRequest) {
     select: { id: true, userId: true, matchId: true, groupSize: true },
   });
   for (const spot of staleSpots) {
-    const released = await db.openMatchSpot.updateMany({
-      where: { id: spot.id, status: "RESERVED" },
+    const releasedSpot = await db.openMatchSpot.updateMany({
+      where: { id: spot.id, ...staleUnpaidSpotWhere(cutoff) },
       data:  { status: "CANCELLED", cancelledAt: new Date() },
     });
-    if (released.count === 0) continue;
+    if (releasedSpot.count === 0) continue;
     await db.openMatch.updateMany({
       where: { id: spot.matchId, status: "COLLECTING" },
       data:  { spotsReserved: { decrement: spot.groupSize } },
@@ -60,9 +65,9 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  console.log(`[cron/release-pending-slots] Released ${expired.length} bookings and ${staleSpots.length} spots (cutoff: ${cutoff.toISOString()})`);
+  console.log(`[cron/release-pending-slots] Released ${released.length} bookings and ${staleSpots.length} spots (cutoff: ${cutoff.toISOString()})`);
   // Daily housekeeping for the shared rate-limit counters
   const rateLimitsPruned = await pruneRateLimits();
 
-  return Response.json({ released: expired.length, spotsReleased: staleSpots.length, rateLimitsPruned, cutoff: cutoff.toISOString() });
+  return Response.json({ released: released.length, spotsReleased: staleSpots.length, rateLimitsPruned, cutoff: cutoff.toISOString() });
 }

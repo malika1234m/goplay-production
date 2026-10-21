@@ -90,7 +90,17 @@ export async function reviewBookingPayment(opts: {
   if (updated.count === 0) return { ok: false, status: 409, error: "This payment was already reviewed." };
 
   const when = `${fmtDate(booking.bookingDate)} ${booking.startTime}–${booking.endTime}`;
-  if (opts.approve) {
+  if (opts.approve && booking.status === "CANCELLED") {
+    // The money arrived after the player cancelled: it is owed back (the cancellation already flagged the refund)
+    await closeComplaintsOnConfirm({ bookingId: booking.id });
+    await createNotification({
+      userId:  booking.user.id,
+      title:   "Transfer received — refund due",
+      message: `${booking.facility.name} confirmed your Rs. ${booking.totalAmount.toLocaleString()} transfer for ${when}. As the booking was cancelled, the ground will refund it under the cancellation policy.`,
+      type:    "info",
+      link:    `/my-bookings/${booking.id}/pay`,
+    });
+  } else if (opts.approve) {
     await closeComplaintsOnConfirm({ bookingId: booking.id });
     await createNotification({
       userId:  booking.user.id,

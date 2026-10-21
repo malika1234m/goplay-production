@@ -51,11 +51,11 @@ function DeleteConfirmModal({ ground, onClose, onConfirm }: { ground: Ground; on
           </div>
           <div>
             <h3 className="font-bold text-slate-900 text-base">{t("Delete Ground")}</h3>
-            <p className="text-xs text-slate-400">{t("This action cannot be undone")}</p>
+            <p className="text-xs text-slate-400">{t("Booking history is always kept")}</p>
           </div>
         </div>
         <p className="text-sm text-slate-600">
-          {t("Delete “{name}”? All its data will be removed permanently.", { name: ground.name })}
+          {t("Delete “{name}”? If it has ever had bookings it is taken off GoPlay and its bookings and earnings are kept. A ground that was never used is removed completely.", { name: ground.name })}
         </p>
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors">
@@ -96,6 +96,9 @@ export default function GroundOwnerGrounds() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? t("Failed to delete ground."));
+      } else if (data.archived) {
+        // Taken off GoPlay, history kept — it stays in the list as inactive
+        setGrounds((prev) => prev.map((g) => (g.id === id ? { ...g, status: "INACTIVE" } : g)));
       } else {
         setGrounds((prev) => prev.filter((g) => g.id !== id));
       }

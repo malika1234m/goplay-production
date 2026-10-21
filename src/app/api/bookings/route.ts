@@ -222,7 +222,7 @@ export async function POST(req: NextRequest) {
         ...staleUnpaidBookingWhere(expiryCutoff),
         AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
       },
-      data: { status: "CANCELLED" },
+      data: { status: "CANCELLED", cancelledAt: new Date(), cancelledBy: "system" },
     });
 
     const conflict = await tx.facilityBooking.findFirst({

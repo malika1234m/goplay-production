@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
 import { createNotification } from "@/lib/notify";
 import { notifyAdmins } from "@/lib/lobby-payments";
+import { slotInstant } from "@/lib/local-time";
 import {
   getCancellationPolicyFromTiers,
   loadPolicyTiers,
@@ -54,6 +55,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       { error: "You cannot cancel your spot once the lobby has been matched." },
       { status: 409 },
     );
+  }
+
+  // A lobby whose time has passed without filling is closed and refunded in full by the system;
+  // leaving now would only cost the player a strike and part of their money
+  if (slotInstant(new Date(match.preferredDate), match.preferredStartTime).getTime() <= Date.now()) {
+    return Response.json({ error: "This lobby's time has passed. It will be closed and anyone who paid is refunded in full." }, { status: 409 });
   }
 
   // Determine cancellation policy tier based on time until the match

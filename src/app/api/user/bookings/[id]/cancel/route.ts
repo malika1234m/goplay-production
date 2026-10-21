@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
 import { sendBookingCancelledEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notify";
+import { slotInstant } from "@/lib/local-time";
 import {
   getCancellationPolicyFromTiers,
   loadPolicyTiers,
@@ -42,6 +43,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (booking.status === "COMPLETED")    return Response.json({ error: "Cannot cancel a completed booking." }, { status: 400 });
     if (booking.status === "NO_SHOW")      return Response.json({ error: "Cannot cancel a no-show booking." }, { status: 400 });
     if (booking.user.isBookingSuspended)   return Response.json({ error: "Your account is suspended. Please contact support." }, { status: 403 });
+
+    // Once the slot has started the ground has held it for the player: it is played, or a no-show
+    if (slotInstant(booking.bookingDate, booking.startTime).getTime() <= Date.now()) {
+      return Response.json({ error: "This booking has already started, so it can't be cancelled. Contact the ground or GoPlay support if something went wrong." }, { status: 400 });
+    }
 
     const tiers        = await loadPolicyTiers();
     const policy       = getCancellationPolicyFromTiers(booking.bookingDate, booking.startTime, tiers);

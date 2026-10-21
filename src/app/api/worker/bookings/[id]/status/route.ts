@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { earningFigures } from "@/lib/lobby-payments";
+import { groundTransitionError, moveBooking } from "@/lib/booking-status";
 import { getSession } from "@/lib/mobile-auth";
 import { slotInstant } from "@/lib/local-time";
 import { sendSMS } from "@/lib/sms";
@@ -65,23 +66,10 @@ export async function PUT(
     });
     if (!booking) return Response.json({ error: "Booking not found." }, { status: 404 });
 
-    if (booking.status === "COMPLETED") {
-      return Response.json({ error: "This booking is already completed and cannot be changed." }, { status: 400 });
-    }
-    if (booking.status === "CANCELLED") {
-      return Response.json({ error: "Cannot update a cancelled booking." }, { status: 400 });
-    }
-    if (booking.status === "NO_SHOW") {
-      return Response.json({ error: "This booking is already marked as no-show." }, { status: 400 });
-    }
-
-    // "Pay online" bookings are confirmed by accepting the transfer receipt, not directly
-    if (status === "CONFIRMED" && booking.paymentMethod === "ONLINE" && booking.paymentStatus !== "PAID") {
-      return Response.json(
-        { error: "This booking is paid by bank transfer. Review the player's receipt under Payments to confirm it." },
-        { status: 400 },
-      );
-    }
+    // Same transition rules as the owner (no-shows go through GoPlay's review)
+    const transitionError = groundTransitionError(booking, status);
+    if (transitionError) return Response.json({ error: transitionError }, { status: 400 });
+    const changedElsewhere = () => Response.json({ error: "This booking was just changed by someone else. Refresh and try again." }, { status: 409 });
 
     if (status === "COMPLETED") {
       const sessionEnd = slotInstant(booking.bookingDate, booking.endTime);
@@ -113,27 +101,26 @@ export async function PUT(
       if (booking.paymentMethod === "ON_ARRIVAL") {
         updateData.paymentStatus = cashReceived ? "PAID" : "PENDING";
       }
-      const updated = await db.facilityBooking.update({ where: { id }, data: updateData });
+      if (!(await moveBooking(id, booking.status, updateData))) return changedElsewhere();
+      const updated = await db.facilityBooking.findUniqueOrThrow({ where: { id } });
 
-      const existingEarning = await db.groundEarning.findUnique({ where: { bookingId: id } });
-      if (!existingEarning) {
-        const profile = await db.groundOwnerProfile.findUnique({ where: { userId: ownerId } });
-        if (profile) {
-          const figures        = await earningFigures(booking);
-          await db.groundEarning.create({
-            data: {
-              bookingId:     id,
-              facilityId:    booking.facilityId,
-              ownerId:       profile.id,
-              ...figures,
-              paymentMethod: booking.paymentMethod,
-              cashConfirmed: booking.paymentMethod === "ONLINE"
-                ? booking.paymentStatus === "PAID"
-                : (cashReceived === true),
-            },
-          });
-
-        }
+      const profile = await db.groundOwnerProfile.findUnique({ where: { userId: ownerId } });
+      if (profile) {
+        // upsert: a concurrent completion can't fail on the unique bookingId
+        await db.groundEarning.upsert({
+          where:  { bookingId: id },
+          update: {},
+          create: {
+            bookingId:     id,
+            facilityId:    booking.facilityId,
+            ownerId:       profile.id,
+            ...(await earningFigures(booking)),
+            paymentMethod: booking.paymentMethod,
+            cashConfirmed: booking.paymentMethod === "ONLINE"
+              ? booking.paymentStatus === "PAID"
+              : (cashReceived === true),
+          },
+        });
       }
 
       await createNotification({
@@ -158,7 +145,8 @@ export async function PUT(
 
     // ── CONFIRMED ─────────────────────────────────────────────────────────────
     if (status === "CONFIRMED") {
-      const updated = await db.facilityBooking.update({ where: { id }, data: { status } });
+      if (!(await moveBooking(id, booking.status, { status }))) return changedElsewhere();
+      const updated = await db.facilityBooking.findUniqueOrThrow({ where: { id } });
       await createNotification({
         userId:  booking.user.id,
         title:   "Booking Confirmed",
@@ -205,6 +193,16 @@ export async function PUT(
       const newStrikes = currentStrikes + 1;
       const suspend    = newStrikes >= STRIKE_SUSPEND_THRESHOLD;
 
+      const cancelled = await moveBooking(id, booking.status, {
+        status:        "CANCELLED",
+        cancelledAt:   new Date(),
+        cancelledBy:   "worker",
+        refundPercent: 100,
+        refundAmount:  booking.totalAmount,
+        ...(isOnlinePaid && { refundStatus: "NEEDED" as const }),
+      });
+      if (!cancelled) return changedElsewhere();
+
       await db.sportsFacility.update({
         where: { id: facilityId },
         data: {
@@ -214,17 +212,6 @@ export async function PUT(
         },
       });
 
-      await db.facilityBooking.update({
-        where: { id },
-        data: {
-          status:       "CANCELLED",
-          cancelledAt:  new Date(),
-          cancelledBy:  "worker",
-          refundPercent: 100,
-          refundAmount:  booking.totalAmount,
-          ...(isOnlinePaid && { refundStatus: "NEEDED" }),
-        },
-      });
 
       // Admin notifications
       const adminMsgs: { title: string; message: string; type: "error" | "warning" }[] = [];

@@ -120,7 +120,7 @@ model SportsFacility {
   openMatches          OpenMatch[]
   lobbyPayouts         LobbyPayout[]
   paymentComplaints    PaymentComplaint[]
-  owner                GroundOwnerProfile     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner                GroundOwnerProfile     @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   categories           SportsCategory[]       @relation("SportsCategoryToSportsFacility")
 
   @@index([ownerId])
@@ -210,7 +210,7 @@ model FacilityBooking {
   noShowReviewedBy    String?
   noShowReviewNote    String?
   court               FacilityCourt?     @relation(fields: [courtId], references: [id])
-  facility            SportsFacility     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  facility            SportsFacility     @relation(fields: [facilityId], references: [id], onDelete: Restrict)
   openMatch           OpenMatch?         @relation(fields: [openMatchId], references: [id])
   user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   review              FacilityReview?
@@ -293,9 +293,9 @@ model GroundEarning {
   commissionNote      String?
   commissionPaid      Boolean            @default(false)
   commissionSettledAt DateTime?
-  booking             FacilityBooking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  facility            SportsFacility     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  owner               GroundOwnerProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  booking             FacilityBooking    @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  facility            SportsFacility     @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  owner               GroundOwnerProfile @relation(fields: [ownerId], references: [id], onDelete: Restrict)
 
   @@index([ownerId])
   @@index([facilityId])
@@ -583,8 +583,8 @@ model LobbyPayout {
   paidBy           String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
-  match            OpenMatch      @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  facility         SportsFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  match            OpenMatch      @relation(fields: [matchId], references: [id], onDelete: Restrict)
+  facility         SportsFacility @relation(fields: [facilityId], references: [id], onDelete: Restrict)
 
   @@index([status])
   @@index([facilityId])
