@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   ClipboardList, Search, CheckCircle, XCircle, Clock,
   User, Building2, MapPin, Phone, DollarSign, Users,
-  ChevronDown, ChevronUp, Loader2, Eye,
+  ChevronDown, ChevronUp, Loader2, Eye, X,
 } from "lucide-react";
 
 interface Application {
@@ -43,6 +43,11 @@ const CARD_STYLE: Record<string, { icon: string; bg: string; border: string; rin
 };
 
 function Modal({ app, onClose, onDone }: { app: Application; onClose: () => void; onDone: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
   const [action, setAction]             = useState<"approve" | "reject" | null>(null);
   const [rejectionReason, setReason]    = useState("");
   const [adminNotes, setAdminNotes]     = useState("");
@@ -75,17 +80,22 @@ function Modal({ app, onClose, onDone }: { app: Application; onClose: () => void
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Application review" className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Application Review</h2>
             <p className="text-sm text-slate-500">Submitted {new Date(app.createdAt).toLocaleDateString()}</p>
           </div>
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_COLORS[app.status]}`}>
-            {app.status}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_COLORS[app.status]}`}>
+              {app.status}
+            </span>
+            <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="p-6 space-y-6">

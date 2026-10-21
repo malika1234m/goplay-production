@@ -218,7 +218,7 @@ function GroundLinks({ grounds, isDone, doneLabel, todoLabel, action, href, Icon
   );
 }
 
-function DetailsStep({ profile, done, onSaved }: { profile: Profile; done: boolean; onSaved: () => void }) {
+function DetailsStep({ profile, onSaved }: { profile: Profile; done: boolean; onSaved: () => void }) {
   const p = profile.groundOwnerProfile;
   const [form, setForm] = useState({ phone: profile.phone ?? "", businessName: p?.businessName ?? "", city: p?.city ?? "" });
   const [saving, setSaving] = useState(false);

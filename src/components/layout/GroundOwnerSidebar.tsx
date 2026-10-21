@@ -7,7 +7,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
 import {
   LayoutDashboard, Building2, CalendarCheck, Clock,
-  DollarSign, Star, LogOut, User, TrendingUp, Wrench,
+  Star, LogOut, User, TrendingUp, Wrench,
   Wallet, CalendarDays, Users, Menu, X,
   ListChecks,
 } from "lucide-react";

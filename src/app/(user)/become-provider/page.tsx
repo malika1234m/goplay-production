@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
@@ -29,7 +28,6 @@ const DRAFT_KEY = "goplay_provider_draft";
 
 export default function BecomeProviderPage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
 
   const [step,        setStep]       = useState(1);
   const [categories,  setCategories] = useState<Category[]>([]);
@@ -66,7 +64,7 @@ export default function BecomeProviderPage() {
         }
       }
     } catch {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   useEffect(() => {
@@ -77,7 +75,7 @@ export default function BecomeProviderPage() {
   useEffect(() => {
     const hasData = form.phone || form.facilityName || form.address;
     if (hasData) localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [form]);
 
   const toggleAmenity = (a: string) =>

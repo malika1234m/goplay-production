@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Users, DollarSign, MapPin, TrendingUp, Loader2, UserPlus, CheckCircle, RefreshCw, CalendarDays, BadgeDollarSign, Landmark, ChevronRight, ShieldCheck, Wallet, Info } from "lucide-react";
+import { Users, DollarSign, MapPin, TrendingUp, Loader2, RefreshCw, CalendarDays, BadgeDollarSign, Landmark, ChevronRight, ShieldCheck, Wallet, Info } from "lucide-react";
 import MoneyTrendChart from "@/components/admin/MoneyTrendChart";
 
 interface Stats {

@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { useState } from "react";
-import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Building2, Zap, Trophy, CalendarDays } from "lucide-react";
+import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Building2, Zap, CalendarDays } from "lucide-react";
 import NotificationBell from "@/components/layout/NotificationBell";
 
 export default function Navbar() {

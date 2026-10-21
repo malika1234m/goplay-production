@@ -336,7 +336,7 @@ export default function MyBookingsPage() {
     const s = new URLSearchParams(window.location.search).get("status");
     const valid = ["CONFIRMED", "PENDING", "COMPLETED", "CANCELLED", "NO_SHOW"];
     if (s && valid.includes(s)) setStatusFilter(s);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   // Cancel modal

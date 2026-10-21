@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Zap, Calendar, Clock, Users, ChevronRight, Loader2, Plus, ArrowRight, Building2 } from "lucide-react";
+import { Zap, Calendar, Clock, Users, ChevronRight, Loader2, Plus, ArrowRight } from "lucide-react";
 
 interface Lobby {
   id: string;

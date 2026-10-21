@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { facilityTakesBookings, slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
 import { slotInstant } from "@/lib/local-time";
 import { getSession } from "@/lib/mobile-auth";
-import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
+import { resolvePaymentDetails } from "@/lib/payment-details";
 import { staleUnpaidBookingWhere } from "@/lib/payment-review";
 import { getReceiptWindowMinutes } from "@/lib/settings";
 import { bookablePaymentMethods } from "@/lib/payment-options";

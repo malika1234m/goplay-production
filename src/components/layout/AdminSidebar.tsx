@@ -197,6 +197,7 @@ export default function AdminSidebar() {
               id === "refunds"      && refundNeeded    > 0 ? refundNeeded    :
               id === "complaints"   && openComplaints  > 0 ? openComplaints  :
               id === "reviews"      && reportedReviews > 0 ? reportedReviews :
+              id === "cancellations" && cancellationAlerts > 0 ? cancellationAlerts :
               id === "open-matches" && openMatchAlerts > 0 ? openMatchAlerts :
               id === "lobby-payments" && lobbyPaymentTasks > 0 ? lobbyPaymentTasks :
               id === "trust"        && trustTasks        > 0 ? trustTasks        : 0;

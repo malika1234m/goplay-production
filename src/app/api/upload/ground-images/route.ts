@@ -8,7 +8,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_FILES     = 8;
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif"];
 
-function uploadToCloudinary(buffer: Buffer, mimetype: string): Promise<string> {
+function uploadToCloudinary(buffer: Buffer): Promise<string> {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Upload all files in parallel
-    const urls = await Promise.all(files.map((file, i) => uploadToCloudinary(buffers[i], file.type)));
+    const urls = await Promise.all(buffers.map((b) => uploadToCloudinary(b)));
 
     return Response.json({ urls });
   } catch (err) {

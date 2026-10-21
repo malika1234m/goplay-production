@@ -2,7 +2,6 @@
 
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
-import Link from "next/link";
 import "leaflet/dist/leaflet.css";
 
 const pinIcon = L.icon({

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Check, FileText, Loader2, Undo2, UserX, X } from "lucide-react";
-import { RowAmount, RowGroup, RowTag, RowWhen, RowWho, TypeBadge, TypeLegend, primaryBtn, quietBtn, rowClass, typedRow, type BookingType } from "./BookingRow";
+import { RowAmount, RowGroup, RowTag, RowWhen, RowWho, TypeBadge, TypeLegend, primaryBtn, quietBtn, typedRow, type BookingType } from "./BookingRow";
 import { isPdf } from "./types";
 import type { PaymentDetails } from "./types";
 import type { T } from "@/i18n/core";

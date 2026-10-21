@@ -27,7 +27,6 @@ const FACILITIES = {
   negombo:  "cmoeiginf000dt3yfej6ar3ho", // Negombo Tennis Club
 };
 
-const SEED_TAG = "DEMO_CANCEL_SEED"; // stored in cancelledBy to identify seed rows
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function daysAgo(n: number) { return new Date(Date.now() - n * 86_400_000); }

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { Target, Users, Zap, ShieldCheck, MapPin, Mail, Phone } from "lucide-react";
 import AdSlot from "@/components/ads/AdSlot";
 

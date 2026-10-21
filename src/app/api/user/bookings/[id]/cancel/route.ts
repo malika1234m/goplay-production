@@ -8,8 +8,6 @@ import {
   getCancellationPolicyFromTiers,
   loadPolicyTiers,
   CASH_CANCEL_BAN_THRESHOLD,
-  NO_SHOW_ONLINE_THRESHOLD,
-  NO_SHOW_SUSPEND_THRESHOLD,
 } from "@/lib/cancellation-policy";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
