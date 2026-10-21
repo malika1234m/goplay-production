@@ -49,6 +49,10 @@ jobs:
 
       - run: npm ci
 
+      # Prisma 7 no longer generates the client on install or db push
+      - name: Generate the Prisma client
+        run: npx prisma generate
+
       - name: Database schema and seed data
         run: |
           npx prisma db push
