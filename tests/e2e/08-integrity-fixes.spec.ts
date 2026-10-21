@@ -388,3 +388,30 @@ test.describe("No-show reports", () => {
     expect(row.noShowReview).toBe("CONFIRMED");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe("Commission settlement", () => {
+  test("a settlement records the payment and exactly the commission the admin saw", async () => {
+    const done = await seedBooking({ userId: ids.ana, facilityId: ground.id, courtId: ground.courtId, daysFromToday: -3, start: "20:00", end: "21:00", status: "COMPLETED" });
+    await q(
+      `insert into "GroundEarning" (id, "bookingId", "facilityId", "ownerId", "grossAmount", "platformFee", "netAmount", "paymentMethod", "earnedAt")
+       values ($1, $2, $3, $4, 2500, 250, 2250, 'ON_ARRIVAL', now())`,
+      [`${TAG}e${Date.now()}`, done, ground.id, ground.ownerId],
+    );
+    const [{ owed }] = await q<{ owed: number }>(`select coalesce(sum("platformFee"), 0) as owed from "GroundEarning" where "ownerId" = $1 and not "commissionPaid" and "platformFee" > 0`, [ground.ownerId]);
+
+    // The admin's page is out of date: nothing is settled
+    const stale = await admin.post(`${BASE}/api/admin/commissions/${ground.ownerId}/settle`, { data: { expectedTotal: owed - 250, reference: "E2E-STALE" } });
+    expect(stale.status()).toBe(409);
+    expect(await q(`select 1 from "CommissionSettlement" where reference = 'E2E-STALE'`)).toHaveLength(0);
+
+    const ok = await admin.post(`${BASE}/api/admin/commissions/${ground.ownerId}/settle`, { data: { expectedTotal: owed, reference: "E2E-REF-9", note: "Bank transfer" } });
+    expect(ok.status()).toBe(200);
+    const { settlementId } = await ok.json();
+    const [st] = await q<{ amount: number; reference: string }>(`select amount, reference from "CommissionSettlement" where id = $1`, [settlementId]);
+    expect(st.amount).toBeCloseTo(owed, 2);
+    expect(st.reference).toBe("E2E-REF-9");
+    const [e] = await q<{ commissionPaid: boolean; settlementId: string }>(`select "commissionPaid", "settlementId" from "GroundEarning" where "bookingId" = $1`, [done]);
+    expect([e.commissionPaid, e.settlementId]).toEqual([true, settlementId]);
+  });
+});

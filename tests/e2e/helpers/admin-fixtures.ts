@@ -123,6 +123,9 @@ export async function cleanup(ids: Record<string, string>, snap: Awaited<ReturnT
   const bookings = (await q<{ id: string }>(
     `select id from "FacilityBooking" where "userId" = any($1) or "openMatchId" = any($2) or id like $3`, [users, matches, `${TAG}%`],
   )).map((r) => r.id);
+  // Settlements the suite's admin recorded: unlink their earnings, then remove them
+  await q(`update "GroundEarning" set "settlementId" = null where "settlementId" in (select id from "CommissionSettlement" where "settledBy" = any($1))`, [users]);
+  await q(`delete from "CommissionSettlement" where "settledBy" = any($1)`, [users]);
   await q(`delete from "GroundEarning" where "bookingId" = any($1)`, [bookings]);
   await q(`delete from "PaymentComplaint" where "bookingId" = any($1)`, [bookings]).catch(() => undefined);
   await q(`delete from "FacilityBooking" where id = any($1)`, [bookings]);
@@ -139,7 +142,7 @@ export async function cleanup(ids: Record<string, string>, snap: Awaited<ReturnT
     await q(`delete from "PlatformSetting" where key like 'platformBank%'`);
     for (const r of snap.bank) await q(`insert into "PlatformSetting" (key, value, "updatedAt") values ($1, $2, now())`, [r.key, r.value]);
     await q(`update "SportsFacility" set "commissionRate" = $1 where id = $2`, [snap.rate, facilityId]);
-    await q(`update "GroundEarning" set "commissionPaid" = false, "commissionSettledAt" = null where id = any($1)`, [snap.unpaid]);
+    await q(`update "GroundEarning" set "commissionPaid" = false, "commissionSettledAt" = null, "settlementId" = null where id = any($1)`, [snap.unpaid]);
     await q(`update "GroundOwnerProfile" set "commissionRequestedAmount" = $1, "commissionRequestedAt" = $2 where id = $3`, [snap.request?.a ?? null, snap.request?.at ?? null, ownerProfileId]);
   }
 }

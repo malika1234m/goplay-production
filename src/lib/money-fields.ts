@@ -38,6 +38,9 @@ export const moneyAsNumbers = Prisma.defineExtension({
       amountDue:    { needs: { amountDue: true },    compute: (r) => n(r.amountDue) },
       refundAmount: { needs: { refundAmount: true }, compute: (r) => nn(r.refundAmount) },
     },
+    commissionSettlement: {
+      amount: { needs: { amount: true }, compute: (r) => n(r.amount) },
+    },
     lobbyPayout: {
       collectedAmount:  { needs: { collectedAmount: true },  compute: (r) => n(r.collectedAmount) },
       courtAmount:      { needs: { courtAmount: true },      compute: (r) => n(r.courtAmount) },

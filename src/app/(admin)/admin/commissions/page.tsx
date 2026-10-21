@@ -288,7 +288,8 @@ function SettleModal({
   onClose: () => void;
   onDone:  () => void;
 }) {
-  const [note,     setNote]     = useState("");
+  const [note,      setNote]      = useState("");
+  const [reference, setReference] = useState("");
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
 
@@ -299,7 +300,8 @@ function SettleModal({
       const res  = await fetch(`/api/admin/commissions/${owner.ownerId}/settle`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ note }),
+        // The total shown here: if more commission came in meanwhile, the server asks to refresh
+        body:    JSON.stringify({ note, reference, expectedTotal: owner.unpaidCommission }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Settlement failed."); return; }
@@ -339,8 +341,21 @@ function SettleModal({
         </div>
 
         <p className="text-xs text-slate-500">
-          Confirm the owner has paid this commission to GoPlay (cash, bank transfer, etc.). All outstanding commission will be marked as settled.
+          Confirm the owner has paid this commission to GoPlay (cash, bank transfer, etc.). The amount above is recorded as one
+          payment, with the reference, and those bookings are marked settled.
         </p>
+
+        <div>
+          <label htmlFor="settle-ref" className="block text-xs font-medium text-slate-600 mb-1.5">Bank or receipt reference</label>
+          <input
+            id="settle-ref"
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            maxLength={100}
+            placeholder="e.g. transfer reference or cash receipt number"
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+          />
+        </div>
 
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1.5">Note (optional)</label>
