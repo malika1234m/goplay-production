@@ -58,6 +58,7 @@ export default function ActionInbox({ role, view, onCounts }: { role: "owner" | 
   const [viewing,  setViewing]  = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<Receipt | null>(null);
   const [reason,   setReason]   = useState("");
+  const [refundRef, setRefundRef] = useState<Record<string, string>>({});   // bank reference per refund
   const { t } = useT();
 
   const load = useCallback(async () => {
@@ -115,7 +116,7 @@ export default function ActionInbox({ role, view, onCounts }: { role: "owner" | 
     act(c.id, () => role === "owner" ? post(`/api/ground-owner/bookings/${c.id}/noshow`, {}, "PUT") : post(statusUrl(c.id), { status: "NO_SHOW" }, "PUT"),
       t("{name} marked as a no-show.", { name: c.player }));
   const markRefunded = (r: Refund) =>
-    act(r.id, () => post(`/api/ground-owner/bookings/${r.id}/refund`, {}), t("Refund to {name} marked as sent.", { name: r.player }));
+    act(r.id, () => post(`/api/ground-owner/bookings/${r.id}/refund`, { reference: (refundRef[r.id] ?? "").trim() }), t("Refund to {name} marked as sent.", { name: r.player }));
 
   if (!data) {
     return error
@@ -233,7 +234,12 @@ export default function ActionInbox({ role, view, onCounts }: { role: "owner" | 
             <RowWhen date={r.date} startTime={r.startTime} endTime={r.endTime} />
             <div className="flex-1 min-w-0"><RowWho name={r.player} place={place(r, t("cancelled by {who}", { who: r.cancelledBy ? t(r.cancelledBy) : "—" }))} phone={r.phone} /></div>
             <RowAmount amount={r.amount} note={t("{n}% refund", { n: r.percent })} />
-            <button type="button" onClick={() => markRefunded(r)} disabled={busy === r.id}
+            <label className="sr-only" htmlFor={`refund-ref-${r.id}`}>{t("Bank transfer reference")}</label>
+            <input id={`refund-ref-${r.id}`} value={refundRef[r.id] ?? ""} maxLength={100}
+              onChange={(e) => setRefundRef((m) => ({ ...m, [r.id]: e.target.value }))}
+              placeholder={t("Transfer reference")}
+              className="sm:w-40 rounded-lg border border-rule px-3 py-2.5 text-base sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pitch" />
+            <button type="button" onClick={() => markRefunded(r)} disabled={busy === r.id || (refundRef[r.id] ?? "").trim().length < 3}
               className="sm:w-44 inline-flex items-center justify-center gap-1.5 rounded-lg border border-pitch-deep px-4 py-2.5 text-sm font-semibold text-pitch-deep hover:bg-pitch-deep hover:text-white disabled:opacity-60">
               {busy === r.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />} {t("Mark refund sent")}
             </button>
