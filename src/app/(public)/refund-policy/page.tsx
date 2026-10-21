@@ -60,7 +60,7 @@ export default function RefundPolicyPage() {
 
           <Section title="3. Online Payment Bookings">
             <p>
-              If you chose "Pay online", you paid the ground owner directly by bank transfer. If your
+              If you chose &quot;Pay online&quot;, you paid the ground owner directly by bank transfer. If your
               transfer was confirmed (or your receipt was still under review), the ground refunds you based
               on when you cancel:
             </p>

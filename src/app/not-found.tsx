@@ -22,7 +22,7 @@ export default function NotFound() {
           Coming Soon
         </h1>
         <p className="text-slate-400 text-sm leading-relaxed mb-8">
-          This page is still being built. We're working hard to get it ready —
+          This page is still being built. We&apos;re working hard to get it ready —
           check back soon!
         </p>
 

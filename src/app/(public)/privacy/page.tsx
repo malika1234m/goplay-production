@@ -33,7 +33,7 @@ export default function PrivacyPage() {
         <div className="bg-white rounded-2xl border border-slate-100 p-8 sm:p-10">
 
           <p className="text-sm text-slate-600 leading-relaxed mb-10">
-            GoPlay ("we", "our", or "us") is committed to protecting your personal information. This Privacy Policy
+            GoPlay (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is committed to protecting your personal information. This Privacy Policy
             explains what data we collect, how we use it, and your rights regarding that data when you use our
             platform at <strong>goplay.lk</strong>.
           </p>
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
             <p><strong>Booking information:</strong> When you make a booking, we collect the date, time, facility, payment method, and any special requests you provide.</p>
             <p><strong>Payment information:</strong> We do not store card details. When you pay online by bank transfer, we store the receipt image you upload and its review status, and share it only with the ground owner (and their staff) for that booking, and with GoPlay support if you raise a complaint.</p>
             <p><strong>Usage data:</strong> We collect standard server logs including IP address, browser type, pages visited, and timestamps to help diagnose issues and improve the service.</p>
-            <p><strong>Location data:</strong> If you use the "Near Me" feature, your browser shares your approximate GPS coordinates with us temporarily to show nearby facilities. This is not stored on our servers.</p>
+            <p><strong>Location data:</strong> If you use the &quot;Near Me&quot; feature, your browser shares your approximate GPS coordinates with us temporarily to show nearby facilities. This is not stored on our servers.</p>
           </Section>
 
           <Section title="2. How We Use Your Information">
@@ -97,7 +97,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="9. Changes to This Policy">
-            <p>We may update this Privacy Policy from time to time. We will notify registered users by email and update the "Last updated" date at the top of this page. Continued use of GoPlay after changes constitutes your acceptance of the updated policy.</p>
+            <p>We may update this Privacy Policy from time to time. We will notify registered users by email and update the &quot;Last updated&quot; date at the top of this page. Continued use of GoPlay after changes constitutes your acceptance of the updated policy.</p>
           </Section>
 
           <Section title="10. Contact Us">

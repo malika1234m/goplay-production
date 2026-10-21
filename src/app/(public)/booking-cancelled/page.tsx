@@ -86,7 +86,7 @@ function CancelledContent() {
 
         {booking && (
           <div className="mt-5 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 text-xs text-blue-700">
-            <strong>Payment issues?</strong> If your card was charged but booking shows cancelled, contact us — we'll sort it out immediately.
+            <strong>Payment issues?</strong> If your card was charged but booking shows cancelled, contact us — we&apos;ll sort it out immediately.
           </div>
         )}
       </div>

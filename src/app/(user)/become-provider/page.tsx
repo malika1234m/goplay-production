@@ -157,7 +157,7 @@ export default function BecomeProviderPage() {
     return (
       <div className="max-w-md mx-auto text-center py-20">
         <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-slate-900 mb-2">You're already a Ground Owner</h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">You&apos;re already a Ground Owner</h2>
         <p className="text-slate-500 text-sm mb-6">Access your dashboard to manage your grounds.</p>
         <Link href="/ground-owner/dashboard" className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors inline-block">Go to Dashboard</Link>
       </div>
@@ -182,7 +182,7 @@ export default function BecomeProviderPage() {
           existing.status === "APPROVED" ? "bg-green-50 border-green-200" :
                                            "bg-red-50 border-red-200"
         }`}>
-          {existing.status === "PENDING"  && <><Loader2 className="w-12 h-12 text-amber-500 mx-auto mb-4 animate-spin" /><h2 className="text-xl font-bold text-amber-900 mb-2">Application Under Review</h2><p className="text-amber-700 text-sm">Your application is being reviewed by our admin team. We'll notify you via SMS and in-app once it's processed.</p></>}
+          {existing.status === "PENDING"  && <><Loader2 className="w-12 h-12 text-amber-500 mx-auto mb-4 animate-spin" /><h2 className="text-xl font-bold text-amber-900 mb-2">Application Under Review</h2><p className="text-amber-700 text-sm">Your application is being reviewed by our admin team. We&apos;ll notify you via SMS and in-app once it&apos;s processed.</p></>}
           {existing.status === "APPROVED" && <><CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" /><h2 className="text-xl font-bold text-green-900 mb-2">Application Approved!</h2><p className="text-green-700 text-sm mb-6">Your application has been approved. Please log out and log back in to access your Ground Owner dashboard.</p><Link href="/ground-owner/dashboard" className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors inline-block">Go to Dashboard</Link></>}
           {existing.status === "REJECTED" && <><AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" /><h2 className="text-xl font-bold text-red-900 mb-2">Application Not Approved</h2><p className="text-red-700 text-sm mb-6">Your previous application was not approved. You may submit a new application addressing the feedback.</p><button onClick={() => setExisting(null)} className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors">Apply Again</button></>}
         </div>
@@ -200,7 +200,7 @@ export default function BecomeProviderPage() {
         <p className="text-slate-500 text-sm mb-2 max-w-sm mx-auto">
           Your application to become a Ground Owner has been submitted. Our team will review it and get back to you.
         </p>
-        <p className="text-xs text-slate-400 mb-8">You'll receive an SMS and in-app notification once reviewed.</p>
+        <p className="text-xs text-slate-400 mb-8">You&apos;ll receive an SMS and in-app notification once reviewed.</p>
         <Link href="/dashboard" className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors inline-block">Back to Dashboard</Link>
       </div>
     );
@@ -467,7 +467,7 @@ export default function BecomeProviderPage() {
               </div>
 
               <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-xs text-amber-700">
-                After submission, our admin team will review your application. Once approved, you'll receive an SMS notification and your account will be upgraded to Ground Owner. Your facility will also be submitted for a separate listing review.
+                After submission, our admin team will review your application. Once approved, you&apos;ll receive an SMS notification and your account will be upgraded to Ground Owner. Your facility will also be submitted for a separate listing review.
               </div>
 
               <div className="border border-slate-200 rounded-xl p-4">

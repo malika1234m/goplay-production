@@ -48,15 +48,15 @@ export default function TermsPage() {
 
           <Section title="3. Booking Policy">
             <p><strong>Confirmed bookings:</strong> A booking is confirmed once payment is completed (online) or marked as confirmed by the facility (walk-in). You will receive an email/notification confirmation.</p>
-            <p><strong>Cancellations by users:</strong> Cancellation policies are set by individual facilities. Please review the facility's cancellation terms before booking. GoPlay is not liable for any facility-imposed cancellation fees.</p>
-            <p><strong>No-shows:</strong> If you do not show up for a confirmed booking, the booking amount may be forfeited depending on the facility's policy.</p>
+            <p><strong>Cancellations by users:</strong> Cancellation policies are set by individual facilities. Please review the facility&apos;s cancellation terms before booking. GoPlay is not liable for any facility-imposed cancellation fees.</p>
+            <p><strong>No-shows:</strong> If you do not show up for a confirmed booking, the booking amount may be forfeited depending on the facility&apos;s policy.</p>
             <p><strong>Modifications:</strong> Time-slot changes are subject to availability and must be made within the platform. GoPlay does not guarantee availability of alternative slots.</p>
           </Section>
 
           <Section title="4. Payments">
-            <p>All prices displayed on GoPlay are in Sri Lankan Rupees (LKR) inclusive of applicable taxes. Players pay the ground owner directly — in cash at the ground, or online by bank transfer to the ground's account followed by uploading the transfer receipt. GoPlay does not handle or hold player payments and does not store card information. If a ground rejects a receipt you believe is valid, you can raise a complaint through GoPlay.</p>
+            <p>All prices displayed on GoPlay are in Sri Lankan Rupees (LKR) inclusive of applicable taxes. Players pay the ground owner directly — in cash at the ground, or online by bank transfer to the ground&apos;s account followed by uploading the transfer receipt. GoPlay does not handle or hold player payments and does not store card information. If a ground rejects a receipt you believe is valid, you can raise a complaint through GoPlay.</p>
             <p>In the event of a payment failure, your booking will not be confirmed. Please retry or contact support.</p>
-            <p><strong>Refunds:</strong> Refund eligibility is determined by the facility's cancellation policy and, where applicable, the GoPlay refund policy. Approved refunds are processed within 5–7 business days.</p>
+            <p><strong>Refunds:</strong> Refund eligibility is determined by the facility&apos;s cancellation policy and, where applicable, the GoPlay refund policy. Approved refunds are processed within 5–7 business days.</p>
           </Section>
 
           <Section title="5. Facility Owner Obligations">
@@ -96,7 +96,7 @@ export default function TermsPage() {
               <li>Injuries, damages, or losses sustained at a facility</li>
               <li>Service interruptions or data loss beyond our reasonable control</li>
             </ul>
-            <p>To the fullest extent permitted by law, GoPlay's total liability for any claim shall not exceed the amount paid by you for the specific booking giving rise to the claim.</p>
+            <p>To the fullest extent permitted by law, GoPlay&apos;s total liability for any claim shall not exceed the amount paid by you for the specific booking giving rise to the claim.</p>
           </Section>
 
           <Section title="9. Termination">

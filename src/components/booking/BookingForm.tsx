@@ -534,7 +534,7 @@ export default function BookingForm({
         </div>
         {phoneError
           ? <p className="text-xs text-red-500 mt-1">{phoneError}</p>
-          : <p className="text-xs text-slate-400 mt-1">We'll send booking updates to this number via SMS.</p>
+          : <p className="text-xs text-slate-400 mt-1">We&apos;ll send booking updates to this number via SMS.</p>
         }
       </div>
 

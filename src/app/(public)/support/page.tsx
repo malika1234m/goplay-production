@@ -168,7 +168,7 @@ export default function SupportPage() {
             <p className="text-slate-700 text-sm leading-relaxed">
               <strong className="text-slate-900">GoPlay Connect</strong> lets you create or join an <em>open match lobby</em> for any sport.
               Once enough players have reserved spots to fill the court, GoPlay automatically confirms the booking for everyone in the lobby.
-              You don't need to know anyone in advance — just pick your sport, ground, and time, and we find your teammates.
+              You don&apos;t need to know anyone in advance — just pick your sport, ground, and time, and we find your teammates.
             </p>
           </div>
 
@@ -236,7 +236,7 @@ export default function SupportPage() {
         <section id="contact" className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl text-white p-10 text-center">
           <h2 className="text-2xl font-bold mb-2">Still Need Help?</h2>
           <p className="text-green-100 text-sm mb-8 max-w-md mx-auto">
-            Can't find what you're looking for? Our support team is here to help you.
+            Can&apos;t find what you&apos;re looking for? Our support team is here to help you.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a

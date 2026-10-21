@@ -606,7 +606,7 @@ export default function AdminCancellationsPage() {
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-amber-900">{s.suspendedListings} listing{s.suspendedListings > 1 ? "s" : ""} suspended due to owner strikes</p>
-                <p className="text-xs text-amber-700 mt-0.5">Review each facility's cancellation history before restoring.</p>
+                <p className="text-xs text-amber-700 mt-0.5">Review each facility&apos;s cancellation history before restoring.</p>
                 <button onClick={() => setTab("strikes")} className="mt-2 flex items-center gap-1 text-xs font-semibold text-amber-700 hover:text-amber-900">
                   Review Strikes <ChevronRight className="w-3.5 h-3.5" />
                 </button>
@@ -619,7 +619,7 @@ export default function AdminCancellationsPage() {
               <Ban className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-red-900">{s.suspendedUsers} user account{s.suspendedUsers > 1 ? "s" : ""} suspended</p>
-                <p className="text-xs text-red-700 mt-0.5">Review each user's offense history before lifting restrictions.</p>
+                <p className="text-xs text-red-700 mt-0.5">Review each user&apos;s offense history before lifting restrictions.</p>
                 <button onClick={() => setTab("users")} className="mt-2 flex items-center gap-1 text-xs font-semibold text-red-700 hover:text-red-900">
                   Review Users <ChevronRight className="w-3.5 h-3.5" />
                 </button>

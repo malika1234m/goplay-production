@@ -65,7 +65,7 @@ export default function WorkerDashboard() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">{t("Dashboard")}</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Today's overview for {facility.name}</p>
+        <p className="text-slate-500 text-sm mt-0.5">Today&apos;s overview for {facility.name}</p>
       </div>
 
       {/* Facility card */}

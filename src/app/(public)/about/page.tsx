@@ -46,7 +46,7 @@ export default function AboutPage() {
             <p className="text-slate-600 leading-relaxed">
               A Sri Lanka where every sports enthusiast can find a ground near them in under 60 seconds,
               and every facility owner can run a fully digital operation — bookings, payments, and staff — from one dashboard.
-              With <strong>GoPlay Connect</strong>, we're taking it further: even players without a full team can show up and play.
+              With <strong>GoPlay Connect</strong>, we&apos;re taking it further: even players without a full team can show up and play.
             </p>
           </div>
         </div>
@@ -92,7 +92,7 @@ export default function AboutPage() {
           <h2 className="text-3xl font-bold text-slate-900 mb-3">Just Getting Started</h2>
           <p className="text-slate-500 max-w-xl mx-auto">
             GoPlay is launching across Sri Lanka — starting in Colombo and expanding city by city.
-            Here's what's on the horizon.
+            Here&apos;s what&apos;s on the horizon.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center">
@@ -121,7 +121,7 @@ export default function AboutPage() {
               <span className="text-[10px] bg-white/25 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">New</span>
             </div>
             <p className="text-green-100 text-sm leading-relaxed max-w-lg">
-              Don't have a full team? Create or join an open match lobby. When all spots fill, GoPlay automatically books the court for everyone — no team needed, no calls required.
+              Don&apos;t have a full team? Create or join an open match lobby. When all spots fill, GoPlay automatically books the court for everyone — no team needed, no calls required.
             </p>
           </div>
           <Link href="/open-matches" className="shrink-0 bg-white hover:bg-green-50 text-green-700 font-semibold text-sm px-5 py-3 rounded-xl transition-colors">
@@ -134,7 +134,7 @@ export default function AboutPage() {
       <section className="bg-gradient-to-r from-green-600 to-emerald-600 text-white py-16 px-4">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-2xl font-bold mb-3">Get in Touch</h2>
-          <p className="text-green-100 mb-8">Have a question, partnership idea, or want to list your facility? We'd love to hear from you.</p>
+          <p className="text-green-100 mb-8">Have a question, partnership idea, or want to list your facility? We&apos;d love to hear from you.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm font-medium">
             <a href="mailto:official.goplay.support@gmail.com" className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 px-5 py-3 rounded-xl transition-colors">
               <Mail className="w-4 h-4" /> official.goplay.support@gmail.com

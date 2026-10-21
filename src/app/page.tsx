@@ -283,7 +283,7 @@ export default function HomePage() {
               <Zap className="w-3.5 h-3.5" /> GoPlay Connect
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 leading-tight mb-5">
-              Don't have a<br /> full team?
+              Don&apos;t have a<br /> full team?
             </h2>
             <p className="text-slate-500 text-sm sm:text-base leading-relaxed max-w-md">
               GoPlay Connect matches you with other players at the same ground, same time, same sport.

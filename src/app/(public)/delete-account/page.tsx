@@ -33,7 +33,7 @@ export default function DeleteAccountPage() {
         <div className="bg-white rounded-2xl border border-slate-100 p-8 sm:p-10">
 
           <p className="text-sm text-slate-600 leading-relaxed mb-10">
-            GoPlay ("we", "our", or "us") lets you request deletion of your account and the personal
+            GoPlay (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) lets you request deletion of your account and the personal
             data associated with it at any time. This page explains how to make a request, what data
             is removed, and what is retained.
           </p>
