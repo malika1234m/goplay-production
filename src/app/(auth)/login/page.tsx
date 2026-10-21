@@ -93,11 +93,7 @@ function LoginForm() {
       <div className="bg-white rounded-3xl shadow-xl shadow-slate-900/10 ring-1 ring-slate-100 p-6 sm:p-8 space-y-6">
         <AuthTabs />
 
-        <div>
-          <p className="font-scoreboard text-sm font-bold uppercase tracking-[0.2em] text-green-600">Matchday</p>
-          <h1 className="font-scoreboard text-4xl font-bold uppercase tracking-tight text-slate-900">Welcome back</h1>
-          <p className="text-slate-500 text-sm mt-1">Players, ground owners and staff sign in here.</p>
-        </div>
+        <h1 className="font-scoreboard text-4xl font-bold uppercase tracking-tight text-slate-900">Welcome back</h1>
 
         {/* Registered success banner */}
         {registered && (
@@ -187,12 +183,6 @@ function LoginForm() {
         </form>
       </div>
 
-      <p className="text-center text-sm text-slate-500 mt-6">
-        New to GoPlay?{" "}
-        <Link href="/register" className="text-green-700 font-semibold hover:text-green-800 transition-colors">
-          Create a free account
-        </Link>
-      </p>
     </div>
   );
 }

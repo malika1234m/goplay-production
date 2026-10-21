@@ -127,11 +127,7 @@ function RegisterForm() {
       <div className="bg-white rounded-3xl shadow-xl shadow-slate-900/10 ring-1 ring-slate-100 p-6 sm:p-8 space-y-6">
         <AuthTabs />
 
-        <div>
-          <p className="font-scoreboard text-sm font-bold uppercase tracking-[0.2em] text-green-600">Join the squad</p>
-          <h1 className="font-scoreboard text-4xl font-bold uppercase tracking-tight text-slate-900">Create your account</h1>
-          <p className="text-slate-500 text-sm mt-1">Book grounds and join open matches across Sri Lanka. It&apos;s free.</p>
-        </div>
+        <h1 className="font-scoreboard text-4xl font-bold uppercase tracking-tight text-slate-900">Create your account</h1>
 
         <GoogleButton label="Sign up with Google" />
 
@@ -264,12 +260,6 @@ function RegisterForm() {
         </form>
       </div>
 
-      <p className="text-center text-sm text-slate-500 mt-6">
-        Already have an account?{" "}
-        <Link href="/login" className="text-green-700 font-semibold hover:text-green-800 transition-colors">
-          Sign in
-        </Link>
-      </p>
     </div>
   );
 }

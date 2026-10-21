@@ -1,16 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
-import { CalendarCheck, Wallet, Users } from "lucide-react";
 import ScoreboardClock from "./ScoreboardClock";
 
 // The sign-in side panel: a floodlit pitch at night with a scoreboard. Pure SVG and CSS — no images
 // to load — and the floodlight sweep stops for people who prefer reduced motion (globals.css).
-
-const PROMISES = [
-  { icon: CalendarCheck, title: "Real-time availability", text: "See open slots at grounds across Sri Lanka and book in seconds." },
-  { icon: Wallet,        title: "Pay at the ground or online", text: "Cash on arrival, or a bank transfer straight to the ground." },
-  { icon: Users,         title: "Open matches",              text: "Short of players? Join a lobby and split the court." },
-];
 
 function PitchLines({ className }: { className?: string }) {
   return (
@@ -45,27 +38,12 @@ export function PitchPanel() {
         <span className="sr-only">GoPlay home</span>
       </Link>
 
-      <div className="relative space-y-8">
+      <div className="relative space-y-6">
         <ScoreboardClock />
-        <h2 className="font-scoreboard text-5xl xl:text-6xl font-bold uppercase leading-[0.95] tracking-tight text-balance">
+        <h2 className="font-scoreboard text-6xl xl:text-7xl font-bold uppercase leading-[0.9] tracking-tight text-balance">
           Your next game<br />starts <span className="text-amber-300">here.</span>
         </h2>
-        <ul className="space-y-4 max-w-md">
-          {PROMISES.map(({ icon: Icon, title, text }) => (
-            <li key={title} className="flex gap-4">
-              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15">
-                <Icon className="h-5 w-5 text-amber-300" aria-hidden="true" />
-              </span>
-              <span>
-                <span className="block font-semibold">{title}</span>
-                <span className="block text-sm text-green-100/80">{text}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
       </div>
-
-      <p className="relative text-sm text-green-100/70">Cricket · Football · Futsal · Tennis · Badminton and more</p>
     </aside>
   );
 }
@@ -73,7 +51,7 @@ export function PitchPanel() {
 /** Slim version above the form on phones and tablets. */
 export function PitchBanner() {
   return (
-    <div className="auth-pitch relative overflow-hidden px-5 pb-16 pt-6 text-white lg:hidden">
+    <div className="auth-pitch relative overflow-hidden px-5 pb-14 pt-5 text-white lg:hidden">
       <PitchLines className="absolute inset-0 h-full w-full opacity-70" />
       <span className="auth-floodlight auth-floodlight-right" aria-hidden="true" />
       <div className="relative mx-auto flex max-w-md items-center justify-between gap-4">
@@ -84,9 +62,6 @@ export function PitchBanner() {
         </Link>
         <ScoreboardClock compact />
       </div>
-      <p className="relative mx-auto mt-5 max-w-md font-scoreboard text-3xl font-bold uppercase leading-none tracking-tight">
-        Your next game starts <span className="text-amber-300">here.</span>
-      </p>
     </div>
   );
 }

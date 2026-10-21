@@ -35,10 +35,6 @@ export default function ScoreboardClock({ compact = false }: { compact?: boolean
           {time ?? "--:--"}
         </p>
       </div>
-      <div className="flex flex-col justify-center gap-1 border-l border-white/10 px-4 py-2.5">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-green-200/80">Bookings</p>
-        <p className="font-scoreboard text-xl font-bold leading-none">24/7</p>
-      </div>
     </div>
   );
 }
