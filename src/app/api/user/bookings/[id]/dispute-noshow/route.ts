@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
 import { isAllowed } from "@/lib/rateLimiter";
 import { notifyAdmins } from "@/lib/lobby-payments";
+import { NO_SHOW_DISPUTE_HOURS } from "@/lib/trust";
 
 // POST /api/user/bookings/[id]/dispute-noshow — { message } — "I was there": the player's side of a no-show report
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const booking = await db.facilityBooking.findFirst({
       where:  { id, userId: session.user.id },
-      select: { status: true, noShowReview: true, noShowDisputedAt: true, bookingDate: true, startTime: true, facility: { select: { name: true } } },
+      select: { status: true, noShowReview: true, noShowDisputedAt: true, noShowMarkedAt: true, bookingDate: true, startTime: true, facility: { select: { name: true } } },
     });
     if (!booking) return Response.json({ error: "Booking not found." }, { status: 404 });
     if (booking.status !== "NO_SHOW") return Response.json({ error: "This booking isn't marked as a no-show." }, { status: 409 });
@@ -30,10 +31,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     if (booking.noShowDisputedAt) return Response.json({ error: "You've already disputed this no-show — GoPlay is reviewing it." }, { status: 409 });
 
-    await db.facilityBooking.update({
-      where: { id },
+    if (booking.noShowMarkedAt && Date.now() > booking.noShowMarkedAt.getTime() + NO_SHOW_DISPUTE_HOURS * 3_600_000) {
+      return Response.json({ error: `The ${NO_SHOW_DISPUTE_HOURS}-hour window to dispute this no-show has passed. Contact GoPlay support if something went wrong.` }, { status: 409 });
+    }
+
+    // Only while the report is still waiting: a confirmation landing at the same moment wins, and
+    // a counted no-show can never be turned back into a pending one here
+    const { count } = await db.facilityBooking.updateMany({
+      where: { id, userId: session.user.id, status: "NO_SHOW", noShowDisputedAt: null, noShowReview: "PENDING" },
       data:  { noShowDispute: text, noShowDisputedAt: new Date(), noShowReview: "PENDING" },
     });
+    if (count === 0) return Response.json({ error: "GoPlay has already reviewed this no-show." }, { status: 409 });
     await notifyAdmins(
       "No-show disputed",
       `${session.user.name ?? "A player"} says they did play at ${booking.facility.name} on ${booking.bookingDate.toDateString()} ${booking.startTime}.`,

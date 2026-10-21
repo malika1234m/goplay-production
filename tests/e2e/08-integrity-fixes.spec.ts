@@ -373,4 +373,18 @@ test.describe("No-show reports", () => {
     // Reviewed once only
     expect((await admin.post(`${BASE}/api/admin/trust/noshow/${id}`, { data: { decision: "overturn" } })).status()).toBe(409);
   });
+
+  test("a no-show can't be disputed after 48 hours, or once it counts", async ({ request }) => {
+    tokens.ben = await mobileLogin(request, ACCOUNTS.ben.email, PASSWORD);
+    const late = await report(request, "16:00");
+    await q(`update "FacilityBooking" set "noShowMarkedAt" = (now() at time zone 'utc') - interval '49 hours' where id = $1`, [late]);
+    const msg = { message: "I was there and played the whole hour." };
+    expect((await request.post(`${BASE}/api/user/bookings/${late}/dispute-noshow`, { headers: bearer(tokens.ben), data: msg })).status()).toBe(409);
+
+    const counted = await report(request, "18:00");
+    await q(`update "FacilityBooking" set "noShowReview" = 'CONFIRMED' where id = $1`, [counted]);
+    expect((await request.post(`${BASE}/api/user/bookings/${counted}/dispute-noshow`, { headers: bearer(tokens.ben), data: msg })).status()).toBe(409);
+    const [row] = await q<{ noShowReview: string }>(`select "noShowReview" from "FacilityBooking" where id = $1`, [counted]);
+    expect(row.noShowReview).toBe("CONFIRMED");
+  });
 });
