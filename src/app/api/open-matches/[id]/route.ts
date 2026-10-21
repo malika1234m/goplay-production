@@ -4,13 +4,19 @@ import { getSession } from "@/lib/mobile-auth";
 import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
 import { getReceiptWindowMinutes } from "@/lib/settings";
 import { getPlatformPaymentDetails } from "@/lib/lobby-payments";
-import { publicLobby } from "@/lib/open-match-engine";
+import { expireLobby, publicLobby } from "@/lib/open-match-engine";
 
 // GET /api/open-matches/[id] — lobby detail
 // Players see co-player contact info only after they have a RESERVED/CONFIRMED spot
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await getSession(req);
+
+  // Out of time without filling: close it first, so players see the refund straight away
+  const head = await db.openMatch.findUnique({ where: { id }, select: { status: true, expiresAt: true } });
+  if (head?.status === "COLLECTING" && head.expiresAt <= new Date()) {
+    await expireLobby(id).catch((e) => console.error("[open-matches/:id] lazy expiry", e));
+  }
 
   const match = await db.openMatch.findUnique({
     where: { id },

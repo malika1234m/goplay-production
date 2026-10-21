@@ -212,6 +212,16 @@ test.describe("Open match money", () => {
     expect(lp.goplayEarned).toBeCloseTo(after.lobbyMargin.total + after.lobbyRetained.total, 2);   // one figure everywhere
   });
 
+  test("a lobby that ran out of time is closed and its refunds queued as soon as someone opens it", async ({ request }) => {
+    const m = await seedLobby({ daysFromToday: 2 });
+    const spot = await seedSpot({ matchId: m, userId: ids.ana, paymentStatus: "PAID", amountPaid: 1200, amountDue: 1200 });
+    await q(`update "OpenMatch" set "expiresAt" = (now() at time zone 'utc') - interval '1 minute' where id = $1`, [m]);
+    const lobby = await (await request.get(`${BASE}/api/open-matches/${m}`, { headers: bearer(tokens.ana) })).json();
+    expect(lobby.status).toBe("EXPIRED");
+    const [row] = await q<{ status: string; refundStatus: string; refundAmount: number }>(`select status, "refundStatus", "refundAmount" from "OpenMatchSpot" where id = $1`, [spot]);
+    expect([row.status, row.refundStatus, row.refundAmount]).toEqual(["REFUNDED", "NEEDED", 1200]);
+  });
+
   test("a group size must be a whole number", async ({ request }) => {
     const m = await seedLobby({ daysFromToday: 4 });
     const res = await request.post(`${BASE}/api/open-matches/${m}/join`, { headers: bearer(tokens.ben), data: { groupSize: 1.5 } });

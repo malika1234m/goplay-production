@@ -1,6 +1,7 @@
 import { randomInt } from "crypto";
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { db } from "@/lib/db";
+import { expireOverdueLobbies } from "@/lib/open-match-engine";
 import { facilityTakesBookings, slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
 import { getSession } from "@/lib/mobile-auth";
 import { resolveContactPhone } from "@/lib/contact-phone";
@@ -35,6 +36,9 @@ async function uniqueLobbyCode(): Promise<string> {
 // ?categoryId=  filter by sport
 // ?city=        filter by city (derived from facility)
 export async function GET(req: NextRequest) {
+  // Lobbies that ran out of time are closed (and refunds queued) after this response is sent
+  after(() => expireOverdueLobbies().catch((e) => console.error("[open-matches] lazy expiry", e)));
+
   const { searchParams } = new URL(req.url);
   const facilityId = searchParams.get("facilityId")?.trim();
   const categoryId = searchParams.get("categoryId")?.trim();

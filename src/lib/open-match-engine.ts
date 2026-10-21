@@ -334,3 +334,18 @@ export async function expireLobby(matchId: string, reason?: string): Promise<num
 
   return paidSpots.length;
 }
+
+/**
+ * Close lobbies whose time ran out without filling, so refunds are queued within minutes of anyone
+ * looking rather than waiting for the daily cron. Bounded per call; expireLobby is idempotent.
+ */
+export async function expireOverdueLobbies(limit = 10): Promise<number> {
+  const overdue = await db.openMatch.findMany({
+    where:   { status: "COLLECTING", expiresAt: { lte: new Date() } },
+    select:  { id: true },
+    orderBy: { expiresAt: "asc" },
+    take:    limit,
+  });
+  for (const m of overdue) await expireLobby(m.id);
+  return overdue.length;
+}

@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { staleUnpaidBookingWhere } from "@/lib/payment-review";
+import { getReceiptWindowMinutes } from "@/lib/settings";
 import { slotInstant } from "@/lib/local-time";
 
 function timeToMinutes(t: string) {
@@ -51,6 +53,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           bookingDate: { gte: startOfDay, lte: endOfDay },
           status:      { in: ["CONFIRMED", "PENDING"] },
           ...(courtId ? { courtId } : {}),
+          // An unpaid "Pay online" hold past its receipt window is free: booking it releases the hold
+          NOT: staleUnpaidBookingWhere(new Date(Date.now() - (await getReceiptWindowMinutes()) * 60_000)),
         },
         select: { startTime: true, endTime: true },
       }),

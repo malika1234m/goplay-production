@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { earningFigures } from "@/lib/lobby-payments";
 
-// Runs every hour. Auto-completes CONFIRMED + ONLINE + PAID bookings as soon as
+// Runs daily (vercel.json). Auto-completes CONFIRMED + ONLINE + PAID bookings once
 // their session end time has passed (Sri Lanka local time, UTC+5:30).
 // Cash-on-arrival bookings are skipped — ground owner/worker completes those manually.
 export async function GET(req: NextRequest) {
