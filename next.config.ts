@@ -87,6 +87,11 @@ const nextConfig: NextConfig = {
   // Authorization header, which logs out every mobile app build pointed at www.goplay.lk.
   async redirects() {
     return [
+      // Common guesses at the sign-in and sign-up addresses
+      { source: "/signin",  destination: "/login",    permanent: true },
+      { source: "/sign-in", destination: "/login",    permanent: true },
+      { source: "/signup",  destination: "/register", permanent: true },
+      { source: "/sign-up", destination: "/register", permanent: true },
       {
         source:      "/:path((?!api/).*)",
         has:         [{ type: "host", value: "www.goplay.lk" }],

@@ -427,3 +427,18 @@ test.describe("Uploads", () => {
     expect(res.status()).toBe(400);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe("Sign-in pages", () => {
+  test("someone already signed in is sent to their own home, not the sign-in form", async () => {
+    for (const path of ["/login", "/register", "/signin"]) {
+      const res = await admin.get(`${BASE}${path}`, { maxRedirects: 5 });
+      expect(new URL(res.url()).pathname, path).toBe("/admin/dashboard");
+    }
+  });
+
+  test("signed out, the sign-in and sign-up pages still open", async ({ request }) => {
+    expect(new URL((await request.get(`${BASE}/login`)).url()).pathname).toBe("/login");
+    expect(new URL((await request.get(`${BASE}/sign-up`)).url()).pathname).toBe("/register");
+  });
+});

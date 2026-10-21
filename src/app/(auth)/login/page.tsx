@@ -8,6 +8,7 @@ import { Eye, EyeOff, Loader2, CheckCircle, ArrowRight } from "lucide-react";
 import Turnstile, { turnstileEnabled } from "@/components/security/Turnstile";
 import GoogleButton from "@/components/auth/GoogleButton";
 import AuthTabs from "@/components/auth/AuthTabs";
+import { roleHome } from "@/lib/role-home";
 
 function LoginForm() {
   const router       = useRouter();
@@ -68,15 +69,7 @@ function LoginForm() {
     const role    = session?.user?.role;
     const mustChange = session?.user?.mustChangePassword;
 
-    if (mustChange) {
-      router.push("/force-change-password");
-      return;
-    }
-
-    if      (role === "ADMIN")         router.push("/admin/dashboard");
-    else if (role === "GROUND_OWNER")  router.push("/ground-owner/dashboard");
-    else if (role === "GROUND_WORKER") router.push("/worker/dashboard");
-    else                               router.push("/dashboard");
+    router.push(roleHome(role, mustChange));
 
     router.refresh();
   };
