@@ -8,12 +8,8 @@ import { sendSMS } from "@/lib/sms";
 import { sendBookingConfirmedEmail, sendBookingCancelledEmail, sendNoShowRecordedEmail } from "@/lib/email";
 import { notifyAdmins } from "@/lib/lobby-payments";
 import { createNotification } from "@/lib/notify";
-import {
-  STRIKE_SUSPEND_THRESHOLD,
-  STRIKE_RESET_DAYS,
-  NO_SHOW_ONLINE_THRESHOLD,
-  NO_SHOW_SUSPEND_THRESHOLD,
-} from "@/lib/cancellation-policy";
+import { STRIKE_SUSPEND_THRESHOLD, STRIKE_RESET_DAYS } from "@/lib/cancellation-policy";
+import { NO_SHOW_DISPUTE_HOURS } from "@/lib/trust";
 
 async function getWorkerFacilityId(userId: string): Promise<string | null> {
   const w = await db.facilityWorker.findUnique({ where: { userId } });
@@ -275,58 +271,30 @@ export async function PUT(
 
     // ── NO_SHOW ───────────────────────────────────────────────────────────────
     if (status === "NO_SHOW") {
-      const newNoShowCount = (booking.user.noShowCount ?? 0) + 1;
-      const restrictOnline = newNoShowCount >= NO_SHOW_ONLINE_THRESHOLD;
-      const suspendUser    = newNoShowCount >= NO_SHOW_SUSPEND_THRESHOLD;
+      // Into GoPlay's review queue; it counts only once confirmed or left undisputed for NO_SHOW_DISPUTE_HOURS
+      const marked = await moveBooking(id, "CONFIRMED", { status: "NO_SHOW", noShowMarkedAt: new Date(), noShowMarkedBy: session.user.id, noShowReview: "PENDING" });
+      if (!marked) return changedElsewhere();
 
-      await db.facilityBooking.update({
-        where: { id },
-        data: { status: "NO_SHOW", noShowMarkedAt: new Date(), noShowMarkedBy: session.user.id, noShowReview: "PENDING" },
+      await createNotification({
+        userId:  booking.user.id,
+        title:   "No-Show Recorded",
+        message: `${booking.facility.name} reported that you didn't turn up on ${dateStr}. If you did play, dispute it from your booking within ${NO_SHOW_DISPUTE_HOURS} hours; otherwise it counts on your account.`,
+        type:    "warning",
+        link:    "/my-bookings",
       });
-
-      await db.user.update({
-        where: { id: booking.user.id },
-        data: {
-          noShowCount:          newNoShowCount,
-          ...(restrictOnline && { requiresOnlinePayment: true }),
-          ...(suspendUser    && { isBookingSuspended:    true }),
-        },
-      });
-
-      // Notify user
-      const noShowMsg = suspendUser
-        ? `You were marked as a no-show for your booking at ${booking.facility.name} on ${dateStr}. Your account has been suspended from making new bookings.`
-        : restrictOnline
-        ? `You were marked as a no-show at ${booking.facility.name} on ${dateStr}. You now need to pay online for future bookings.`
-        : `You were marked as a no-show for your booking at ${booking.facility.name} on ${dateStr}. Please ensure you attend or cancel in advance.`;
-      await createNotification({ userId: booking.user.id, title: "No-Show Recorded", message: `${noShowMsg} If you did play, you can dispute it from your booking.`, type: "warning", link: "/my-bookings" });
       void sendNoShowRecordedEmail({
         to: booking.contactEmail ?? booking.user.email ?? "", name: booking.user.name ?? "Player", facilityName: booking.facility.name,
         date: dateStr, startTime: booking.startTime, endTime: booking.endTime, bookingId: booking.id,
       });
       await notifyAdmins("No-show to review", `${workerName} (worker at ${booking.facility.name}) reported ${booking.user.name} as a no-show on ${dateStr} ${booking.startTime}.`, "/admin/trust");
-
-      // Notify owner
       await createNotification({
         userId:  ownerId,
         title:   "No-Show Marked by Worker",
-        message: `${workerName} marked ${booking.user.name}'s booking on ${dateStr} as a no-show (total: ${newNoShowCount}).`,
+        message: `${workerName} marked ${booking.user.name}'s booking on ${dateStr} as a no-show. GoPlay reviews every report.`,
         type:    "info",
       });
 
-      // Notify admins if user was restricted or suspended
-      if (restrictOnline || suspendUser) {
-        await db.notification.createMany({
-          data: admins.map((a) => ({
-            userId:  a.id,
-            title:   suspendUser ? "User Suspended — No-Show Limit" : "User Restricted — Online Payment Required",
-            message: `${booking.user.name} has ${newNoShowCount} no-shows. ${suspendUser ? "Account suspended." : "Restricted to online payments only."}`,
-            type:    (suspendUser ? "error" : "warning") as "error" | "warning",
-          })),
-        });
-      }
-
-      return Response.json({ message: `No-show recorded. User no-show count: ${newNoShowCount}.` });
+      return Response.json({ message: `No-show reported. It counts if the player doesn't dispute it within ${NO_SHOW_DISPUTE_HOURS} hours.` });
     }
 
     return Response.json({ error: "Unhandled status." }, { status: 400 });

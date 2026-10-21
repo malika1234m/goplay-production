@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
 import { slotInstant } from "@/lib/local-time";
-import { NO_SHOW_ONLINE_THRESHOLD, NO_SHOW_SUSPEND_THRESHOLD } from "@/lib/cancellation-policy";
+import { moveBooking } from "@/lib/booking-status";
+import { NO_SHOW_DISPUTE_HOURS } from "@/lib/trust";
 import { createNotification } from "@/lib/notify";
 import { sendNoShowRecordedEmail } from "@/lib/email";
 import { notifyAdmins } from "@/lib/lobby-payments";
@@ -50,41 +51,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return Response.json({ error: "Cannot mark no-show before the session start time." }, { status: 400 });
     }
 
-    const now         = new Date();
-    const newCount    = booking.user.noShowCount + 1;
-    const requireOnline = newCount >= NO_SHOW_ONLINE_THRESHOLD;
-    const suspend       = newCount >= NO_SHOW_SUSPEND_THRESHOLD;
-
-    await db.facilityBooking.update({
-      where: { id },
-      // Every report goes to GoPlay's review queue; the player can dispute it
-      data:  { status: "NO_SHOW", noShowMarkedAt: now, noShowMarkedBy: session.user.id, noShowReview: "PENDING" },
-    });
-
-    await db.user.update({
-      where: { id: booking.userId },
-      data: {
-        noShowCount:           newCount,
-        ...(requireOnline ? { requiresOnlinePayment: true } : {}),
-        ...(suspend       ? { isBookingSuspended:    true } : {}),
-      },
-    });
+    // The report goes to GoPlay's review queue. It counts against the player only when an admin
+    // confirms it, or after NO_SHOW_DISPUTE_HOURS without a dispute (see autoConfirmNoShows).
+    const marked = await moveBooking(id, "CONFIRMED", { status: "NO_SHOW", noShowMarkedAt: new Date(), noShowMarkedBy: session.user.id, noShowReview: "PENDING" });
+    if (!marked) return Response.json({ error: "This booking was just changed by someone else. Refresh and try again." }, { status: 409 });
 
     const dateStr = new Date(booking.bookingDate).toLocaleDateString("en-US", {
       weekday: "short", month: "short", day: "numeric",
     });
-
-    let playerMsg = `Your booking at ${booking.facility.name} on ${dateStr} was marked as a no-show.`;
-    if (suspend) {
-      playerMsg += " Your account has been suspended due to repeated no-shows. Please contact support.";
-    } else if (requireOnline) {
-      playerMsg += " Future bookings at cash-on-arrival facilities will require online payment.";
-    }
+    const playerMsg = `${booking.facility.name} reported that you didn't turn up on ${dateStr}. If you did play, dispute it from your booking within ${NO_SHOW_DISPUTE_HOURS} hours; otherwise it counts on your account.`;
 
     await createNotification({
       userId:  booking.userId,
       title:   "No-Show Recorded",
-      message: `${playerMsg} If you did play, you can dispute it from your booking.`,
+      message: playerMsg,
       type:    "warning",
       link:    `/my-bookings`,
     });
@@ -94,26 +74,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
     await notifyAdmins("No-show to review", `${booking.facility.name} reported ${booking.user.name} as a no-show on ${dateStr} ${booking.startTime}.`, "/admin/trust");
 
-    if (suspend || requireOnline) {
-      const admins = await db.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
-      const adminMsg = suspend
-        ? `${booking.user.name} has been suspended after ${newCount} no-shows.`
-        : `${booking.user.name} now requires online payment after ${newCount} no-shows.`;
-      await db.notification.createMany({
-        data: admins.map((a) => ({
-          userId:  a.id,
-          title:   suspend ? "User Suspended — No-Shows" : "User Restricted — No-Shows",
-          message: adminMsg,
-          type:    suspend ? "error" as const : "warning" as const,
-        })),
-      });
-    }
-
+    // Same fields as before for older app builds; the count only changes once the report counts
     return Response.json({
-      message:    "Booking marked as no-show.",
-      noShowCount: newCount,
-      restricted:  requireOnline,
-      suspended:   suspend,
+      message:     `No-show reported. GoPlay reviews it; it counts if the player doesn't dispute it within ${NO_SHOW_DISPUTE_HOURS} hours.`,
+      noShowCount: booking.user.noShowCount,
+      restricted:  false,
+      suspended:   false,
     });
   } catch (err) {
     console.error("[PUT /api/ground-owner/bookings/:id/noshow]", err);

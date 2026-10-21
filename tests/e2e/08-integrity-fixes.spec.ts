@@ -7,7 +7,7 @@
  */
 import { test, expect, type APIRequestContext, type BrowserContext } from "@playwright/test";
 import {
-  BASE, PASSWORD, ACCOUNTS, OWNER, assertLocal, seedAccounts, groundFixture, seedBooking, snapshot, cleanup, closeDb, q, TAG,
+  BASE, PASSWORD, ACCOUNTS, OWNER, assertLocal, seedAccounts, groundFixture, seedBooking, snapshot, cleanup, closeDb, q, TAG, cronSecret,
 } from "./helpers/admin-fixtures";
 
 test.describe.configure({ mode: "serial" });
@@ -315,5 +315,52 @@ test.describe("Accounts and access", () => {
     const body = await res.json();
     expect(body.status).toBe("APPROVED");
     expect(body.name).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe("No-show reports", () => {
+  const counts = async (userId: string) =>
+    (await q<{ noShowCount: number; requiresOnlinePayment: boolean }>(`select "noShowCount", "requiresOnlinePayment" from "User" where id = $1`, [userId]))[0];
+  const report = async (request: APIRequestContext, start: string) => {
+    const id = await seedBooking({ userId: ids.ben, facilityId: ground.id, courtId: ground.courtId, daysFromToday: -1, start, end: `${String(Number(start.slice(0, 2)) + 1).padStart(2, "0")}:00` });
+    expect((await request.put(`${BASE}/api/ground-owner/bookings/${id}/noshow`, { headers: bearer(tokens.owner) })).status()).toBe(200);
+    return id;
+  };
+  const runCron = async (request: APIRequestContext) => {
+    const secret = cronSecret();
+    test.skip(!secret, "CRON_SECRET isn't set in the local .env");
+    expect((await request.get(`${BASE}/api/cron/release-pending-slots`, { headers: { Authorization: `Bearer ${secret}` } })).status()).toBe(200);
+  };
+
+  test("a report doesn't count at first, then counts once 48 hours pass without a dispute", async ({ request }) => {
+    await q(`update "User" set "noShowCount" = 0, "requiresOnlinePayment" = false, "isBookingSuspended" = false where id = $1`, [ids.ben]);
+    const id = await report(request, "12:00");
+    expect((await counts(ids.ben)).noShowCount).toBe(0);
+    // A second owner tap is refused rather than reported twice
+    expect((await request.put(`${BASE}/api/ground-owner/bookings/${id}/noshow`, { headers: bearer(tokens.owner) })).status()).toBe(400);
+
+    await q(`update "FacilityBooking" set "noShowMarkedAt" = (now() at time zone 'utc') - interval '49 hours' where id = $1`, [id]);
+    await runCron(request);
+    const [b] = await q<{ noShowReview: string }>(`select "noShowReview" from "FacilityBooking" where id = $1`, [id]);
+    expect(b.noShowReview).toBe("CONFIRMED");
+    expect((await counts(ids.ben)).noShowCount).toBe(1);
+  });
+
+  test("a disputed report waits for GoPlay, and counts only when an admin confirms it", async ({ request }) => {
+    await q(`update "User" set "noShowCount" = 0, "requiresOnlinePayment" = false, "isBookingSuspended" = false where id = $1`, [ids.ben]);
+    await q(`update "FacilityBooking" set "noShowReview" = 'OVERTURNED' where "userId" = $1 and status = 'NO_SHOW'`, [ids.ben]);
+    tokens.ben = await mobileLogin(request, ACCOUNTS.ben.email, PASSWORD);   // the blocking test ended his old sessions
+    const id = await report(request, "14:00");
+    const dispute = await request.post(`${BASE}/api/user/bookings/${id}/dispute-noshow`, { headers: bearer(tokens.ben), data: { message: "I was there and played the whole hour." } });
+    expect(dispute.status()).toBe(200);
+    await q(`update "FacilityBooking" set "noShowMarkedAt" = (now() at time zone 'utc') - interval '49 hours' where id = $1`, [id]);
+    await runCron(request);
+    expect((await counts(ids.ben)).noShowCount).toBe(0);
+
+    expect((await admin.post(`${BASE}/api/admin/trust/noshow/${id}`, { data: { decision: "confirm" } })).status()).toBe(200);
+    expect((await counts(ids.ben)).noShowCount).toBe(1);
+    // Reviewed once only
+    expect((await admin.post(`${BASE}/api/admin/trust/noshow/${id}`, { data: { decision: "overturn" } })).status()).toBe(409);
   });
 });

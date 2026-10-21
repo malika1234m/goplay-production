@@ -30,24 +30,68 @@ export async function isBlocked(opts: { email?: string | null; phone?: string | 
   return !!hit;
 }
 
+/** No-shows that count against a player: confirmed by GoPlay (or by no dispute in 48 hours), or recorded before reviews existed. */
+export const countedNoShowWhere = (userId: string) => ({
+  userId, status: "NO_SHOW" as const, OR: [{ noShowReview: "CONFIRMED" as const }, { noShowReview: null }],
+});
+
+/** How long a player has to dispute a no-show before it counts against them. */
+export const NO_SHOW_DISPUTE_HOURS = 48;
+
 /**
- * Re-derive a player's no-show penalties from their bookings — called after an admin
- * overturns a report, so a false no-show stops counting against them.
+ * Re-derive a player's no-show count from their bookings after a report is confirmed or overturned.
+ * Restrictions only move with the count: a rise applies the thresholds, a fall lifts what no longer
+ * applies, and an unchanged count leaves them — so an admin's "give another chance" is respected.
  */
 export async function recomputePenalties(userId: string) {
   const [noShows, user] = await Promise.all([
-    db.facilityBooking.count({ where: { userId, status: "NO_SHOW", NOT: { noShowReview: "OVERTURNED" } } }),
-    db.user.findUnique({ where: { id: userId }, select: { cashCancelCount: true } }),
+    db.facilityBooking.count({ where: countedNoShowWhere(userId) }),
+    db.user.findUnique({ where: { id: userId }, select: { noShowCount: true, cashCancelCount: true, requiresOnlinePayment: true, isBookingSuspended: true } }),
   ]);
-  await db.user.update({
-    where: { id: userId },
-    data:  {
-      noShowCount:           noShows,
-      requiresOnlinePayment: noShows >= NO_SHOW_ONLINE_THRESHOLD,
-      isBookingSuspended:    noShows >= NO_SHOW_SUSPEND_THRESHOLD || (user?.cashCancelCount ?? 0) >= CASH_CANCEL_BAN_THRESHOLD,
-    },
-  });
+  if (!user) return noShows;
+  const cashBan = user.cashCancelCount >= CASH_CANCEL_BAN_THRESHOLD;
+  const data =
+    noShows > user.noShowCount ? {
+      requiresOnlinePayment: user.requiresOnlinePayment || noShows >= NO_SHOW_ONLINE_THRESHOLD,
+      isBookingSuspended:    user.isBookingSuspended || noShows >= NO_SHOW_SUSPEND_THRESHOLD,
+    } :
+    noShows < user.noShowCount ? {
+      requiresOnlinePayment: user.requiresOnlinePayment && noShows >= NO_SHOW_ONLINE_THRESHOLD,
+      isBookingSuspended:    user.isBookingSuspended && (noShows >= NO_SHOW_SUSPEND_THRESHOLD || cashBan),
+    } : {};
+  await db.user.update({ where: { id: userId }, data: { noShowCount: noShows, ...data } });
   return noShows;
+}
+
+/**
+ * Reports nobody disputed within NO_SHOW_DISPUTE_HOURS now count. Run daily by cron; each report is
+ * claimed with a conditional update, so a dispute or an admin decision at the same moment wins.
+ */
+export async function autoConfirmNoShows(): Promise<number> {
+  const cutoff = new Date(Date.now() - NO_SHOW_DISPUTE_HOURS * 3_600_000);
+  const due = await db.facilityBooking.findMany({
+    where:  { status: "NO_SHOW", noShowReview: "PENDING", noShowDisputedAt: null, noShowMarkedAt: { lt: cutoff } },
+    select: { id: true, userId: true, bookingDate: true, facility: { select: { name: true } } },
+    take:   500,
+  });
+  const players = new Set<string>();
+  for (const b of due) {
+    const { count } = await db.facilityBooking.updateMany({
+      where: { id: b.id, status: "NO_SHOW", noShowReview: "PENDING", noShowDisputedAt: null },
+      data:  { noShowReview: "CONFIRMED", noShowReviewedAt: new Date(), noShowReviewedBy: "system", noShowReviewNote: `Not disputed within ${NO_SHOW_DISPUTE_HOURS} hours` },
+    });
+    if (count === 0) continue;
+    players.add(b.userId);
+    await createNotification({
+      userId:  b.userId,
+      title:   "No-show now on your record",
+      message: `The no-show reported by ${b.facility.name} for ${b.bookingDate.toDateString()} wasn't disputed within ${NO_SHOW_DISPUTE_HOURS} hours, so it now counts on your account.`,
+      type:    "warning",
+      link:    "/my-bookings",
+    });
+  }
+  for (const u of players) await recomputePenalties(u);
+  return players.size;
 }
 
 /**

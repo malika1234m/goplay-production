@@ -27,18 +27,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const date = b.bookingDate.toDateString();
 
     if (decision === "confirm") {
-      await db.facilityBooking.update({ where: { id }, data: { noShowReview: "CONFIRMED", noShowReviewedAt: new Date(), noShowReviewedBy: admin.id, noShowReviewNote: reviewNote } });
-      if (b.noShowDisputedAt) {
-        await createNotification({ userId: b.user.id, title: "No-show review", message: `GoPlay reviewed your dispute for ${b.facility.name} on ${date}. The no-show stands.`, type: "warning", link: "/my-bookings" });
-      }
-      return Response.json({ message: "No-show confirmed." });
+      // Conditional, so an automatic confirmation or a second admin at the same moment can't double up
+      const { count } = await db.facilityBooking.updateMany({
+        where: { id, status: "NO_SHOW", noShowReview: { notIn: ["CONFIRMED", "OVERTURNED"] } },
+        data:  { noShowReview: "CONFIRMED", noShowReviewedAt: new Date(), noShowReviewedBy: admin.id, noShowReviewNote: reviewNote },
+      });
+      if (count === 0) return Response.json({ error: "This report was already reviewed." }, { status: 409 });
+      const noShows = await recomputePenalties(b.user.id);   // it counts from now
+      await createNotification({
+        userId:  b.user.id,
+        title:   "No-show review",
+        message: b.noShowDisputedAt
+          ? `GoPlay reviewed your dispute for ${b.facility.name} on ${date}. The no-show stands and counts on your account.`
+          : `GoPlay confirmed the no-show reported by ${b.facility.name} for ${date}. It counts on your account.`,
+        type:    "warning",
+        link:    "/my-bookings",
+      });
+      return Response.json({ message: "No-show confirmed.", playerNoShows: noShows });
     }
 
     // Overturn: the game happened and the ground was paid in cash
-    await db.facilityBooking.update({
-      where: { id },
+    const { count } = await db.facilityBooking.updateMany({
+      where: { id, status: "NO_SHOW", noShowReview: { notIn: ["CONFIRMED", "OVERTURNED"] } },
       data:  { status: "COMPLETED", paymentStatus: "PAID", noShowReview: "OVERTURNED", noShowReviewedAt: new Date(), noShowReviewedBy: admin.id, noShowReviewNote: reviewNote },
     });
+    if (count === 0) return Response.json({ error: "This report was already reviewed." }, { status: 409 });
     if (!(await db.groundEarning.findUnique({ where: { bookingId: id }, select: { id: true } }))) {
       await db.groundEarning.create({
         data: { bookingId: id, facilityId: b.facilityId, ownerId: b.facility.ownerId, ...(await earningFigures(b)), paymentMethod: b.paymentMethod, cashConfirmed: true, commissionNote: "No-show overturned by GoPlay — cash booking completed" },

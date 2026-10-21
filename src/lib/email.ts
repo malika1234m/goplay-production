@@ -474,8 +474,8 @@ export async function sendNoShowRecordedEmail(opts: {
       ${infoRow("Time", `${opts.startTime} – ${opts.endTime}`)}
     </table>
     <p style="color:#475569;font-size:14px;margin:16px 0 0">
-      Repeated no-shows lead to restrictions on your account. <strong>If you did play</strong>, tell us from your booking —
-      the GoPlay team reviews every no-show report.
+      <strong>If you did play</strong>, dispute it from your booking within 48 hours and the GoPlay team will review it.
+      If it isn't disputed, it counts on your account, and repeated no-shows lead to restrictions.
     </p>
     ${button(`${APP_URL}/my-bookings`, "Dispute this no-show")}
   `);

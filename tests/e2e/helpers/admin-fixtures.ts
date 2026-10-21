@@ -41,6 +41,9 @@ export async function q<T = Record<string, unknown>>(sql: string, params: unknow
 export async function closeDb() { await pool?.end(); pool = null; }
 
 /** Marker on everything the suite creates. */
+/** Lets tests call cron routes on the local server (CRON_SECRET in the local .env). */
+export const cronSecret = () => env("CRON_SECRET");
+
 export const TAG = "e2eadm";
 export const PASSWORD = "E2eAdmin!2026";
 export const ACCOUNTS = {
