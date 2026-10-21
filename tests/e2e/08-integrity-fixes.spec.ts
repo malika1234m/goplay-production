@@ -415,3 +415,15 @@ test.describe("Commission settlement", () => {
     expect([e.commissionPaid, e.settlementId]).toEqual([true, settlementId]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe("Uploads", () => {
+  // Only the refusal is tested: a real image would be stored in Cloudinary
+  test("a ground photo upload is judged by its contents, not its declared type", async ({ request }) => {
+    const res = await request.post(`${BASE}/api/upload/ground-images`, {
+      headers:   bearer(tokens.owner),
+      multipart: { images: { name: "photo.png", mimeType: "image/png", buffer: Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>") } },
+    });
+    expect(res.status()).toBe(400);
+  });
+});

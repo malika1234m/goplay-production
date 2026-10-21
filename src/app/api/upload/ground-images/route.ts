@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { getSession } from "@/lib/mobile-auth";
 import { cloudinary, isConfigured } from "@/lib/cloudinary";
+import { sniffReceipt } from "@/lib/receipt-check";
+import { isAllowed } from "@/lib/rateLimiter";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_FILES     = 8;
@@ -30,6 +32,10 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    if (!(await isAllowed(`ground-images:${session.user.id}`, 40, 60 * 60_000))) {
+      return Response.json({ error: "Too many uploads. Please try again in a while." }, { status: 429 });
+    }
+
     if (!isConfigured()) {
       return Response.json({ error: "Image upload is not configured on this server." }, { status: 503 });
     }
@@ -56,13 +62,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Judge each file by its contents, not the browser-supplied type: only real photos are stored
+    const buffers = await Promise.all(files.map(async (file) => Buffer.from(await file.arrayBuffer())));
+    const notImage = files.find((_, i) => !["jpeg", "png", "webp", "heic"].includes(sniffReceipt(buffers[i]) ?? ""));
+    if (notImage) {
+      return Response.json({ error: `"${notImage.name}" isn't a photo. Use a JPEG, PNG, WebP or HEIC image.` }, { status: 400 });
+    }
+
     // Upload all files in parallel
-    const urls = await Promise.all(
-      files.map(async (file) => {
-        const buffer = Buffer.from(await file.arrayBuffer());
-        return uploadToCloudinary(buffer, file.type);
-      })
-    );
+    const urls = await Promise.all(files.map((file, i) => uploadToCloudinary(buffers[i], file.type)));
 
     return Response.json({ urls });
   } catch (err) {
