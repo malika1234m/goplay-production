@@ -1,6 +1,7 @@
+import { randomInt } from "crypto";
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
+import { facilityTakesBookings, slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
 import { getSession } from "@/lib/mobile-auth";
 import { resolveContactPhone } from "@/lib/contact-phone";
 import { calcHours, calcSpotAmount, publicLobby } from "@/lib/open-match-engine";
@@ -17,7 +18,7 @@ function toMins(t: string) { const [h, m] = t.split(":").map(Number); return h *
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
 function randomCode() {
   let c = "";
-  for (let i = 0; i < 6; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  for (let i = 0; i < 6; i++) c += CODE_CHARS[randomInt(CODE_CHARS.length)];   // unguessable: the code is a lobby's invite link
   return c;
 }
 async function uniqueLobbyCode(): Promise<string> {
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
   if (toMins(preferredStartTime) >= toMins(preferredEndTime)) {
     return Response.json({ error: "Start time must be before end time." }, { status: 400 });
   }
-  if (typeof groupSize !== "number" || groupSize < 1 || groupSize > 22) {
+  if (!Number.isInteger(groupSize) || groupSize < 1 || groupSize > 22) {
     return Response.json({ error: "groupSize must be between 1 and 22." }, { status: 400 });
   }
 
@@ -176,6 +177,10 @@ export async function POST(req: NextRequest) {
   // Checks and the insert share one facility-day lock so two players cannot both
   // claim the last court at the same moment.
   const outcome = await withFacilityDayLock(facilityId, date, async (tx) => {
+  // Re-read under a shared row lock: a ground taken off GoPlay a moment ago takes no new lobbies
+  if (!(await facilityTakesBookings(tx, facilityId))) {
+    return { ok: false as const, status: 409, body: { error: "This ground isn't taking bookings right now." } };
+  }
 
   // An exact-time duplicate for the same sport should send people to that lobby
   // rather than start a rival one beside it.

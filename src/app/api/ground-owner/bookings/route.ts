@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { walkInSlotError, withFacilityDayLock } from "@/lib/slot-capacity";
 import { getSession } from "@/lib/mobile-auth";
 import { activeBookingWindow } from "@/lib/booking-window";
 import { BookingStatus } from "@prisma/client";
@@ -137,18 +138,6 @@ export async function POST(req: NextRequest) {
     // Conflict check — use date range (not exact equality) to be timezone-safe
     const startOfDay = new Date(bookingDate); startOfDay.setUTCHours(0, 0, 0, 0);
     const endOfDay   = new Date(bookingDate); endOfDay.setUTCHours(23, 59, 59, 999);
-    const conflict = await db.facilityBooking.findFirst({
-      where: {
-        facilityId,
-        ...(resolvedCourtId ? { courtId: resolvedCourtId } : {}),
-        bookingDate: { gte: startOfDay, lte: endOfDay },
-        status: { in: ["CONFIRMED", "PENDING"] },
-        AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
-      },
-    });
-    if (conflict) {
-      return Response.json({ error: "This time slot is already booked." }, { status: 409 });
-    }
     const blocked = await db.blockedDate.findMany({
       where: { facilityId, date: { gte: startOfDay, lte: endOfDay } },
     });
@@ -171,28 +160,36 @@ export async function POST(req: NextRequest) {
     const totalHours  = (eh * 60 + em - (sh * 60 + sm)) / 60;
     const totalAmount = totalHours * facility.hourlyRate;
 
-    const booking = await db.facilityBooking.create({
-      data: {
-        userId:          session.user.id,
-        facilityId,
-        courtId:         resolvedCourtId,
-        bookingDate:     dateObj,
-        startTime,
-        endTime,
-        totalHours,
-        totalAmount,
-        status:          "CONFIRMED",
-        paymentMethod:   "ON_ARRIVAL",
-        paymentStatus:   "PAID",
-        contactNumber:   contactNumber?.trim() || null,
-        specialRequests: `[Walk-in] ${playerName.trim()}${notes?.trim() ? ` — ${notes.trim()}` : ""}`,
-      },
-      include: {
-        user:     { select: { name: true, email: true, phone: true } },
-        facility: { select: { name: true, city: true } },
-        court:    { select: { name: true } },
-      },
+    // Check and insert under the facility-day lock, counting bookings and lobbies like a player booking
+    const created = await withFacilityDayLock(facilityId, startOfDay, async (tx) => {
+      const slotError = await walkInSlotError(tx, { facilityId, date: startOfDay, startTime, endTime, courtId: resolvedCourtId });
+      if (slotError) return { error: slotError } as const;
+      const booking = await tx.facilityBooking.create({
+        data: {
+          userId:          session.user.id,
+          facilityId,
+          courtId:         resolvedCourtId,
+          bookingDate:     dateObj,
+          startTime,
+          endTime,
+          totalHours,
+          totalAmount,
+          status:          "CONFIRMED",
+          paymentMethod:   "ON_ARRIVAL",
+          paymentStatus:   "PAID",
+          contactNumber:   contactNumber?.trim() || null,
+          specialRequests: `[Walk-in] ${playerName.trim()}${notes?.trim() ? ` — ${notes.trim()}` : ""}`,
+        },
+        include: {
+          user:     { select: { name: true, email: true, phone: true } },
+          facility: { select: { name: true, city: true } },
+          court:    { select: { name: true } },
+        },
+      });
+      return { booking } as const;
     });
+    if ("error" in created) return Response.json({ error: created.error }, { status: 409 });
+    const { booking } = created;
 
     return Response.json({ booking }, { status: 201 });
   } catch (err) {

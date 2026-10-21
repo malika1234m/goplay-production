@@ -1,5 +1,6 @@
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
+import { facilityTakesBookings, slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
 import { createNotification } from "@/lib/notify";
 import { sendMatchFoundEmail, sendMatchExpiredEmail, sendNewBookingAlertEmail } from "@/lib/email";
 import { calcLobbyPayout, notifyAdmins } from "@/lib/lobby-payments";
@@ -65,43 +66,52 @@ export function publicLobby<T extends PriceableLobby>(m: T): Omit<T, "serviceFee
   return { ...rest, pricePerPerson: lobbyPricePerPerson(m) };
 }
 
-// Called after a spot payment is confirmed — triggers booking when enough paid spots accumulate
+/** Lock a lobby's row for the rest of the transaction; joins, leaves, fills and expiry queue behind it. */
+export async function lockLobby(tx: Prisma.TransactionClient, matchId: string): Promise<string | null> {
+  const rows = await tx.$queryRaw<{ status: string }[]>`SELECT status FROM "OpenMatch" WHERE id = ${matchId} FOR UPDATE`;
+  return rows[0]?.status ?? null;
+}
+
+/** What a spot actually sent: confirmed money, or (for a receipt nobody checked yet) what it owed. */
+export const spotMoney = (s: { paymentStatus: string; amountPaid: number; amountDue: number }) =>
+  s.paymentStatus === "PAID" && s.amountPaid > 0 ? s.amountPaid : s.amountDue;
+
+// Called after a spot payment is confirmed — books the court once enough paid spots accumulate.
+// Everything happens in one transaction under the facility-day lock and the lobby's row lock, so a
+// failure leaves the lobby collecting, and no join, leave or second caller can interleave.
 export async function tryMatchLobby(matchId: string): Promise<void> {
   const match = await db.openMatch.findUnique({
     where:   { id: matchId },
     include: {
       facility: { select: { id: true, name: true, address: true, hourlyRate: true, owner: { select: { userId: true } } } },
       category: { select: { name: true, minPlayers: true } },
-      // Only count spots that have actually been paid for
-      spots:    { where: { status: { in: ["RESERVED", "CONFIRMED"] }, paymentStatus: "PAID" } },
     },
   });
-
   if (!match || match.status !== "COLLECTING") return;
 
-  const filled = match.spots.reduce((sum, s) => sum + s.groupSize, 0);
-  if (filled < match.category.minPlayers) return;
-
-  // Atomically claim this match for processing — only ONE concurrent caller wins.
-  // If another tryMatchLobby call already set status to MATCHED, count === 0 and we bail.
-  const claimed = await db.openMatch.updateMany({
-    where: { id: matchId, status: "COLLECTING" },
-    data:  { status: "MATCHED", totalSpotsNeeded: filled },
-  });
-  if (claimed.count === 0) return;
-
-  // Lobby is full — check facility slot is still free
-  const hours    = calcHours(match.preferredStartTime, match.preferredEndTime);
+  const hours        = calcHours(match.preferredStartTime, match.preferredEndTime);
   const systemUserId = await getSystemUserId();
   const totalAmount  = match.facility.hourlyRate * hours;
   const platform     = match.payee === "PLATFORM";
   const payout       = platform ? await calcLobbyPayout(totalAmount, match.facilityId) : null;
 
-  // The last free court has to be re-checked and consumed atomically: this lobby
-  // filling at the same moment as a direct booking is exactly the race that would
-  // otherwise double-book the facility. Same facility-day lock as the write paths.
-  const booking = await withFacilityDayLock(match.facilityId, match.preferredDate, async (tx) => {
-    // Ignore this lobby's own hold, then ask whether a court is still free for it.
+  type Outcome =
+    | { kind: "not-ready" }
+    | { kind: "no-court" }
+    | { kind: "matched"; bookingId: string; paidSpots: { userId: string }[] };
+
+  const outcome = await withFacilityDayLock<Outcome>(match.facilityId, match.preferredDate, async (tx) => {
+    if ((await lockLobby(tx, matchId)) !== "COLLECTING") return { kind: "not-ready" };
+    // A ground suspended or taken off GoPlay can't host the game: treated like a lost court (refunds)
+    if (!(await facilityTakesBookings(tx, match.facilityId))) return { kind: "no-court" };
+
+    // Only spots whose money has been confirmed count, read under the lock
+    const paidSpots = await tx.openMatchSpot.findMany({ where: { matchId, status: { in: ["RESERVED", "CONFIRMED"] }, paymentStatus: "PAID" } });
+    const filled    = paidSpots.reduce((sum, s) => sum + s.groupSize, 0);
+    if (filled < match.category.minPlayers) return { kind: "not-ready" };
+
+    // The last free court is re-checked and consumed atomically, so a direct booking made at the
+    // same moment can't double-book the facility. This lobby's own hold is ignored.
     const usage = await slotUsage({
       facilityId:    match.facilityId,
       date:          match.preferredDate,
@@ -111,7 +121,7 @@ export async function tryMatchLobby(matchId: string): Promise<void> {
       courtId:       match.courtId,
       client:        tx,
     });
-    if (usage.courtTaken || usage.free <= 0) return null;
+    if (usage.courtTaken || usage.free <= 0) return { kind: "no-court" };
 
     const b = await tx.facilityBooking.create({
       data: {
@@ -128,39 +138,38 @@ export async function tryMatchLobby(matchId: string): Promise<void> {
         paymentStatus:   "PAID",
         isOpenMatch:     true,
         openMatchId:     match.id,
-        specialRequests: `GoPlay Connect — open match (${match.spots.length} group(s))`,
+        specialRequests: `GoPlay Connect — open match (${paidSpots.length} group(s))`,
       },
     });
     await tx.openMatch.update({
       where: { id: matchId },
-      data:  { matchBookingId: b.id, matchedAt: new Date() },
+      data:  { status: "MATCHED", totalSpotsNeeded: filled, matchBookingId: b.id, matchedAt: new Date() },
     });
-    // Confirm only spots that have been paid for
     await tx.openMatchSpot.updateMany({
-      where: { matchId, status: "RESERVED", paymentStatus: "PAID" },
+      where: { id: { in: paidSpots.map((s) => s.id) } },
       data:  { status: "CONFIRMED" },
     });
-    // Unpaid spots lose their place now the lobby is matched. A receipt still under review
-    // may be real money, so that spot is owed a refund — by GoPlay when GoPlay collected
-    // (after an admin checks the money actually arrived), otherwise by the ground.
+    // Unpaid spots lose their place now the lobby is matched
     await tx.openMatchSpot.updateMany({
       where: { matchId, status: "RESERVED", paymentStatus: { in: ["PENDING", "REJECTED"] } },
       data:  { status: "CANCELLED", cancelledAt: new Date() },
     });
+    // A receipt still under review may be real money, so that spot is owed a refund — by GoPlay when
+    // GoPlay collected (after an admin checks the money actually arrived), otherwise by the ground.
     const underReview = await tx.openMatchSpot.findMany({ where: { matchId, status: "RESERVED", paymentStatus: "RECEIPT_SUBMITTED" } });
     for (const sp of underReview) {
       await tx.openMatchSpot.update({
         where: { id: sp.id },
-        data:  { status: "REFUNDED", cancelledAt: new Date(), ...(platform ? { refundStatus: "NEEDED", refundAmount: sp.amountDue } : {}) },
+        data:  { status: "REFUNDED", cancelledAt: new Date(), ...(platform ? { refundStatus: "NEEDED", refundAmount: spotMoney(sp) } : {}) },
       });
     }
-    // GoPlay now owes the ground its share
+    // GoPlay now owes the ground its share of the money it actually holds
     if (payout) {
       await tx.lobbyPayout.create({
         data: {
           matchId,
           facilityId:       match.facilityId,
-          collectedAmount:  match.spots.reduce((sum, sp) => sum + sp.amountDue, 0),
+          collectedAmount:  paidSpots.reduce((sum, sp) => sum + spotMoney(sp), 0),
           courtAmount:      totalAmount,
           commissionRate:   payout.commissionRate,
           commissionAmount: payout.commissionAmount,
@@ -168,12 +177,11 @@ export async function tryMatchLobby(matchId: string): Promise<void> {
         },
       });
     }
-    return b;
+    return { kind: "matched", bookingId: b.id, paidSpots };
   });
 
-  if (!booking) {
-    // Revert status before expiring so expireLobby's own COLLECTING check passes
-    await db.openMatch.update({ where: { id: matchId }, data: { status: "COLLECTING" } });
+  if (outcome.kind === "not-ready") return;
+  if (outcome.kind === "no-court") {
     await expireLobby(matchId, `The selected time slot at this facility was just booked by someone else. ${platform ? "GoPlay" : "The ground"} will refund your bank transfer.`);
     return;
   }
@@ -191,7 +199,7 @@ export async function tryMatchLobby(matchId: string): Promise<void> {
     });
   }
 
-  const playerIds = [...new Set(match.spots.map((s) => s.userId))];
+  const playerIds = [...new Set(outcome.paidSpots.map((s) => s.userId))];
   const players   = await db.user.findMany({
     where:  { id: { in: playerIds } },
     select: { id: true, name: true, email: true },
@@ -237,7 +245,7 @@ export async function tryMatchLobby(matchId: string): Promise<void> {
       endTime:       match.preferredEndTime,
       totalAmount,
       paymentMethod: "ONLINE",
-      bookingId:     booking.id,
+      bookingId:     outcome.bookingId,
     });
   }
 }
@@ -245,32 +253,35 @@ export async function tryMatchLobby(matchId: string): Promise<void> {
 export async function expireLobby(matchId: string, reason?: string): Promise<number> {
   const match = await db.openMatch.findUnique({
     where:   { id: matchId },
-    include: {
-      spots:    { where: { status: "RESERVED" } },
-      category: { select: { name: true } },
-    },
+    include: { category: { select: { name: true } } },
   });
-
   if (!match || match.status !== "COLLECTING") return 0;
-
-  await db.openMatch.update({ where: { id: matchId }, data: { status: "EXPIRED" } });
   const platform = match.payee === "PLATFORM";
 
-  // Anyone who transferred money (confirmed or still under review) is owed a refund — by GoPlay
-  // when GoPlay collected (an admin checks receipts still under review before paying), otherwise
-  // by the ground. Spots that never sent a receipt are simply cancelled.
-  for (const sp of match.spots.filter((x) => x.paymentStatus === "PAID" || x.paymentStatus === "RECEIPT_SUBMITTED")) {
-    await db.openMatchSpot.updateMany({
-      where: { id: sp.id, status: "RESERVED" },
-      data:  { status: "REFUNDED", cancelledAt: new Date(), ...(platform ? { refundStatus: "NEEDED", refundAmount: sp.amountDue } : {}) },
-    });
-  }
-  await db.openMatchSpot.updateMany({
-    where: { matchId, status: "RESERVED", paymentStatus: { in: ["PENDING", "REJECTED"] } },
-    data:  { status: "CANCELLED", cancelledAt: new Date() },
-  });
+  // Under the lobby's row lock, so a payment confirmed or a lobby filled at this moment can't interleave
+  const spots = await db.$transaction(async (tx) => {
+    if ((await lockLobby(tx, matchId)) !== "COLLECTING") return null;
+    await tx.openMatch.update({ where: { id: matchId }, data: { status: "EXPIRED" } });
+    const live = await tx.openMatchSpot.findMany({ where: { matchId, status: "RESERVED" } });
 
-  const paidSpots = match.spots.filter((s) => s.paymentStatus === "PAID" || s.paymentStatus === "RECEIPT_SUBMITTED");
+    // Anyone who transferred money (confirmed or still under review) is owed a refund — by GoPlay
+    // when GoPlay collected (an admin checks receipts still under review before paying), otherwise
+    // by the ground. Spots that never sent a receipt are simply cancelled.
+    for (const sp of live.filter((x) => x.paymentStatus === "PAID" || x.paymentStatus === "RECEIPT_SUBMITTED")) {
+      await tx.openMatchSpot.update({
+        where: { id: sp.id },
+        data:  { status: "REFUNDED", cancelledAt: new Date(), ...(platform ? { refundStatus: "NEEDED", refundAmount: spotMoney(sp) } : {}) },
+      });
+    }
+    await tx.openMatchSpot.updateMany({
+      where: { matchId, status: "RESERVED", paymentStatus: { in: ["PENDING", "REJECTED"] } },
+      data:  { status: "CANCELLED", cancelledAt: new Date() },
+    });
+    return live;
+  });
+  if (!spots) return 0;
+
+  const paidSpots = spots.filter((s) => s.paymentStatus === "PAID" || s.paymentStatus === "RECEIPT_SUBMITTED");
   const playerIds = [...new Set(paidSpots.map((s) => s.userId))];
   const players   = await db.user.findMany({
     where:  { id: { in: playerIds } },
@@ -302,7 +313,7 @@ export async function expireLobby(matchId: string, reason?: string): Promise<num
   );
 
   if (paidSpots.length > 0 && platform) {
-    const owed = paidSpots.reduce((sum, sp) => sum + sp.amountDue, 0);
+    const owed = paidSpots.reduce((sum, sp) => sum + spotMoney(sp), 0);
     await notifyAdmins("Lobby refunds due", `A ${match.category.name} open match on ${match.preferredDate.toDateString()} didn't go ahead. ${paidSpots.length} player(s) are owed Rs. ${owed.toLocaleString()} in total.`);
   } else if (paidSpots.length > 0) {
     const facility = await db.sportsFacility.findUnique({
@@ -310,7 +321,7 @@ export async function expireLobby(matchId: string, reason?: string): Promise<num
       select: { name: true, owner: { select: { userId: true } } },
     });
     if (facility) {
-      const owed = paidSpots.reduce((sum, s) => sum + s.amountDue, 0);
+      const owed = paidSpots.reduce((sum, s) => sum + spotMoney(s), 0);
       await createNotification({
         userId:  facility.owner.userId,
         title:   "Open match cancelled — refunds due",

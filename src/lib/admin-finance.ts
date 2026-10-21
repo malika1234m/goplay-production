@@ -27,6 +27,20 @@ export function lkMonthStart(offset = 0) {
   return new Date(lkMonth(offset).getTime() - LK_OFFSET_MS);
 }
 
+/**
+ * Money GoPlay keeps from players who left a GoPlay-collected lobby: their confirmed payment minus
+ * the refund the cancellation policy gives back. Dated by the lobby's game date like the margin.
+ */
+async function retainedLobbyMoney(where: { preferredDate?: { gte: Date } } = {}) {
+  const spots = await db.openMatchSpot.findMany({
+    where:  { amountPaid: { gt: 0 }, status: { in: ["CANCELLED", "REFUNDED"] }, match: { payee: "PLATFORM", ...where } },
+    select: { amountPaid: true, refundAmount: true, match: { select: { facilityId: true, preferredDate: true } } },
+  });
+  return spots
+    .map((s) => ({ facilityId: s.match.facilityId, date: s.match.preferredDate, amount: s.amountPaid - (s.refundAmount ?? 0) }))
+    .filter((r) => r.amount > 0.005);
+}
+
 const round = (n: number) => Math.round(n * 100) / 100;
 const change = (now: number, before: number) => (before > 0 ? Math.round(((now - before) / before) * 100) : null);
 
@@ -36,7 +50,7 @@ export async function financeSummary() {
   const sumBookings = (where: object) => db.facilityBooking.aggregate({ where: { status: "COMPLETED", ...where }, _sum: { totalAmount: true }, _count: true });
   const sumFees     = (where: object, played?: object) => db.groundEarning.aggregate({ where: { ...where, ...(played && { booking: { bookingDate: played } }) }, _sum: { platformFee: true } });
 
-  const [bAll, bMonth, bLast, cAll, cMonth, cLast, cOpen, payouts, held, defaultRate] = await Promise.all([
+  const [bAll, bMonth, bLast, cAll, cMonth, cLast, cOpen, payouts, held, defaultRate, retained] = await Promise.all([
     sumBookings({}),
     sumBookings({ bookingDate: { gte: m0, lt: next } }),
     sumBookings({ bookingDate: { gte: m1, lt: m0 } }),
@@ -48,7 +62,12 @@ export async function financeSummary() {
     // Lobby money GoPlay holds for players: paid spots in lobbies that haven't filled yet
     db.openMatchSpot.aggregate({ where: { paymentStatus: "PAID", status: "RESERVED", match: { payee: "PLATFORM", status: "COLLECTING" } }, _sum: { amountPaid: true } }),
     getDefaultCommissionRate(),
+    retainedLobbyMoney(),
   ]);
+
+  const kept = (from?: Date, to?: Date) => round(retained
+    .filter((r) => (!from || r.date >= from) && (!to || r.date < to))
+    .reduce((s, r) => s + r.amount, 0));
 
   const margin = (from?: Date, to?: Date) => round(payouts
     .filter((p) => (!from || p.match.preferredDate >= from) && (!to || p.match.preferredDate < to))
@@ -60,11 +79,12 @@ export async function financeSummary() {
     lastMonth:   round(cLast._sum.platformFee ?? 0),
     outstanding: round(cOpen._sum.platformFee ?? 0),
   };
-  const lobbyMargin = { total: margin(), month: margin(m0, next), lastMonth: margin(m1, m0) };
+  const lobbyMargin   = { total: margin(), month: margin(m0, next), lastMonth: margin(m1, m0) };
+  const lobbyRetained = { total: kept(), month: kept(m0, next), lastMonth: kept(m1, m0) };
   const goplay = {
-    total:     round(commission.total + lobbyMargin.total),
-    month:     round(commission.month + lobbyMargin.month),
-    lastMonth: round(commission.lastMonth + lobbyMargin.lastMonth),
+    total:     round(commission.total + lobbyMargin.total + lobbyRetained.total),
+    month:     round(commission.month + lobbyMargin.month + lobbyRetained.month),
+    lastMonth: round(commission.lastMonth + lobbyMargin.lastMonth + lobbyRetained.lastMonth),
   };
 
   return {
@@ -72,6 +92,8 @@ export async function financeSummary() {
     goplay:      { ...goplay, change: change(goplay.month, goplay.lastMonth) },
     commission:  { ...commission, collected: round(commission.total - commission.outstanding) },
     lobbyMargin,
+    // Kept from players who left a GoPlay-collected lobby under the cancellation policy
+    lobbyRetained,
     // Money that is the grounds' (paid to them directly), shown for scale only
     bookingValue: {
       total:     round(bAll._sum.totalAmount ?? 0),
@@ -95,10 +117,11 @@ export async function financeTrend(days: number) {
   const start = new Date(`${today}T00:00:00Z`);
   start.setUTCDate(start.getUTCDate() - days + 1);
 
-  const [bookings, fees, payouts] = await Promise.all([
+  const [bookings, fees, payouts, retained] = await Promise.all([
     db.facilityBooking.groupBy({ by: ["bookingDate"], where: { status: "COMPLETED", bookingDate: { gte: start } }, _sum: { totalAmount: true } }),
     db.groundEarning.findMany({ where: { platformFee: { gt: 0 }, booking: { bookingDate: { gte: start } } }, select: { platformFee: true, booking: { select: { bookingDate: true } } } }),
     db.lobbyPayout.findMany({ where: { status: { not: "CANCELLED" }, match: { preferredDate: { gte: start } } }, select: { collectedAmount: true, amount: true, match: { select: { preferredDate: true } } } }),
+    retainedLobbyMoney({ preferredDate: { gte: start } }),
   ]);
 
   const points = new Map<string, { date: string; bookingValue: number; goplay: number }>();
@@ -119,12 +142,16 @@ export async function financeTrend(days: number) {
     const p = points.get(l.match.preferredDate.toISOString().slice(0, 10));
     if (p) p.goplay += l.collectedAmount - l.amount;
   }
+  for (const r of retained) {
+    const p = points.get(r.date.toISOString().slice(0, 10));
+    if (p) p.goplay += r.amount;
+  }
   return [...points.values()].map((p) => ({ ...p, bookingValue: round(p.bookingValue), goplay: round(p.goplay) }));
 }
 
 /** Per-ground money: what players paid the ground, what it owes GoPlay, and GoPlay's lobby margin there. */
 export async function financeByFacility() {
-  const [facilities, bookings, fees, openFees, payouts, defaultRate] = await Promise.all([
+  const [facilities, bookings, fees, openFees, payouts, defaultRate, retained] = await Promise.all([
     db.sportsFacility.findMany({
       where:  { OR: [{ bookings: { some: { status: "COMPLETED" } } }, { commissionRate: { not: null } }] },
       select: { id: true, name: true, city: true, commissionRate: true, owner: { select: { id: true, user: { select: { name: true, email: true } } } } },
@@ -134,12 +161,14 @@ export async function financeByFacility() {
     db.groundEarning.groupBy({ by: ["facilityId"], where: { commissionPaid: false, platformFee: { gt: 0 } }, _sum: { platformFee: true } }),
     db.lobbyPayout.findMany({ where: { status: { not: "CANCELLED" } }, select: { facilityId: true, collectedAmount: true, amount: true } }),
     getDefaultCommissionRate(),
+    retainedLobbyMoney(),
   ]);
 
   const byId = <T extends { facilityId: string }>(rows: T[]) => new Map(rows.map((r) => [r.facilityId, r]));
   const [bk, fe, op] = [byId(bookings), byId(fees), byId(openFees)];
   const lobby = new Map<string, number>();
   for (const p of payouts) lobby.set(p.facilityId, (lobby.get(p.facilityId) ?? 0) + p.collectedAmount - p.amount);
+  for (const r of retained) lobby.set(r.facilityId, (lobby.get(r.facilityId) ?? 0) + r.amount);
 
   return facilities.map((f) => {
     const commission  = round(fe.get(f.id)?._sum.platformFee ?? 0);

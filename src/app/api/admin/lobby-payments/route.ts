@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { getPlatformPaymentDetails } from "@/lib/lobby-payments";
+import { financeSummary } from "@/lib/admin-finance";
 
 // GET /api/admin/lobby-payments — everything GoPlay handles for lobbies it collected:
 // receipts to check, payouts owed to grounds, refunds owed to players, and the money summary.
@@ -16,7 +17,7 @@ export async function GET() {
     },
   } as const;
 
-  const [receipts, payouts, refunds, paidSpots, bankAccount] = await Promise.all([
+  const [receipts, payouts, refunds, paidSpots, bankAccount, finance, payoutTotals, refundTotals] = await Promise.all([
     db.openMatchSpot.findMany({
       where:   { match: { payee: "PLATFORM" }, status: "RESERVED", paymentStatus: "RECEIPT_SUBMITTED" },
       orderBy: { receiptUploadedAt: "asc" },
@@ -44,12 +45,15 @@ export async function GET() {
     // Money GoPlay actually received (confirmed receipts) on lobbies it collected
     db.openMatchSpot.aggregate({ where: { match: { payee: "PLATFORM" }, paymentStatus: { in: ["PAID", "REFUNDED"] } }, _sum: { amountPaid: true } }),
     getPlatformPaymentDetails(),
+    // Totals over every lobby (the lists above are capped), from the same source as Earnings
+    financeSummary(),
+    db.lobbyPayout.groupBy({ by: ["status"], _sum: { amount: true, commissionAmount: true }, _count: true }),
+    db.openMatchSpot.groupBy({ by: ["refundStatus"], where: { match: { payee: "PLATFORM" }, refundStatus: { in: ["NEEDED", "PROCESSED"] } }, _sum: { refundAmount: true }, _count: true }),
   ]);
 
-  const sum = <T,>(xs: T[], f: (x: T) => number) => xs.reduce((s, x) => s + f(x), 0);
-  const refundsPaid = refunds.filter((r) => r.refundStatus === "PROCESSED");
-  const payoutsPaid = payouts.filter((p) => p.status === "PAID");
-  const received    = paidSpots._sum.amountPaid ?? 0;
+  const received = paidSpots._sum.amountPaid ?? 0;
+  const payoutBy   = (st: string) => payoutTotals.find((t) => t.status === st);
+  const refundBy   = (st: string) => refundTotals.find((t) => t.refundStatus === st);
 
   return Response.json({
     bankAccountSet: !!bankAccount,
@@ -57,17 +61,19 @@ export async function GET() {
     payouts,
     refunds: refunds.map((r) => ({ ...r, verified: r.paymentStatus !== "RECEIPT_SUBMITTED" })),
     summary: {
+      // Counts and totals are over every lobby, not just the lists shown
       receiptsToCheck: receipts.length,
-      payoutsDue:      payouts.filter((p) => p.status === "DUE").length,
-      payoutsDueTotal: sum(payouts.filter((p) => p.status === "DUE"), (p) => p.amount),
-      refundsDue:      refunds.filter((r) => r.refundStatus === "NEEDED").length,
-      refundsDueTotal: sum(refunds.filter((r) => r.refundStatus === "NEEDED"), (r) => r.refundAmount ?? 0),
+      payoutsDue:      payoutBy("DUE")?._count ?? 0,
+      payoutsDueTotal: payoutBy("DUE")?._sum.amount ?? 0,
+      refundsDue:      refundBy("NEEDED")?._count ?? 0,
+      refundsDueTotal: refundBy("NEEDED")?._sum.refundAmount ?? 0,
       received,
-      paidOut:         sum(payoutsPaid, (p) => p.amount),
-      refunded:        sum(refundsPaid, (r) => r.refundAmount ?? 0),
-      // What GoPlay keeps from filled lobbies: everything collected minus the ground's payout
-      goplayEarned:    sum(payouts.filter((p) => p.status !== "CANCELLED"), (p) => p.collectedAmount - p.amount),
-      commission:      sum(payouts.filter((p) => p.status !== "CANCELLED"), (p) => p.commissionAmount),
+      paidOut:         payoutBy("PAID")?._sum.amount ?? 0,
+      refunded:        refundBy("PROCESSED")?._sum.refundAmount ?? 0,
+      // What GoPlay keeps: filled lobbies (collected minus the ground's payout) plus what the
+      // cancellation policy kept from players who left — the same figure as the Earnings page
+      goplayEarned:    finance.lobbyMargin.total + finance.lobbyRetained.total,
+      commission:      (payoutBy("DUE")?._sum.commissionAmount ?? 0) + (payoutBy("PAID")?._sum.commissionAmount ?? 0),
     },
   });
 }

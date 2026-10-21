@@ -122,50 +122,62 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const ground = await verifyOwnership(id, profile.id);
     if (!ground) return Response.json({ error: "Ground not found." }, { status: 404 });
 
-    const [activeBookings, liveLobbies, history] = await Promise.all([
-      db.facilityBooking.count({ where: { facilityId: id, status: { in: ["CONFIRMED", "PENDING"] } } }),
-      db.openMatch.count({ where: { facilityId: id, status: { in: ["COLLECTING", "MATCHED"] }, preferredDate: { gte: new Date(Date.now() - 86_400_000) } } }),
+    // Checks and writes run under the ground's row lock; booking and lobby creation re-check the
+    // ground's status under the same lock, so nothing new can be booked while this decides.
+    const outcome = await db.$transaction(async (tx) => {
+      const [row] = await tx.$queryRaw<{ status: string }[]>`SELECT status FROM "SportsFacility" WHERE id = ${id} FOR UPDATE`;
+      if (!row) return "gone" as const;
+
+      const activeBookings = await tx.facilityBooking.count({ where: { facilityId: id, status: { in: ["CONFIRMED", "PENDING"] } } });
+      if (activeBookings > 0) return "bookings" as const;
+      const liveLobbies = await tx.openMatch.count({ where: { facilityId: id, status: { in: ["COLLECTING", "MATCHED"] }, preferredDate: { gte: new Date(Date.now() - 86_400_000) } } });
+      if (liveLobbies > 0) return "lobbies" as const;
+
       // Anything that is money or someone's record: bookings, lobbies, earnings, payouts, reviews
-      Promise.all([
-        db.facilityBooking.count({ where: { facilityId: id } }),
-        db.openMatch.count({ where: { facilityId: id } }),
-        db.groundEarning.count({ where: { facilityId: id } }),
-        db.lobbyPayout.count({ where: { facilityId: id } }),
-        db.facilityReview.count({ where: { facilityId: id } }),
-      ]).then((counts) => counts.some((n) => n > 0)),
-    ]);
-    if (activeBookings > 0) {
-      return Response.json({ error: "This ground has upcoming bookings. Cancel or complete them first." }, { status: 400 });
-    }
-    if (liveLobbies > 0) {
-      return Response.json({ error: "This ground has an open match lobby that hasn't finished. Contact GoPlay support to close it first." }, { status: 400 });
-    }
+      const counts = await Promise.all([
+        tx.facilityBooking.count({ where: { facilityId: id } }),
+        tx.openMatch.count({ where: { facilityId: id } }),
+        tx.groundEarning.count({ where: { facilityId: id } }),
+        tx.lobbyPayout.count({ where: { facilityId: id } }),
+        tx.facilityReview.count({ where: { facilityId: id } }),
+      ]);
+      const history = counts.some((n) => n > 0);
+      if (history && row.status === "INACTIVE") return "already" as const;
 
-    // Bookings, earnings and commission owed to GoPlay must never disappear, so a ground with any
-    // history is taken off GoPlay instead of deleted. Only a ground that was never used is removed.
-    if (history) {
-      if (ground.status === "INACTIVE") return Response.json({ message: "This ground is already off GoPlay.", archived: true });
-      await db.sportsFacility.update({ where: { id }, data: { status: "INACTIVE" } });
-      await notifyAdmins(
-        "Ground removed by its owner",
-        `${ground.name} was taken off GoPlay by its owner. Its bookings, earnings and any commission owed are kept.`,
-        "/admin/grounds",
-      );
-      return Response.json({ message: "Ground removed from GoPlay. Its booking history and earnings are kept.", archived: true });
-    }
-
-    // Its workers lose their only ground: make them players again and end their worker sessions
-    await db.$transaction(async (tx) => {
+      // Either way the ground's workers lose it: make them players again and end their worker sessions
       const workers = await tx.facilityWorker.findMany({ where: { facilityId: id }, select: { userId: true } });
       if (workers.length) {
+        await tx.facilityWorker.deleteMany({ where: { facilityId: id } });
         await tx.user.updateMany({
           where: { id: { in: workers.map((w) => w.userId) }, role: "GROUND_WORKER" },
           data:  { role: "USER", sessionsValidAfter: nowToSecond() },
         });
       }
+
+      // Bookings, earnings and commission owed to GoPlay must never disappear, so a ground with any
+      // history is taken off GoPlay instead of deleted. Only a ground that was never used is removed.
+      if (history) {
+        await tx.sportsFacility.update({ where: { id }, data: { status: "INACTIVE" } });
+        return "archived" as const;
+      }
       await tx.sportsFacility.delete({ where: { id } });
+      return "deleted" as const;
     });
-    return Response.json({ message: "Ground deleted.", archived: false });
+
+    switch (outcome) {
+      case "gone":     return Response.json({ error: "Ground not found." }, { status: 404 });
+      case "bookings": return Response.json({ error: "This ground has upcoming bookings. Cancel or complete them first." }, { status: 400 });
+      case "lobbies":  return Response.json({ error: "This ground has an open match lobby that hasn't finished. Contact GoPlay support to close it first." }, { status: 400 });
+      case "already":  return Response.json({ message: "This ground is already off GoPlay.", archived: true });
+      case "archived":
+        await notifyAdmins(
+          "Ground removed by its owner",
+          `${ground.name} was taken off GoPlay by its owner. Its bookings, earnings and any commission owed are kept.`,
+          "/admin/grounds",
+        );
+        return Response.json({ message: "Ground removed from GoPlay. Its booking history and earnings are kept.", archived: true });
+      case "deleted":  return Response.json({ message: "Ground deleted.", archived: false });
+    }
   } catch (err) {
     console.error("[DELETE /api/ground-owner/grounds/:id]", err);
     return Response.json({ error: "Failed to delete ground." }, { status: 500 });

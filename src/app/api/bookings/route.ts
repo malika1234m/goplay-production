@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
+import { facilityTakesBookings, slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
 import { slotInstant } from "@/lib/local-time";
 import { getSession } from "@/lib/mobile-auth";
 import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
@@ -214,6 +214,10 @@ export async function POST(req: NextRequest) {
     // Everything from here to the insert runs under one facility-day lock, so a
     // concurrent request cannot slip a booking in between the check and the write.
     const outcome = await withFacilityDayLock(facilityId, startOfDay, async (tx) => {
+    // Re-read under a shared row lock: a ground taken off GoPlay a moment ago takes no new bookings
+    if (!(await facilityTakesBookings(tx, facilityId))) {
+      return { ok: false as const, status: 409, body: { error: "This ground isn't taking bookings right now." } };
+    }
     await tx.facilityBooking.updateMany({
       where: {
         facilityId,

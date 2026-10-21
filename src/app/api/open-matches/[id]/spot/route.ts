@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
 import { createNotification } from "@/lib/notify";
 import { notifyAdmins } from "@/lib/lobby-payments";
+import { lockLobby, spotMoney } from "@/lib/open-match-engine";
 import { slotInstant } from "@/lib/local-time";
 import {
   getCancellationPolicyFromTiers,
@@ -73,11 +74,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   // Money sent to the ground (confirmed or under review) comes back per the cancellation tiers
   const transferred  = ["PAID", "RECEIPT_SUBMITTED"].includes(spot.paymentStatus);
-  const refundAmount = transferred ? Math.round(spot.amountDue * policy.refundPercent) / 100 : 0;
+  const refundAmount = transferred ? Math.round(spotMoney(spot) * policy.refundPercent) / 100 : 0;
 
   // Every write hangs off the spot still being RESERVED, so repeated taps of "Leave"
   // can't release its capacity, record the strike or notify players more than once.
   const outcome = await db.$transaction(async (tx) => {
+    // The lobby's row lock: if it filled a moment ago, this player is in the match and can't leave
+    if ((await lockLobby(tx, id)) !== "COLLECTING") return "matched" as const;
+
     const released = await tx.openMatchSpot.updateMany({
       where: { id: spot.id, status: "RESERVED" },
       data:  {
@@ -108,6 +112,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
     return { newCount: cashCancelCount, willSuspend };
   });
+  if (outcome === "matched") {
+    return Response.json({ error: "You cannot cancel your spot once the lobby has been matched." }, { status: 409 });
+  }
   if (!outcome) {
     return Response.json({ error: "No active spot found for you in this lobby." }, { status: 404 });
   }

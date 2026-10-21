@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const { groupSize = 1, contactNumber } = await req.json();
 
-  if (typeof groupSize !== "number" || groupSize < 1 || groupSize > 22) {
+  if (!Number.isInteger(groupSize) || groupSize < 1 || groupSize > 22) {
     return Response.json({ error: "groupSize must be between 1 and 22." }, { status: 400 });
   }
 

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { walkInSlotError, withFacilityDayLock } from "@/lib/slot-capacity";
 import { getSession } from "@/lib/mobile-auth";
 import { activeBookingWindow } from "@/lib/booking-window";
 import { BookingStatus } from "@prisma/client";
@@ -179,18 +180,6 @@ export async function POST(req: NextRequest) {
   const startOfDay = new Date(bookingDate); startOfDay.setUTCHours(0, 0, 0, 0);
   const endOfDay   = new Date(bookingDate); endOfDay.setUTCHours(23, 59, 59, 999);
 
-  const conflict = await db.facilityBooking.findFirst({
-    where: {
-      facilityId,
-      ...(resolvedCourtId ? { courtId: resolvedCourtId } : {}),
-      bookingDate: { gte: startOfDay, lte: endOfDay },
-      status:      { in: ["CONFIRMED", "PENDING"] },
-      AND: [{ startTime: { lt: endTime } }, { endTime: { gt: startTime } }],
-    },
-  });
-  if (conflict) {
-    return Response.json({ error: "This time slot is already booked." }, { status: 409 });
-  }
 
   // Check blocked
   const blockedEntries = await db.blockedDate.findMany({
@@ -219,23 +208,31 @@ export async function POST(req: NextRequest) {
   // Walk-in bookings use a shared "walk-in" user or we create a guest entry linked to a walk-in user.
   // For simplicity, link the booking to the worker's own userId but mark as walk-in via specialRequests.
   // The worker's account is GROUND_WORKER so we use their id but store the player name.
-  const booking = await db.facilityBooking.create({
-    data: {
-      userId:          session.user.id,
-      facilityId,
-      courtId:         resolvedCourtId,
-      bookingDate:     bookingDateObj,
-      startTime,
-      endTime,
-      totalHours,
-      totalAmount,
-      status:          "CONFIRMED",
-      paymentMethod:   "ON_ARRIVAL",
-      paymentStatus:   "PAID",
-      contactNumber:   contactNumber  || null,
-      specialRequests: `[Walk-in] ${playerName}${specialRequests ? ` — ${specialRequests}` : ""}`,
-    },
+  // Check and insert under the facility-day lock, counting bookings and lobbies like a player booking
+  const created = await withFacilityDayLock(facilityId, startOfDay, async (tx) => {
+    const slotError = await walkInSlotError(tx, { facilityId, date: startOfDay, startTime, endTime, courtId: resolvedCourtId });
+    if (slotError) return { error: slotError } as const;
+    const booking = await tx.facilityBooking.create({
+      data: {
+        userId:          session.user.id,
+        facilityId,
+        courtId:         resolvedCourtId,
+        bookingDate:     bookingDateObj,
+        startTime,
+        endTime,
+        totalHours,
+        totalAmount,
+        status:          "CONFIRMED",
+        paymentMethod:   "ON_ARRIVAL",
+        paymentStatus:   "PAID",
+        contactNumber:   contactNumber  || null,
+        specialRequests: `[Walk-in] ${playerName}${specialRequests ? ` — ${specialRequests}` : ""}`,
+      },
+    });
+    return { booking } as const;
   });
+  if ("error" in created) return Response.json({ error: created.error }, { status: 409 });
+  const { booking } = created;
 
   // Notify owner
   await createNotification({

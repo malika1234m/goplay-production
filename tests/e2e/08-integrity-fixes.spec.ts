@@ -5,7 +5,7 @@
  * late cancellations, ground deletion, lobby money, accounts and roles.
  * Run: npx playwright test --project=integrity   (local dev server + local database only)
  */
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext, type BrowserContext } from "@playwright/test";
 import {
   BASE, PASSWORD, ACCOUNTS, OWNER, assertLocal, seedAccounts, groundFixture, seedBooking, snapshot, cleanup, closeDb, q, TAG,
 } from "./helpers/admin-fixtures";
@@ -17,6 +17,36 @@ let ground: Awaited<ReturnType<typeof groundFixture>>;
 let snap: Awaited<ReturnType<typeof snapshot>> | null = null;
 const tokens: Record<"ana" | "ben" | "owner", string> = { ana: "", ben: "", owner: "" };
 const bearer = (t: string) => ({ Authorization: `Bearer ${t}` });
+let adminCtx: BrowserContext;
+let admin: APIRequestContext;
+
+async function webLogin(ctx: BrowserContext, email: string, password: string) {
+  const { csrfToken } = await (await ctx.request.get(`${BASE}/api/auth/csrf`)).json();
+  await ctx.request.post(`${BASE}/api/auth/callback/credentials`, { form: { csrfToken, email, password, turnstileToken: "test", json: "true" } });
+  const s = await (await ctx.request.get(`${BASE}/api/auth/session`)).json();
+  expect(s?.user?.email, `web sign-in as ${email}`).toBe(email);
+}
+
+/** A lobby straight in the database, so tests can set dates and states no API allows. */
+async function seedLobby(o: { daysFromToday: number; payee?: "PLATFORM" | "GROUND"; status?: string }) {
+  const id = `${TAG}m${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  await q(
+    `insert into "OpenMatch" (id, "facilityId", "categoryId", "preferredDate", "preferredStartTime", "preferredEndTime", "totalSpotsNeeded",
+       "spotsReserved", status, payee, "expiresAt", "createdAt", "updatedAt")
+     values ($1, $2, $3, current_date + $4::int, '18:00', '19:00', $5, 1, $6, $7, now() + interval '2 days', now(), now())`,
+    [id, ground.id, ground.categoryId, o.daysFromToday, ground.minPlayers, o.status ?? "COLLECTING", o.payee ?? "PLATFORM"],
+  );
+  return id;
+}
+async function seedSpot(o: { matchId: string; userId: string; status?: string; paymentStatus?: string; amountPaid?: number; amountDue?: number; refundAmount?: number | null; refundStatus?: string }) {
+  const id = `${TAG}s${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  await q(
+    `insert into "OpenMatchSpot" (id, "matchId", "userId", "groupSize", status, "paymentStatus", "amountPaid", "amountDue", "refundAmount", "refundStatus", "createdAt", "updatedAt")
+     values ($1, $2, $3, 1, $4, $5, $6, $7, $8, $9, now(), now())`,
+    [id, o.matchId, o.userId, o.status ?? "RESERVED", o.paymentStatus ?? "PENDING", o.amountPaid ?? 0, o.amountDue ?? 1000, o.refundAmount ?? null, o.refundStatus ?? "NONE"],
+  );
+  return id;
+}
 
 async function mobileLogin(request: APIRequestContext, email: string, password: string) {
   const res = await request.post(`${BASE}/api/auth/mobile-login`, { data: { email, password } });
@@ -26,7 +56,7 @@ async function mobileLogin(request: APIRequestContext, email: string, password: 
 const bookingRow = async (id: string) =>
   (await q<{ status: string; refundStatus: string; paymentStatus: string }>(`select status, "refundStatus", "paymentStatus" from "FacilityBooking" where id = $1`, [id]))[0];
 
-test.beforeAll(async ({ request }) => {
+test.beforeAll(async ({ request, browser }) => {
   assertLocal();
   ground = await groundFixture();
   snap   = await snapshot(ground.id, ground.ownerId);
@@ -34,11 +64,18 @@ test.beforeAll(async ({ request }) => {
   tokens.ana   = await mobileLogin(request, ACCOUNTS.ana.email, PASSWORD);
   tokens.ben   = await mobileLogin(request, ACCOUNTS.ben.email, PASSWORD);
   tokens.owner = await mobileLogin(request, OWNER.email, OWNER.password);
+  adminCtx = await browser.newContext();
+  await webLogin(adminCtx, ACCOUNTS.admin.email, PASSWORD);
+  admin = adminCtx.request;
 });
 
 test.afterAll(async () => {
+  await adminCtx?.close();
   if (ids) await cleanup(ids, snap, ground?.id, ground?.ownerId);
-  // Test grounds go last: their bookings and earnings must be gone first (money relations restrict deletes)
+  // Lobbies with no spots aren't found by cleanup(); test grounds go last, after their bookings
+  // and earnings (money relations restrict deletes)
+  await q(`delete from "OpenMatchSpot" where "matchId" like $1`, [`${TAG}%`]);
+  await q(`delete from "OpenMatch" where id like $1`, [`${TAG}%`]);
   await q(`delete from "SportsFacility" where name like $1`, [`${TAG}%`]);
   await closeDb();
 });
@@ -148,5 +185,36 @@ test.describe("Deleting a ground", () => {
     expect(await q(`select 1 from "GroundEarning" where "bookingId" = $1`, [done])).toHaveLength(1);
     // And the database itself refuses to cascade money away
     await expect(q(`delete from "SportsFacility" where id = $1`, [gid])).rejects.toThrow();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+test.describe("Open match money", () => {
+  test("a lobby whose time has passed can't be left (it is closed and refunded in full instead)", async ({ request }) => {
+    const m = await seedLobby({ daysFromToday: -1 });
+    const spot = await seedSpot({ matchId: m, userId: ids.ana, paymentStatus: "PAID", amountPaid: 1000 });
+    const res = await request.delete(`${BASE}/api/open-matches/${m}/spot`, { headers: bearer(tokens.ana) });
+    expect(res.status()).toBe(409);
+    const [row] = await q<{ status: string }>(`select status from "OpenMatchSpot" where id = $1`, [spot]);
+    expect(row.status).toBe("RESERVED");
+  });
+
+  test("money GoPlay keeps from a player who left counts in GoPlay's earnings", async () => {
+    const summary = async () => (await (await admin.get(`${BASE}/api/admin/earnings`)).json()).summary;
+    const before  = await summary();
+    const m = await seedLobby({ daysFromToday: 3 });
+    // Paid 1,000, left with a 25% refund owed: GoPlay keeps 750
+    await seedSpot({ matchId: m, userId: ids.ben, status: "REFUNDED", paymentStatus: "PAID", amountPaid: 1000, refundAmount: 250, refundStatus: "NEEDED" });
+    const after = await summary();
+    expect(after.lobbyRetained.total - before.lobbyRetained.total).toBeCloseTo(750, 2);
+    expect(after.goplay.total - before.goplay.total).toBeCloseTo(750, 2);
+    const lp = (await (await admin.get(`${BASE}/api/admin/lobby-payments`)).json()).summary;
+    expect(lp.goplayEarned).toBeCloseTo(after.lobbyMargin.total + after.lobbyRetained.total, 2);   // one figure everywhere
+  });
+
+  test("a group size must be a whole number", async ({ request }) => {
+    const m = await seedLobby({ daysFromToday: 4 });
+    const res = await request.post(`${BASE}/api/open-matches/${m}/join`, { headers: bearer(tokens.ben), data: { groupSize: 1.5 } });
+    expect(res.status()).toBe(400);
   });
 });
