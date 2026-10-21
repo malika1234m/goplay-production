@@ -178,14 +178,18 @@ export async function sendPasswordResetEmail(to: string, name: string, resetUrl:
 export async function sendBookingCancelledEmail(opts: {
   to: string; name: string; facilityName: string;
   date: string; startTime: string; endTime: string;
-  cancelledBy: "owner" | "player"; refundNeeded?: boolean;
+  cancelledBy: "owner" | "player" | "admin"; refundNeeded?: boolean; reason?: string | null;
 }) {
   const reason = opts.cancelledBy === "owner"
     ? "The ground owner has cancelled this booking."
-    : "You cancelled this booking.";
+    : opts.cancelledBy === "admin"
+      ? `The GoPlay team cancelled this booking${opts.reason ? `: ${escapeHtml(opts.reason)}` : "."}`
+      : "You cancelled this booking.";
   const refundNote = opts.refundNeeded
     ? `<p style="color:#dc2626;font-size:13px;margin:12px 0 0;background:#fef2f2;padding:12px;border-radius:8px">
-        💳 A refund will be processed within 5–7 business days. Our team will be in touch.
+        💳 ${opts.cancelledBy === "admin"
+          ? "You paid the ground by bank transfer, so the ground refunds it in full. GoPlay will follow up until it's done."
+          : "A refund will be processed within 5–7 business days. Our team will be in touch."}
       </p>`
     : "";
   const html = layout(`

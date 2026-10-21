@@ -270,7 +270,7 @@ export async function POST(req: NextRequest) {
         contactNumber:   contactNumber  || null,
         contactEmail:    cleanedEmail,
         // "[Walk-in]" marks owner-entered walk-ins (no commission) — a player's note can't claim it
-        specialRequests: String(specialRequests ?? "").replace(/^\s*\[walk-in\]\s*/i, "") || null,
+        specialRequests: String(specialRequests ?? "").replace(/^(\s*\[\s*walk-in\s*\]\s*)+/i, "") || null,
       },
       include: {
         facility: { select: { name: true } },

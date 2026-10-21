@@ -95,7 +95,7 @@ export async function tryMatchLobby(matchId: string): Promise<void> {
   const systemUserId = await getSystemUserId();
   const totalAmount  = match.facility.hourlyRate * hours;
   const platform     = match.payee === "PLATFORM";
-  const payout       = platform ? await calcLobbyPayout(totalAmount) : null;
+  const payout       = platform ? await calcLobbyPayout(totalAmount, match.facilityId) : null;
 
   // The last free court has to be re-checked and consumed atomically: this lobby
   // filling at the same moment as a direct booking is exactly the race that would

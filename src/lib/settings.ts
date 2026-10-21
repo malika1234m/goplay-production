@@ -2,12 +2,22 @@ import { db } from "@/lib/db";
 
 const DEFAULT_COMMISSION_PCT = Number(process.env.PLATFORM_COMMISSION_PCT ?? "10");
 
-export async function getCommissionRate(): Promise<number> {
+/** Platform default commission as a fraction (e.g. 0.1), set in admin Settings. */
+export async function getDefaultCommissionRate(): Promise<number> {
   try {
     const row = await db.platformSetting.findUnique({ where: { key: "commissionRate" } });
     if (row) return Number(row.value) / 100;
   } catch { /* fall through */ }
   return DEFAULT_COMMISSION_PCT / 100;
+}
+
+/** Commission as a fraction for a ground: its own rate if an admin set one, else the platform default. */
+export async function getCommissionRate(facilityId?: string | null): Promise<number> {
+  if (facilityId) {
+    const f = await db.sportsFacility.findUnique({ where: { id: facilityId }, select: { commissionRate: true } }).catch(() => null);
+    if (f?.commissionRate != null) return f.commissionRate / 100;
+  }
+  return getDefaultCommissionRate();
 }
 
 export async function getSetting(key: string): Promise<string | null> {

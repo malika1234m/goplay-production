@@ -15,16 +15,28 @@ export async function GET(req: NextRequest) {
     const q      = searchParams.get("q")      ?? "";
     const status = searchParams.get("status") ?? "";
     const page   = Math.max(1, parseInt(searchParams.get("page") ?? "1") || 1);
+    const method = searchParams.get("payment") ?? "";
+    const from   = searchParams.get("from") ?? "";
+    const to     = searchParams.get("to")   ?? "";
+    const isDay  = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
 
     const where: Record<string, unknown> = {};
 
-    if (status) where.status = status;
+    if (["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW"].includes(status)) where.status = status;
+    if (method === "ONLINE" || method === "ON_ARRIVAL") where.paymentMethod = method;
+    if (isDay(from) || isDay(to)) {
+      where.bookingDate = { ...(isDay(from) && { gte: new Date(`${from}T00:00:00Z`) }), ...(isDay(to) && { lte: new Date(`${to}T00:00:00Z`) }) };
+    }
 
-    if (q.trim()) {
+    const term = q.trim();
+    if (term) {
       where.OR = [
-        { user:     { name:  { contains: q, mode: "insensitive" } } },
-        { user:     { email: { contains: q, mode: "insensitive" } } },
-        { facility: { name:  { contains: q, mode: "insensitive" } } },
+        { id:            { startsWith: term } },
+        { user:          { name:  { contains: term, mode: "insensitive" } } },
+        { user:          { email: { contains: term, mode: "insensitive" } } },
+        { contactEmail:  { contains: term, mode: "insensitive" } },
+        { contactNumber: { contains: term.replace(/\s+/g, "") } },
+        { facility:      { name:  { contains: term, mode: "insensitive" } } },
       ];
     }
 
@@ -46,6 +58,8 @@ export async function GET(req: NextRequest) {
           paymentStatus: true,
           createdAt:     true,
           specialRequests: true,
+          isOpenMatch:   true,
+          noShowReview:  true,
           user:     { select: { id: true, name: true, email: true } },
           facility: { select: { id: true, name: true, city: true } },
           court:    { select: { id: true, name: true } },

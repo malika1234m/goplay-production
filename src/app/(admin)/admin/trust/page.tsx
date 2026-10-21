@@ -61,6 +61,7 @@ export default function TrustPage() {
     const d   = await res.json();
     if (!res.ok) { setError(d.error ?? "Couldn't load."); return; }
     setData(d);
+    window.dispatchEvent(new Event("admin-tasks-changed")); // refresh the sidebar badges
   }, []);
   useEffect(() => { void load(); }, [load]);
 

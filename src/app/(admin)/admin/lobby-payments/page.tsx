@@ -70,6 +70,7 @@ export default function LobbyPaymentsPage() {
     const d   = await res.json();
     if (!res.ok) { setError(d.error ?? "Couldn't load lobby payments."); return; }
     setData(d);
+    window.dispatchEvent(new Event("admin-tasks-changed")); // refresh the sidebar badges
   }, []);
   useEffect(() => { void load(); }, [load]);
 

@@ -19,6 +19,9 @@ interface Match {
   id: string; preferredDate: string; preferredStartTime: string; preferredEndTime: string;
   totalSpotsNeeded: number; spotsReserved: number; status: string;
   serviceFeePct: number; expiresAt: string; matchedAt: string | null; createdAt: string;
+  /** PLATFORM: players paid GoPlay, which pays the ground. GROUND (older lobbies): players paid the ground. */
+  payee: "PLATFORM" | "GROUND";
+  payout: { collectedAmount: number; courtAmount: number; commissionAmount: number; amount: number; status: "DUE" | "PAID" | "CANCELLED" } | null;
   category: { id: string; name: string; icon: string; minPlayers: number };
   facility: { id: string; name: string; city: string; hourlyRate: number };
   spots: Spot[];
@@ -38,7 +41,12 @@ const STATUS: Record<string, { label: string; pill: string; dot: string }> = {
 function toMins(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
 function calcHrs(s: string, e: string) { return (toMins(e) - toMins(s)) / 60; }
 function lobbyCourt(m: Match) { return m.facility.hourlyRate * calcHrs(m.preferredStartTime, m.preferredEndTime); }
-function lobbyRevenue(m: Match) { return Math.round(lobbyCourt(m) * (1 + m.serviceFeePct / 100)); }
+/** What players paid for a filled lobby (to GoPlay, or to the ground for older lobbies). */
+function lobbyCollected(m: Match) { return Math.round(m.payout?.collectedAmount ?? lobbyCourt(m)); }
+/** What the ground gets: GoPlay's payout, or the court price the players paid it directly. */
+function lobbyToGround(m: Match) { return Math.round(m.payout?.amount ?? lobbyCourt(m)); }
+/** What GoPlay keeps from a lobby it collected. Older ground-collected lobbies earn through the ground's commission instead. */
+function lobbyGoPlay(m: Match) { return m.payout ? Math.round(m.payout.collectedAmount - m.payout.amount) : 0; }
 function fmt(n: number) { return `Rs. ${Math.round(n).toLocaleString()}`; }
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("en-LK", { weekday: "short", month: "short", day: "numeric" });
@@ -174,11 +182,12 @@ export default function AdminOpenMatchesPage() {
   const expired    = matches.filter((m) => m.status === "EXPIRED");
   const cancelled  = matches.filter((m) => m.status === "CANCELLED");
 
-  const totalRevenue  = matched.reduce((s, m) => s + lobbyRevenue(m), 0);
-  const matchedCourt  = matched.reduce((s, m) => s + lobbyCourt(m), 0);
+  const totalRevenue  = matched.reduce((s, m) => s + lobbyCollected(m), 0);
+  const matchedCourt  = matched.reduce((s, m) => s + lobbyToGround(m), 0);
+  const goplayMargin  = matched.reduce((s, m) => s + lobbyGoPlay(m), 0);
   const totalPlayers  = matches.reduce((s, m) => s + m.spotsReserved, 0);
 
-  const refundSpots = matches.flatMap((m) =>
+  const refundSpots = matches.filter((m) => m.payee !== "PLATFORM").flatMap((m) =>
     m.spots
       .filter((s) => s.status === "REFUNDED" && s.paymentStatus === "REFUNDED" && s.amountPaid > 0)
       .map((s) => ({ ...s, match: m }))
@@ -220,7 +229,7 @@ export default function AdminOpenMatchesPage() {
     { key: "overview", label: "Overview",  icon: Activity },
     { key: "lobbies",  label: "Lobbies",   icon: Zap,      badge: collecting.length || undefined, badgeColor: "bg-amber-400 text-white" },
     { key: "refunds",  label: "Refunds",   icon: RotateCcw, badge: refundSpots.length || undefined, badgeColor: "bg-red-500 text-white" },
-    { key: "revenue",  label: "Revenue",   icon: DollarSign },
+    { key: "revenue",  label: "Money",     icon: DollarSign },
   ];
 
   /* ── Spot status style ── */
@@ -270,7 +279,7 @@ export default function AdminOpenMatchesPage() {
           { label: "Active",    value: collecting.length, sub: `${collecting.reduce((s, m) => s + m.spotsReserved, 0)} waiting`, icon: Activity,   bg: "bg-amber-50",  ic: "text-amber-600", vl: "text-amber-700", clickTab: "lobbies" as Tab, clickFilter: "COLLECTING" },
           { label: "Matched",   value: matched.length,    sub: `${matched.reduce((s, m) => s + m.totalSpotsNeeded, 0)} played`,  icon: Trophy,     bg: "bg-green-50",  ic: "text-green-600", vl: "text-green-700", clickTab: "lobbies" as Tab, clickFilter: "MATCHED"    },
           { label: "Total Players", value: totalPlayers,  sub: `across all lobbies`,                                              icon: Users,      bg: "bg-blue-50",   ic: "text-blue-600",  vl: "text-blue-700",  clickTab: undefined,         clickFilter: ""           },
-          { label: "Total Revenue", value: fmt(totalRevenue), sub: `from ${matched.length} matched`,                              icon: TrendingUp, bg: "bg-purple-50", ic: "text-purple-600",vl: "text-purple-700",clickTab: "revenue" as Tab,  clickFilter: ""           },
+          { label: "Collected", value: fmt(totalRevenue), sub: `from ${matched.length} matched`,                              icon: TrendingUp, bg: "bg-purple-50", ic: "text-purple-600",vl: "text-purple-700",clickTab: "revenue" as Tab,  clickFilter: ""           },
           { label: "Pending Refunds", value: refundSpots.length, sub: refundSpots.length ? fmt(refundTotal) + " owed" : "All clear", icon: RotateCcw, bg: refundSpots.length ? "bg-red-50" : "bg-slate-50", ic: refundSpots.length ? "text-red-600" : "text-slate-400", vl: refundSpots.length ? "text-red-700" : "text-slate-500", clickTab: "refunds" as Tab, clickFilter: "" },
         ].map(({ label, value, sub, icon: Icon, bg, ic, vl, clickTab, clickFilter }) => (
           <button
@@ -324,7 +333,7 @@ export default function AdminOpenMatchesPage() {
             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100">
               <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between">
                 <h2 className="font-semibold text-slate-800 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-green-500" /> Matched Lobby Revenue
+                  <TrendingUp className="w-4 h-4 text-green-500" /> Matched Lobby Money
                 </h2>
                 <button onClick={() => setTab("revenue")} className="text-xs text-green-600 hover:text-green-700 font-medium">
                   Full breakdown →
@@ -334,8 +343,8 @@ export default function AdminOpenMatchesPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                   {[
                     { label: "Total collected",     value: fmt(totalRevenue),                  color: "text-green-700 text-xl" },
-                    { label: "Court value",          value: fmt(matchedCourt),                  color: "text-slate-700 text-lg" },
-                    { label: "GoPlay margin",        value: fmt(totalRevenue - matchedCourt),   color: "text-blue-700 text-lg"  },
+                    { label: "To grounds",           value: fmt(matchedCourt),                  color: "text-slate-700 text-lg" },
+                    { label: "GoPlay margin",        value: fmt(goplayMargin),                  color: "text-blue-700 text-lg"  },
                   ].map(({ label, value, color }) => (
                     <div key={label} className="bg-slate-50 rounded-xl p-3.5">
                       <p className={`font-bold ${color}`}>{value}</p>
@@ -361,7 +370,7 @@ export default function AdminOpenMatchesPage() {
                           <p className="text-[11px] text-slate-400">{fmtDate(m.preferredDate)} · {m.preferredStartTime}–{m.preferredEndTime}</p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-sm font-bold text-green-700">{fmt(lobbyRevenue(m))}</p>
+                          <p className="text-sm font-bold text-green-700">{fmt(lobbyCollected(m))}</p>
                           <p className="text-[10px] text-slate-400">{m.totalSpotsNeeded} players</p>
                         </div>
                       </Link>
@@ -533,7 +542,7 @@ export default function AdminOpenMatchesPage() {
               {filtered.map((m) => {
                 const isOpen    = expanded === m.id;
                 const pct       = Math.round(m.spotsReserved / m.totalSpotsNeeded * 100);
-                const revenue   = lobbyRevenue(m);
+                const revenue   = lobbyCollected(m);
                 const courtCost = lobbyCourt(m);
                 const st        = STATUS[m.status];
 
@@ -615,7 +624,12 @@ export default function AdminOpenMatchesPage() {
                             { label: "Court rate",  value: `${fmt(m.facility.hourlyRate)}/hr` },
                             { label: "Duration",    value: `${calcHrs(m.preferredStartTime, m.preferredEndTime)}h` },
                             { label: "Court total", value: fmt(courtCost) },
-                            ...(m.status === "MATCHED" ? [{ label: "Total revenue", value: fmt(revenue), highlight: true }] : []),
+                            { label: "Paid to",     value: m.payee === "PLATFORM" ? "GoPlay" : "The ground" },
+                            ...(m.payout ? [
+                              { label: "Collected",    value: fmt(revenue) },
+                              { label: "To ground",    value: `${fmt(m.payout.amount)} · ${m.payout.status === "PAID" ? "paid" : m.payout.status === "DUE" ? "due" : "cancelled"}` },
+                              { label: "GoPlay keeps", value: fmt(lobbyGoPlay(m)), highlight: true },
+                            ] : []),
                           ].map(({ label, value, mono, highlight }) => (
                             <div key={label} className="bg-white rounded-xl p-3 border border-slate-100">
                               <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">{label}</p>
@@ -750,7 +764,7 @@ export default function AdminOpenMatchesPage() {
                 <Info className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
                 <div>
                   <p className="font-semibold mb-0.5">Action required</p>
-                  <p className="text-amber-700">These players transferred money to the ground for a lobby that expired or was cancelled. The ground owner has been asked to refund them — once you have confirmed it was sent, click <strong>Mark Processed</strong> to notify them and clear the entry.</p>
+                  <p className="text-amber-700">These are older lobbies where players paid the ground directly. The ground owner has been asked to refund them — once you have confirmed it was sent, click <strong>Mark Processed</strong> to notify them and clear the entry. Refunds for lobbies GoPlay collected are on <a href="/admin/lobby-payments" className="underline font-semibold">Lobby Payments</a>.</p>
                 </div>
               </div>
 
@@ -860,10 +874,9 @@ export default function AdminOpenMatchesPage() {
         <div className="space-y-5">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: "Total collected",      value: fmt(totalRevenue),   sub: `${matched.length} matched lobbies`,  icon: DollarSign,  bg: "bg-green-50",  ic: "text-green-600",  vl: "text-green-700"  },
-              { label: "Court bookings",        value: fmt(matchedCourt),   sub: "paid directly to owners",                     icon: MapPin,      bg: "bg-slate-50",  ic: "text-slate-500",  vl: "text-slate-800"  },
-              { label: "Service fee",           value: fmt(matched.reduce((s, m) => s + lobbyCourt(m) * m.serviceFeePct / 100, 0)),
-                                                                            sub: `avg ${matched.length > 0 ? (matched.reduce((s, m) => s + m.serviceFeePct, 0) / matched.length).toFixed(1) : 0}% rate`, icon: TrendingUp,  bg: "bg-blue-50",   ic: "text-blue-600",   vl: "text-blue-700"   },
+              { label: "Collected from players", value: fmt(totalRevenue), sub: `${matched.length} matched lobbies`,                 icon: DollarSign,  bg: "bg-green-50",  ic: "text-green-600",  vl: "text-green-700"  },
+              { label: "To grounds",             value: fmt(matchedCourt), sub: "court price minus commission",                    icon: MapPin,      bg: "bg-slate-50",  ic: "text-slate-500",  vl: "text-slate-800"  },
+              { label: "GoPlay keeps",           value: fmt(goplayMargin), sub: "commission + any extra players",                  icon: TrendingUp,  bg: "bg-blue-50",   ic: "text-blue-600",   vl: "text-blue-700"   },
             ].map(({ label, value, sub, icon: Icon, bg, ic, vl }) => (
               <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${bg}`}>
@@ -879,14 +892,14 @@ export default function AdminOpenMatchesPage() {
           {matched.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-100 p-16 flex flex-col items-center text-slate-300">
               <Banknote className="w-12 h-12 mb-3" />
-              <p className="text-slate-500 font-semibold">No revenue yet</p>
-              <p className="text-sm text-slate-400 mt-1">Revenue appears here once lobbies fill and match</p>
+              <p className="text-slate-500 font-semibold">No matched lobbies yet</p>
+              <p className="text-sm text-slate-400 mt-1">Money appears here once lobbies fill and match</p>
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
                 <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-green-500" /> Matched Lobby Revenue
+                  <Trophy className="w-4 h-4 text-green-500" /> Matched Lobbies
                 </h3>
                 <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-full font-semibold">
                   {matched.length} lobbies · {fmt(totalRevenue)} total
@@ -896,15 +909,15 @@ export default function AdminOpenMatchesPage() {
                 <table className="min-w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">
-                      {["Sport", "Facility", "Session", "Players", "Court", "Service", "Total"].map((h) => (
+                      {["Sport", "Facility", "Session", "Players", "Collected", "To ground", "GoPlay keeps"].map((h) => (
                         <th key={h} className="text-left px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {matched.map((m) => {
-                      const court  = lobbyCourt(m);
-                      const svcFee = Math.round(court * m.serviceFeePct / 100);
+                      const toGround = lobbyToGround(m);
+                      const keeps    = lobbyGoPlay(m);
                       return (
                         <tr key={m.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3.5">
@@ -921,10 +934,18 @@ export default function AdminOpenMatchesPage() {
                           <td className="px-4 py-3.5 text-center">
                             <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-semibold">{m.totalSpotsNeeded}</span>
                           </td>
-                          <td className="px-4 py-3.5 text-slate-700 font-medium whitespace-nowrap">{fmt(court)}</td>
-                          <td className="px-4 py-3.5 text-blue-700 whitespace-nowrap">+{fmt(svcFee)}</td>
+                          <td className="px-4 py-3.5 text-slate-700 font-medium whitespace-nowrap">
+                            {fmt(lobbyCollected(m))}
+                            <p className="text-[10px] text-slate-400 font-normal">{m.payee === "PLATFORM" ? "by GoPlay" : "by the ground"}</p>
+                          </td>
+                          <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">
+                            {fmt(toGround)}
+                            {m.payout && <p className={`text-[10px] font-semibold ${m.payout.status === "PAID" ? "text-green-600" : "text-amber-600"}`}>{m.payout.status === "PAID" ? "Paid" : m.payout.status === "DUE" ? "Payout due" : "Cancelled"}</p>}
+                          </td>
                           <td className="px-4 py-3.5">
-                            <span className="font-bold text-green-700 whitespace-nowrap">{fmt(court + svcFee)}</span>
+                            {m.payout
+                              ? <span className="font-bold text-blue-700 whitespace-nowrap">{fmt(keeps)}</span>
+                              : <span className="text-[11px] text-slate-400">via ground&apos;s commission</span>}
                           </td>
                         </tr>
                       );
@@ -933,9 +954,9 @@ export default function AdminOpenMatchesPage() {
                   <tfoot>
                     <tr className="bg-slate-50 border-t-2 border-slate-200">
                       <td colSpan={4} className="px-4 py-3.5 text-xs font-bold text-slate-600 uppercase tracking-wide">Total ({matched.length})</td>
+                      <td className="px-4 py-3.5 font-bold text-green-700 whitespace-nowrap">{fmt(totalRevenue)}</td>
                       <td className="px-4 py-3.5 font-bold text-slate-800 whitespace-nowrap">{fmt(matchedCourt)}</td>
-                      <td className="px-4 py-3.5 font-bold text-blue-700 whitespace-nowrap">+{fmt(matched.reduce((s, m) => s + Math.round(lobbyCourt(m) * m.serviceFeePct / 100), 0))}</td>
-                      <td className="px-4 py-3.5 font-bold text-green-700 text-base whitespace-nowrap">{fmt(totalRevenue)}</td>
+                      <td className="px-4 py-3.5 font-bold text-blue-700 text-base whitespace-nowrap">{fmt(goplayMargin)}</td>
                     </tr>
                   </tfoot>
                 </table>

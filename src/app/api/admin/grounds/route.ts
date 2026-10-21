@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { getDefaultCommissionRate } from "@/lib/settings";
 import { FacilityStatus } from "@prisma/client";
 
 const VALID_FACILITY_STATUSES = new Set<string>(Object.values(FacilityStatus));
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
     const [grounds, total, statusCounts] = await Promise.all([
       db.sportsFacility.findMany({
         where,
+        omit: { commissionRate: false },
         include: {
           categories: { select: { name: true } },
           owner: { include: { user: { select: { name: true, email: true } } } },
@@ -42,6 +44,7 @@ export async function GET(req: NextRequest) {
       db.sportsFacility.count({ where }),
       db.sportsFacility.groupBy({ by: ["status"], _count: true }),
     ]);
+    const defaultCommissionRate = Math.round((await getDefaultCommissionRate()) * 10000) / 100;
 
     const counts = {
       all:      statusCounts.reduce((s, g) => s + g._count, 0),
@@ -58,6 +61,7 @@ export async function GET(req: NextRequest) {
         city:          g.city,
         address:       g.address,
         hourlyRate:    g.hourlyRate,
+        commissionRate: g.commissionRate,
         status:        g.status,
         createdAt:     g.createdAt,
         categories:    g.categories.map((c) => c.name),
@@ -70,6 +74,7 @@ export async function GET(req: NextRequest) {
       page,
       hasMore: page * PER_PAGE < total,
       counts,
+      defaultCommissionRate,
     }, { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=120" } });
   } catch (err) {
     console.error("[GET /api/admin/grounds]", err);

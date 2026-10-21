@@ -19,6 +19,7 @@ interface GroundResult {
 }
 interface Facility extends GroundResult {
   capacity: number | null;
+  courts?: { id: string; name: string; description: string | null }[];
   availability: { dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string }[];
 }
 
@@ -51,6 +52,7 @@ function CreatePageInner() {
 
   const [facilityId,       setFacilityId]       = useState(preselectedId);
   const [categoryId,       setCategoryId]       = useState("");
+  const [courtId,          setCourtId]          = useState("");
   const [totalSpotsNeeded, setTotalSpotsNeeded] = useState(2);
   const [date,             setDate]             = useState("");
   const [startTime,        setStartTime]        = useState("");
@@ -88,6 +90,7 @@ function CreatePageInner() {
       const g   = d.ground ?? d;
       setFacility(g);
       setCategories(g.categories ?? []);
+      setCourtId(g.courts?.[0]?.id ?? "");
     } catch { setFacility(null); }
     finally  { setLoading(false); }
   }, []);
@@ -97,11 +100,16 @@ function CreatePageInner() {
   // Fetch booked/lobby slots for the selected date
   useEffect(() => {
     if (!facilityId || !date) { setAvailSlots([]); return; }
-    fetch(`/api/grounds/${facilityId}/availability?date=${date}`)
+    fetch(`/api/grounds/${facilityId}/availability?date=${date}${courtId ? `&courtId=${courtId}` : ""}`)
       .then((r) => r.json())
       .then((d) => setAvailSlots(d.slots ?? []))
       .catch(() => setAvailSlots([]));
-  }, [facilityId, date]);
+  }, [facilityId, date, courtId]);
+
+  // The error banner sits at the top of the page; bring it into view when it appears
+  useEffect(() => {
+    if (error) window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [error]);
 
   function selectGround(g: GroundResult) {
     setFacilityId(g.id);
@@ -118,6 +126,7 @@ function CreatePageInner() {
     setFacility(null);
     setCategories([]);
     setCategoryId("");
+    setCourtId("");
   }
 
   const selectedCategory = categories.find((c) => c.id === categoryId);
@@ -130,7 +139,10 @@ function CreatePageInner() {
   const todayAvail       = facility?.availability?.find((a) => a.dayOfWeek === dayOfWeek && a.isOpen);
   const endTime          = startTime ? addMins(startTime, duration * 60) : "";
   const totalCost        = facility ? facility.hourlyRate * duration : 0;
-  const perPersonBase    = totalSpotsNeeded > 0 ? totalCost / totalSpotsNeeded : 0;
+  // Everyone pays the court split by the sport's minimum — the head count the lobby fills at,
+  // and exactly what the server charges
+  const splitBy          = selectedCategory?.minPlayers ?? totalSpotsNeeded;
+  const perPersonBase    = splitBy > 0 ? totalCost / splitBy : 0;
   const perPerson        = selectedCategory && startTime
     ? Math.round(perPersonBase)
     : 0;
@@ -203,7 +215,7 @@ function CreatePageInner() {
       const res = await fetch("/api/open-matches", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ facilityId, categoryId, preferredDate: date, preferredStartTime: startTime, preferredEndTime: endTime, groupSize, totalSpotsNeeded, contactNumber: contact.value }),
+        body:    JSON.stringify({ facilityId, categoryId, courtId: courtId || undefined, preferredDate: date, preferredStartTime: startTime, preferredEndTime: endTime, groupSize, totalSpotsNeeded, contactNumber: contact.value }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -528,6 +540,24 @@ function CreatePageInner() {
                 )}
               </div>
 
+              {/* Court */}
+              {(facility?.courts?.length ?? 0) > 1 && (
+                <div className="bg-white rounded-2xl border border-slate-100 p-5">
+                  <label className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-slate-400" /> Court
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {facility!.courts!.map((c) => (
+                      <button key={c.id} type="button"
+                        onClick={() => { setCourtId(c.id); setStartTime(""); }}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${courtId === c.id ? "bg-green-600 text-white border-green-600" : "bg-white text-slate-700 border-slate-200 hover:border-green-300"}`}>
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Date */}
               <div className="bg-white rounded-2xl border border-slate-100 p-5">
                 <label className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
@@ -703,7 +733,7 @@ function CreatePageInner() {
                         <span>Rs. {totalCost.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-slate-600">
-                        <span>Split by {totalSpotsNeeded}</span>
+                        <span>Split by {splitBy} (minimum players)</span>
                         <span>Rs. {Math.round(perPersonBase).toLocaleString()}/person</span>
                       </div>
                       <div className="flex justify-between font-bold text-green-800 pt-2 border-t border-green-200 text-base">
@@ -776,8 +806,9 @@ function CreatePageInner() {
               {/* Info box */}
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-sm text-amber-800 leading-relaxed">
                 <strong className="block mb-1">How it works</strong>
-                Start the lobby, then pay your share to the ground by bank transfer and upload the receipt. Others join
-                and pay their own spots. Once all {totalSpotsNeeded} spots are paid and confirmed, GoPlay auto-books the court.
+                Start the lobby, then pay your share to GoPlay by bank transfer and upload the receipt. Others join
+                and pay their own spots. As soon as {splitBy} players have paid and GoPlay has confirmed it, the court is booked
+                (up to {totalSpotsNeeded} can join).
                 <span className="block mt-1 font-medium">Full refund if the lobby expires without enough players.</span>
               </div>
 
@@ -827,7 +858,7 @@ function CreatePageInner() {
                       <span>Rs. {totalCost.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
-                      <span>Split by {totalSpotsNeeded} players</span>
+                      <span>Split by {splitBy} players (minimum)</span>
                       <span>Rs. {Math.round(perPersonBase).toLocaleString()}/person</span>
                     </div>
                     <div className="flex justify-between font-bold text-slate-900 text-base pt-2 border-t border-slate-100">
@@ -836,14 +867,14 @@ function CreatePageInner() {
                     </div>
                   </div>
                   <p className="text-xs text-slate-400 mt-3">
-                    Next you&apos;ll see the ground&apos;s bank details. Transfer and upload the receipt to secure your spot. Full refund from the ground if the lobby expires.
+                    Next you&apos;ll see GoPlay&apos;s bank details. Transfer and upload the receipt to secure your spot. Full refund from GoPlay if the lobby expires.
                   </p>
                 </div>
 
                 {/* Trust badges */}
                 <div className="flex items-center justify-center gap-4 text-xs text-slate-400">
                   <div className="flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5 text-green-500" /> Pay the ground directly
+                    <ShieldCheck className="w-3.5 h-3.5 text-green-500" /> Secure transfer to GoPlay
                   </div>
                   <div className="flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> Refund guaranteed

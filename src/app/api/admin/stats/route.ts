@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { financeSummary } from "@/lib/admin-finance";
 
 export async function GET() {
   try {
@@ -48,6 +49,7 @@ export async function GET() {
       ? Math.round(((thisMonthRev - lastMonthRev) / lastMonthRev) * 100)
       : 0;
     const usersChange   = newUsersThisMonth - newUsersLastMonth;
+    const finance       = await financeSummary();
 
     return Response.json({
       stats: {
@@ -60,7 +62,8 @@ export async function GET() {
         activeGrounds,
         pendingGrounds,
       },
-    }, { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=120" } });
+      finance,
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("[GET /api/admin/stats]", err);
     return Response.json({ error: "Failed to fetch stats." }, { status: 500 });

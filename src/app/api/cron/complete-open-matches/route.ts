@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       earning:       { is: null },
     },
     select: {
-      id: true, totalAmount: true, isOpenMatch: true, openMatchId: true, specialRequests: true,
+      id: true, facilityId: true, totalAmount: true, isOpenMatch: true, openMatchId: true, specialRequests: true,
       bookingDate: true,
       endTime: true, // stored as "HH:MM" in Sri Lanka local time
       facility: { select: { id: true, ownerId: true } },

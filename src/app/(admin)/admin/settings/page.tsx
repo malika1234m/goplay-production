@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Loader2, CheckCircle, AlertCircle, Save, BadgeDollarSign, Wallet, Clock, Wrench, Smartphone, Landmark } from "lucide-react";
 
 interface PlatformBank { bankName: string; bankBranch: string; accountName: string; accountNumber: string; instructions: string }
@@ -87,8 +88,11 @@ export default function AdminSettingsPage() {
             <BadgeDollarSign className="w-5 h-5 text-orange-500" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">Commission Rate</h2>
-            <p className="text-xs text-slate-400">Percentage taken from each completed booking</p>
+            <h2 className="text-sm font-semibold text-slate-900">Default Commission Rate</h2>
+            <p className="text-xs text-slate-400">
+              For grounds without their own rate. Set a different rate per ground in{" "}
+              <Link href="/admin/grounds" className="text-orange-600 hover:underline">Ground Management</Link>.
+            </p>
           </div>
         </div>
 
@@ -127,16 +131,12 @@ export default function AdminSettingsPage() {
         <div className="bg-slate-50 rounded-xl p-4 text-sm space-y-1.5">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Live Preview — Rs. 5,000 booking</p>
           <div className="flex justify-between text-slate-600">
-            <span>Booking amount</span>
+            <span>Player pays the ground directly</span>
             <span>Rs. 5,000</span>
           </div>
-          <div className="flex justify-between text-orange-600">
-            <span>Platform fee ({form.commissionRate}%)</span>
-            <span>−Rs. {Math.round(5000 * rate / 100).toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between font-semibold text-slate-900 border-t border-slate-200 pt-1.5">
-            <span>Ground owner receives</span>
-            <span>Rs. {Math.round(5000 * (1 - rate / 100)).toLocaleString()}</span>
+          <div className="flex justify-between font-semibold text-orange-600 border-t border-slate-200 pt-1.5">
+            <span>Ground owes GoPlay ({form.commissionRate}%)</span>
+            <span>Rs. {Math.round(5000 * rate / 100).toLocaleString()}</span>
           </div>
         </div>
 

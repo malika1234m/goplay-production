@@ -46,8 +46,8 @@ export async function notifyAdmins(title: string, message: string, link = "/admi
 }
 
 /** The ground's share of a filled GoPlay-collected lobby. */
-export async function calcLobbyPayout(courtAmount: number) {
-  const commissionRate   = await getCommissionRate();
+export async function calcLobbyPayout(courtAmount: number, facilityId: string) {
+  const commissionRate   = await getCommissionRate(facilityId);
   const commissionAmount = Math.round(courtAmount * commissionRate * 100) / 100;
   return { commissionRate, commissionAmount, amount: Math.round((courtAmount - commissionAmount) * 100) / 100 };
 }
@@ -71,7 +71,7 @@ export function validateRefundDetails(body: Record<string, unknown>):
  * Earnings figures for a completed booking. A GoPlay-collected lobby shows the ground only its
  * payout — GoPlay already kept the commission, so there's nothing to bill the owner afterwards.
  */
-export async function earningFigures(b: { totalAmount: number; specialRequests?: string | null; isOpenMatch?: boolean | null; openMatchId?: string | null }) {
+export async function earningFigures(b: { totalAmount: number; facilityId: string; specialRequests?: string | null; isOpenMatch?: boolean | null; openMatchId?: string | null }) {
   if (b.isOpenMatch && b.openMatchId) {
     const payout = await db.lobbyPayout.findUnique({ where: { matchId: b.openMatchId }, select: { amount: true } });
     if (payout) {
@@ -83,7 +83,7 @@ export async function earningFigures(b: { totalAmount: number; specialRequests?:
     }
   }
   const isWalkIn = b.specialRequests?.startsWith("[Walk-in]") ?? false;
-  const rate     = await getCommissionRate();
+  const rate     = await getCommissionRate(b.facilityId);
   const fee      = isWalkIn ? 0 : Math.round(b.totalAmount * rate * 100) / 100;
   return {
     grossAmount: b.totalAmount, platformFee: fee, netAmount: Math.round((b.totalAmount - fee) * 100) / 100,

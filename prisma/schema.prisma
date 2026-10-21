@@ -88,6 +88,8 @@ model SportsFacility {
   address              String
   city                 String
   hourlyRate           Float
+  /// GoPlay's commission for this ground, in percent. Null uses the platform default from Settings.
+  commissionRate       Float?
   capacity             Int?
   amenities            String[]
   images               String[]

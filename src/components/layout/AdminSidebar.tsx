@@ -128,9 +128,17 @@ export default function AdminSidebar() {
     } catch { /* silent */ }
   }, []);
 
+  // Reload on every admin page change so badges don't go stale after an admin acts
   useEffect(() => {
     loadPending(); loadCommissions(); loadRefunds(); loadComplaints(); loadReportedReviews(); loadCancellationAlerts(); loadOpenMatchAlerts(); loadLobbyPayments(); loadTrust();
-  }, [loadPending, loadCommissions, loadRefunds, loadComplaints, loadReportedReviews, loadCancellationAlerts, loadOpenMatchAlerts, loadLobbyPayments, loadTrust]);
+  }, [pathname, loadPending, loadCommissions, loadRefunds, loadComplaints, loadReportedReviews, loadCancellationAlerts, loadOpenMatchAlerts, loadLobbyPayments, loadTrust]);
+
+  // The lobby payments and trust pages announce when their queues change
+  useEffect(() => {
+    const refresh = () => { loadLobbyPayments(); loadTrust(); };
+    window.addEventListener("admin-tasks-changed", refresh);
+    return () => window.removeEventListener("admin-tasks-changed", refresh);
+  }, [loadLobbyPayments, loadTrust]);
 
   const toggle = () => {
     setCollapsed((c) => {

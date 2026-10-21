@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
     include: {
       category: { select: { id: true, name: true, icon: true, minPlayers: true } },
       facility: { select: { id: true, name: true, city: true, hourlyRate: true } },
+      payout:   { select: { collectedAmount: true, courtAmount: true, commissionAmount: true, amount: true, status: true } },
       spots: {
         select: {
           id: true, groupSize: true, status: true, paymentStatus: true,

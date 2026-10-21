@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
-import { MapPin, Search, Loader2, CheckCircle, XCircle, PauseCircle, Eye, ChevronLeft, ChevronRight, Globe, Clock, AlertTriangle } from "lucide-react";
+import { MapPin, Search, Loader2, CheckCircle, XCircle, PauseCircle, Eye, ChevronLeft, ChevronRight, Globe, Clock, AlertTriangle, Percent } from "lucide-react";
 
 interface Ground {
   id:            string;
@@ -12,6 +12,7 @@ interface Ground {
   city:          string;
   address:       string;
   hourlyRate:    number;
+  commissionRate: number | null;
   status:        string;
   createdAt:     string;
   categories:    string[];
@@ -24,6 +25,73 @@ interface Ground {
 interface Counts { all: number; active: number; pending: number; inactive: number; rejected: number }
 
 const PER_PAGE = 25;
+
+/** Inline editor for a ground's own commission rate; blank means the platform default. */
+function CommissionCell({ ground, defaultRate, onSaved }: { ground: Ground; defaultRate: number; onSaved: (rate: number | null) => void }) {
+  const [open,   setOpen]   = useState(false);
+  const [value,  setValue]  = useState(ground.commissionRate?.toString() ?? "");
+  const [notify, setNotify] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState("");
+
+  async function save(rate: number | null) {
+    setSaving(true); setError("");
+    try {
+      const res  = await fetch(`/api/admin/grounds/${ground.id}/commission`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body:   JSON.stringify({ rate, notifyOwner: notify }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error ?? "Couldn't save."); return; }
+      onSaved(data.commissionRate);
+      setValue(data.commissionRate?.toString() ?? "");
+      setOpen(false);
+    } catch { setError("Network error."); }
+    finally  { setSaving(false); }
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} title="Change commission"
+        className="group flex items-center gap-1.5 text-xs font-medium text-left">
+        {ground.commissionRate != null
+          ? <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold">{ground.commissionRate}%</span>
+          : <span className="text-slate-500">{defaultRate}% <span className="text-slate-400">default</span></span>}
+        <Percent className="w-3 h-3 text-slate-300 group-hover:text-indigo-500" />
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5 min-w-[11rem]">
+      <div className="flex items-center gap-1.5">
+        <div className="relative">
+          <input type="number" min={0} max={50} step={0.5} value={value} autoFocus
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") save(value === "" ? null : Number(value)); if (e.key === "Escape") setOpen(false); }}
+            placeholder={String(defaultRate)}
+            className="w-24 pl-2 pr-6 py-1 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
+        </div>
+        <button onClick={() => save(value === "" ? null : Number(value))} disabled={saving}
+          className="px-2 py-1 text-xs font-medium bg-indigo-600 text-white rounded-lg disabled:opacity-50">
+          {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save"}
+        </button>
+        <button onClick={() => setOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
+      </div>
+      {ground.commissionRate != null && (
+        <button onClick={() => save(null)} disabled={saving} className="text-[11px] text-indigo-600 hover:underline text-left">
+          Use platform default ({defaultRate}%)
+        </button>
+      )}
+      <label className="flex items-center gap-1.5 text-[11px] text-slate-500">
+        <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Tell the owner
+      </label>
+      <p className="text-[11px] text-slate-400">Applies to bookings completed from now on.</p>
+      {error && <p className="text-[11px] text-red-600">{error}</p>}
+    </div>
+  );
+}
 
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE:   "bg-green-50 text-green-700",
@@ -44,6 +112,7 @@ function GroundsContent() {
   const [total,    setTotal]    = useState(0);
   const [hasMore,  setHasMore]  = useState(false);
   const [counts,   setCounts]   = useState<Counts>({ all: 0, active: 0, pending: 0, inactive: 0, rejected: 0 });
+  const [defaultRate, setDefaultRate] = useState(10);
 
   const load = useCallback(async (query: string, statusFilter: string, pageNum = 1) => {
     setLoading(true);
@@ -60,6 +129,7 @@ function GroundsContent() {
       setHasMore(data.hasMore ?? false);
       setPage(pageNum);
       if (data.counts) setCounts(data.counts);
+      if (typeof data.defaultCommissionRate === "number") setDefaultRate(data.defaultCommissionRate);
     } catch {
       setError("Failed to load grounds. Please refresh the page.");
     } finally {
@@ -206,6 +276,7 @@ function GroundsContent() {
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Owner</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Category</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Rate</th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Commission</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Status</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Bookings</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">Actions</th>
@@ -231,6 +302,10 @@ function GroundsContent() {
                     </td>
                     <td className="px-6 py-3.5 text-slate-500 text-xs">{(g.categories ?? []).join(", ") || "—"}</td>
                     <td className="px-6 py-3.5 text-slate-700 text-xs font-medium">Rs. {g.hourlyRate.toLocaleString()}/hr</td>
+                    <td className="px-6 py-3.5">
+                      <CommissionCell ground={g} defaultRate={defaultRate}
+                        onSaved={(rate) => setGrounds((prev) => prev.map((x) => x.id === g.id ? { ...x, commissionRate: rate } : x))} />
+                    </td>
                     <td className="px-6 py-3.5">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_BADGE[g.status] ?? "bg-slate-100 text-slate-600"}`}>
                         {g.status}

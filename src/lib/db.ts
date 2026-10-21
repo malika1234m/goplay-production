@@ -4,7 +4,7 @@ import { attachDatabasePool } from "@vercel/functions";
 import { Pool } from "pg";
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
+  prisma: ReturnType<typeof createPrismaClient> | undefined;
 };
 
 function createPrismaClient() {
@@ -19,7 +19,9 @@ function createPrismaClient() {
   // Releases idle clients before the instance is suspended, so a bigger pool can't leak connections
   attachDatabasePool(pool);
   const adapter = new PrismaPg(pool);
-  return new PrismaClient({ adapter });
+  // A ground's commission rate is GoPlay-internal: hidden from every query unless one asks for it
+  // with `select: { commissionRate: true }` or `omit: { commissionRate: false }` (admin and earnings code).
+  return new PrismaClient({ adapter, omit: { sportsFacility: { commissionRate: true } } });
 }
 
 export const db = globalForPrisma.prisma ?? createPrismaClient();

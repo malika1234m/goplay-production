@@ -18,8 +18,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       include: {
         user:     { select: { id: true, name: true } },
         facility: {
-          select: { name: true },
-          include: { owner: { include: { user: { select: { id: true } } } } },
+          select: { name: true, owner: { select: { user: { select: { id: true } } } } },
         },
       },
     });

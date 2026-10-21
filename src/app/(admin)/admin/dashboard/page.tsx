@@ -2,11 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Users, DollarSign, MapPin, TrendingUp, Loader2, UserPlus, CheckCircle, RefreshCw, CalendarDays, BadgeDollarSign, Landmark, ChevronRight, ShieldCheck } from "lucide-react";
-import {
-  ResponsiveContainer, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip,
-} from "recharts";
+import { Users, DollarSign, MapPin, TrendingUp, Loader2, UserPlus, CheckCircle, RefreshCw, CalendarDays, BadgeDollarSign, Landmark, ChevronRight, ShieldCheck, Wallet, Info } from "lucide-react";
+import MoneyTrendChart from "@/components/admin/MoneyTrendChart";
 
 interface Stats {
   totalUsers:      number;
@@ -28,7 +25,17 @@ interface RecentUser {
   totalBookings: number;
 }
 
-interface ChartPoint { label: string; revenue: number }
+/** GoPlay's money (see src/lib/admin-finance.ts). Booking value is the grounds' money, paid to them directly. */
+interface Finance {
+  goplay:       { total: number; month: number; lastMonth: number; change: number | null };
+  commission:   { total: number; month: number; outstanding: number; collected: number };
+  lobbyMargin:  { total: number; month: number };
+  bookingValue: { total: number; month: number; change: number | null; bookings: number };
+  lobbyHeld:    { payoutsDue: number; inOpenLobbies: number };
+}
+
+const rs  = (n: number) => `Rs. ${Math.round(n).toLocaleString()}`;
+const pct = (n: number | null) => (n === null ? "no data last month" : `${n >= 0 ? "+" : ""}${n}% vs last month`);
 
 interface LobbyTasks { receiptsToCheck: number; payoutsDue: number; payoutsDueTotal: number; refundsDue: number; refundsDueTotal: number; bankAccountSet: boolean }
 
@@ -42,8 +49,8 @@ const ROLE_STYLE: Record<string, string> = {
 export default function AdminDashboardPage() {
   const [stats,      setStats]      = useState<Stats | null>(null);
   const [recentUsers, setRecentUsers] = useState<RecentUser[]>([]);
-  const [chartData,  setChartData]  = useState<ChartPoint[]>([]);
-  const [chartDays,  setChartDays]  = useState(30);
+  const [finance,    setFinance]    = useState<Finance | null>(null);
+  const [chartKey,   setChartKey]   = useState(0);
   const [loading,    setLoading]    = useState(true);
   const [lobby,      setLobby]      = useState<LobbyTasks | null>(null);
   const [trust,      setTrust]      = useState<{ reportsToReview: number; disputed: number; unresolved: number } | null>(null);
@@ -57,29 +64,17 @@ export default function AdminDashboardPage() {
     } catch { /* keep the last value */ }
   }, []);
 
-  const loadChart = useCallback(async (days: number) => {
-    try {
-      const res  = await fetch(`/api/admin/earnings/trends?days=${days}`);
-      const data = await res.json();
-      const labels:  string[] = data.trends?.labels  ?? [];
-      const revenue: number[] = data.trends?.revenue ?? [];
-      setChartData(labels.map((l, i) => ({ label: l, revenue: revenue[i] ?? 0 })));
-    } catch {
-      // keep existing chart data on network error
-    }
-  }, []);
-
   useEffect(() => {
     Promise.all([
       fetch("/api/admin/stats").then((r) => r.json()).catch(() => ({})),
       fetch("/api/admin/users?role=").then((r) => r.json()).catch(() => ({})),
     ]).then(([s, u]) => {
       setStats(s.stats ?? null);
+      setFinance(s.finance ?? null);
       setRecentUsers((u.users ?? []).slice(0, 8));
     }).finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadChart(chartDays); }, [chartDays, loadChart]);
   useEffect(() => { void loadLobby(); }, [loadLobby]);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -87,21 +82,19 @@ export default function AdminDashboardPage() {
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [s, u, t] = await Promise.all([
-        fetch("/api/admin/stats").then((r) => r.json()).catch(() => ({})),
+      const [s, u] = await Promise.all([
+        fetch("/api/admin/stats", { cache: "no-store" }).then((r) => r.json()).catch(() => ({})),
         fetch("/api/admin/users?role=").then((r) => r.json()).catch(() => ({})),
-        fetch(`/api/admin/earnings/trends?days=${chartDays}`).then((r) => r.json()).catch(() => ({})),
       ]);
       setStats(s.stats ?? null);
+      setFinance(s.finance ?? null);
       setRecentUsers((u.users ?? []).slice(0, 8));
+      setChartKey((k) => k + 1);
       void loadLobby();
-      const labels:  string[] = t.trends?.labels  ?? [];
-      const revenue: number[] = t.trends?.revenue ?? [];
-      setChartData(labels.map((l: string, i: number) => ({ label: l, revenue: revenue[i] ?? 0 })));
     } finally {
       setRefreshing(false);
     }
-  }, [chartDays, loadLobby]);
+  }, [loadLobby]);
 
   if (loading) {
     return (
@@ -168,24 +161,40 @@ export default function AdminDashboardPage() {
         </Link>
       )}
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stat cards — GoPlay's own money first; booking value belongs to the grounds */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
+          {
+            label: "GoPlay Earnings",
+            value: rs(finance?.goplay.month ?? 0),
+            sub:   `this month · ${pct(finance?.goplay.change ?? null)}`,
+            icon:  BadgeDollarSign,
+            color: "bg-green-50 text-green-600",
+            href:  "/admin/earnings",
+          },
+          {
+            label: "Commission Owed",
+            value: rs(finance?.commission.outstanding ?? 0),
+            sub:   "grounds still to settle",
+            icon:  Wallet,
+            color: (finance?.commission.outstanding ?? 0) > 0 ? "bg-orange-50 text-orange-600" : "bg-slate-50 text-slate-500",
+            href:  "/admin/commissions",
+          },
+          {
+            label: "Booking Value",
+            value: rs(finance?.bookingValue.month ?? 0),
+            sub:   "this month · paid to grounds directly",
+            icon:  DollarSign,
+            color: "bg-blue-50 text-blue-600",
+            href:  "/admin/earnings",
+          },
           {
             label: "Total Users",
             value: (stats?.totalUsers ?? 0).toLocaleString(),
             sub:   `+${stats?.newUsersThisMonth ?? 0} this month`,
             icon:  Users,
-            color: "bg-blue-50 text-blue-600",
+            color: "bg-indigo-50 text-indigo-600",
             href:  "/admin/users",
-          },
-          {
-            label: "Total Revenue",
-            value: `Rs. ${(stats?.totalRevenue ?? 0).toLocaleString()}`,
-            sub:   `Rs. ${(stats?.monthlyRevenue ?? 0).toLocaleString()} this month`,
-            icon:  BadgeDollarSign,
-            color: "bg-green-50 text-green-600",
-            href:  "/admin/earnings",
           },
           {
             label: "Active Grounds",
@@ -194,14 +203,6 @@ export default function AdminDashboardPage() {
             icon:  MapPin,
             color: "bg-purple-50 text-purple-600",
             href:  "/admin/grounds",
-          },
-          {
-            label: "Revenue Change",
-            value: `${(stats?.revenueChange ?? 0) >= 0 ? "+" : ""}${stats?.revenueChange ?? 0}%`,
-            sub:   "vs last month",
-            icon:  TrendingUp,
-            color: "bg-amber-50 text-amber-600",
-            href:  "/admin/analytics",
           },
         ].map(({ label, value, sub, icon: Icon, color, href }) => (
           <Link
@@ -219,46 +220,26 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
+      {/* How money moves */}
+      {finance && (
+        <div className="flex items-start gap-3 bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-xs text-slate-600">
+          <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+          <p>
+            Players pay grounds directly, so booking value is the grounds&apos; money. GoPlay earns commission
+            ({rs(finance.commission.month)} this month, {rs(finance.commission.collected)} collected so far) and the open match
+            margin ({rs(finance.lobbyMargin.month)} this month).
+            {(finance.lobbyHeld.payoutsDue + finance.lobbyHeld.inOpenLobbies) > 0 && (
+              <> GoPlay is holding {rs(finance.lobbyHeld.payoutsDue + finance.lobbyHeld.inOpenLobbies)} of lobby money:{" "}
+                {rs(finance.lobbyHeld.payoutsDue)} to pay grounds and {rs(finance.lobbyHeld.inOpenLobbies)} in lobbies still filling.</>
+            )}
+          </p>
+        </div>
+      )}
+
       {/* Chart + Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Revenue chart */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-6">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-base font-semibold text-slate-900">Revenue Trend</h2>
-            <select
-              value={chartDays}
-              onChange={(e) => setChartDays(Number(e.target.value))}
-              className="text-xs border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              <option value={7}>7 Days</option>
-              <option value={30}>30 Days</option>
-              <option value={90}>90 Days</option>
-            </select>
-          </div>
-          <div className="h-56">
-            {chartData.every((d) => d.revenue === 0) ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-2">
-                <TrendingUp className="w-8 h-8" />
-                <p className="text-sm">No revenue data for this period</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="adminRevGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.18} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} tickLine={false} axisLine={false} tickFormatter={(v) => `Rs.${(v / 1000).toFixed(0)}k`} width={52} />
-                  <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 12 }} formatter={(v) => [`Rs. ${Number(v ?? 0).toLocaleString()}`, "Revenue"]} />
-                  <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2.5} fill="url(#adminRevGrad)" dot={false} activeDot={{ r: 5, fill: "#3b82f6" }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
+        <div className="lg:col-span-2">
+          <MoneyTrendChart key={chartKey} />
         </div>
 
         {/* Quick actions */}
