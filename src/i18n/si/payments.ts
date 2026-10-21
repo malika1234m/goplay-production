@@ -168,5 +168,8 @@ const d: Record<string, string> = {
   "Check again": "නැවත පරීක්ෂා කරන්න",
   "Slot held": "වේලාව රඳවා ඇත",
   "Booking confirmed": "වෙන්කිරීම තහවුරුයි",
+  // Refunds record the bank transfer reference (Oct 2026)
+  "Bank transfer reference": "බැංකු මාරු යොමුව",
+  "Transfer reference": "මාරු යොමුව",
 };
 export default d;
