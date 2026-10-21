@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { num } from "@/lib/money-fields";
 import { auth } from "@/lib/auth";
 import { BLOCK_REASON_LABEL } from "@/lib/trust";
 
@@ -51,8 +52,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     ]);
     owner = {
       grounds: grounds.map(({ _count, ...g }) => ({ ...g, bookings: _count.bookings })),
-      commissionOwed: Math.round((owed._sum.platformFee ?? 0) * 100) / 100,
-      commissionPaid: Math.round((paid._sum.platformFee ?? 0) * 100) / 100,
+      commissionOwed: Math.round((num(owed._sum.platformFee)) * 100) / 100,
+      commissionPaid: Math.round((num(paid._sum.platformFee)) * 100) / 100,
     };
   }
 
@@ -65,7 +66,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       upcoming:  (counts.PENDING ?? 0) + (counts.CONFIRMED ?? 0),
       cancelled: counts.CANCELLED ?? 0,
       noShows:   counts.NO_SHOW ?? 0,
-      spent:     spend._sum.totalAmount ?? 0,
+      spent:     num(spend._sum.totalAmount),
       lobbySpots,
       recent,
     },

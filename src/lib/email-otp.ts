@@ -1,6 +1,6 @@
 import { createHash, randomInt, timingSafeEqual } from "crypto";
 import type { Prisma } from "@prisma/client";
-import { db } from "@/lib/db";
+import { db, type DbTx } from "@/lib/db";
 import { sendBookingOtpEmail } from "@/lib/email";
 
 // Email OTP for pay-at-ground bookings. Every cash booking is confirmed with a fresh code:
@@ -40,7 +40,7 @@ export async function hasUsableEmailVerification(userId: string, email: string):
 }
 
 /** Spend the verification inside the booking transaction. False if another booking got there first. */
-export async function consumeEmailVerification(tx: Prisma.TransactionClient, userId: string, email: string): Promise<boolean> {
+export async function consumeEmailVerification(tx: DbTx, userId: string, email: string): Promise<boolean> {
   const e = normalizeEmail(email);
   if (!e) return false;
   const row = await tx.emailVerification.findFirst({ where: usableWhere(userId, e), orderBy: { verifiedAt: "desc" }, select: { id: true } });

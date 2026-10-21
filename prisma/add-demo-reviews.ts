@@ -1,9 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
+import { moneyAsNumbers } from "../src/lib/money-fields";   // money reads as numbers, like the app
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
-const db = new PrismaClient({ adapter });
+const db = new PrismaClient({ adapter }).$extends(moneyAsNumbers);
 
 async function main() {
   // ── Get the demo facility ──────────────────────────────────────────

@@ -7,9 +7,10 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { getCancellationPolicy } from "../src/lib/cancellation-policy";
+import { moneyAsNumbers } from "../src/lib/money-fields";   // money reads as numbers, like the app
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
-const db      = new PrismaClient({ adapter });
+const db      = new PrismaClient({ adapter }).$extends(moneyAsNumbers);
 
 // ─── Fixed IDs from local DB ─────────────────────────────────────────────────
 const USER_ID     = "cmoo4c48x0014ksyfc0uuegbo"; // E2E Test User

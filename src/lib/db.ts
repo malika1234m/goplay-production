@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { attachDatabasePool } from "@vercel/functions";
 import { Pool } from "pg";
+import { moneyAsNumbers } from "@/lib/money-fields";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: ReturnType<typeof createPrismaClient> | undefined;
@@ -21,9 +22,12 @@ function createPrismaClient() {
   const adapter = new PrismaPg(pool);
   // A ground's commission rate is GoPlay-internal: hidden from every query unless one asks for it
   // with `select: { commissionRate: true }` or `omit: { commissionRate: false }` (admin and earnings code).
-  return new PrismaClient({ adapter, omit: { sportsFacility: { commissionRate: true } } });
+  return new PrismaClient({ adapter, omit: { sportsFacility: { commissionRate: true } } }).$extends(moneyAsNumbers);
 }
 
 export const db = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+
+/** The client inside db.$transaction(async (tx) => …) — the extended client, so money reads are numbers. */
+export type DbTx = Parameters<Extract<Parameters<typeof db.$transaction>[0], (...args: never[]) => unknown>>[0];

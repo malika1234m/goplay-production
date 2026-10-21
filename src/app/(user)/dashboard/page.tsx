@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { num } from "@/lib/money-fields";
 import { redirect } from "next/navigation";
 
 async function getUserStats(userId: string) {
@@ -94,8 +95,8 @@ async function getUserStats(userId: string) {
 
   return {
     stats, recent, activeSpots, upcomingBookings, favSport,
-    totalSpent:    Number(spentAggregate._sum.totalAmount ?? 0),
-    thisMonthSpent: Number(thisMonthAggregate._sum.totalAmount ?? 0),
+    totalSpent:    Number(num(spentAggregate._sum.totalAmount)),
+    thisMonthSpent: Number(num(thisMonthAggregate._sum.totalAmount)),
     thisMonthCount: thisMonthAggregate._count._all,
   };
 }

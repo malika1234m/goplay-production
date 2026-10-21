@@ -64,7 +64,7 @@ model GroundOwnerProfile {
   accountNumber             String?
   bankBranch                String?
   bankName                  String?
-  commissionRequestedAmount Float?
+  commissionRequestedAmount Decimal? @db.Decimal(12, 2)
   commissionRequestedAt     DateTime?
   earnings                  GroundEarning[]
   user                      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -88,9 +88,9 @@ model SportsFacility {
   description          String?
   address              String
   city                 String
-  hourlyRate           Float
+  hourlyRate           Decimal @db.Decimal(12, 2)
   /// GoPlay's commission for this ground, in percent. Null uses the platform default from Settings.
-  commissionRate       Float?
+  commissionRate       Decimal? @db.Decimal(5, 2)
   capacity             Int?
   amenities            String[]
   images               String[]
@@ -177,7 +177,7 @@ model FacilityBooking {
   startTime           String
   endTime             String
   totalHours          Float
-  totalAmount         Float
+  totalAmount         Decimal @db.Decimal(12, 2)
   status              BookingStatus      @default(PENDING)
   specialRequests     String?
   contactNumber       String?
@@ -194,7 +194,7 @@ model FacilityBooking {
   cancelledAt         DateTime?
   cancelledBy         String?
   noShowMarkedAt      DateTime?
-  refundAmount        Float?
+  refundAmount        Decimal? @db.Decimal(12, 2)
   refundPercent       Int?
   isOpenMatch         Boolean            @default(false)
   openMatchId         String?
@@ -265,7 +265,7 @@ model ProviderApplication {
   facilityName        String
   facilityAddress     String
   facilityCity        String
-  proposedHourlyRate  Float
+  proposedHourlyRate  Decimal @db.Decimal(12, 2)
   capacity            Int?
   amenities           String[]
   facilityDescription String?
@@ -286,9 +286,9 @@ model GroundEarning {
   bookingId           String             @unique
   facilityId          String
   ownerId             String
-  grossAmount         Float
-  platformFee         Float
-  netAmount           Float
+  grossAmount         Decimal @db.Decimal(12, 2)
+  platformFee         Decimal @db.Decimal(12, 2)
+  netAmount           Decimal @db.Decimal(12, 2)
   paymentMethod       PaymentMethod
   cashConfirmed       Boolean            @default(false)
   earnedAt            DateTime           @default(now())
@@ -395,8 +395,8 @@ model OpenMatchSpot {
   groupSize           Int                @default(1)
   status              SpotStatus         @default(RESERVED)
   paymentStatus       PaymentStatus      @default(PENDING)
-  amountPaid          Float
-  amountDue           Float              @default(0)
+  amountPaid          Decimal @db.Decimal(12, 2)
+  amountDue           Decimal              @db.Decimal(12, 2) @default(0)
   receiptUrl          String?
   receiptUploadedAt   DateTime?
   receiptReviewedAt   DateTime?
@@ -405,7 +405,7 @@ model OpenMatchSpot {
   cancelledAt         DateTime?
   /// Refunds GoPlay owes for lobbies it collected (expired, slot lost, or the player left)
   refundStatus        RefundStatus       @default(NONE)
-  refundAmount        Float?
+  refundAmount        Decimal? @db.Decimal(12, 2)
   refundBankName      String?
   refundBankBranch    String?
   refundAccountName   String?
@@ -574,11 +574,11 @@ model LobbyPayout {
   id               String         @id @default(cuid())
   matchId          String         @unique
   facilityId       String
-  collectedAmount  Float          // paid spots at the moment the lobby filled
-  courtAmount      Float          // hourly rate × hours
-  commissionRate   Float          // fraction, e.g. 0.1
-  commissionAmount Float
-  amount           Float          // what the ground receives
+  collectedAmount  Decimal          @db.Decimal(12, 2) // paid spots at the moment the lobby filled
+  courtAmount      Decimal          @db.Decimal(12, 2) // hourly rate × hours
+  commissionRate   Decimal          @db.Decimal(6, 4) // fraction, e.g. 0.1
+  commissionAmount Decimal @db.Decimal(12, 2)
+  amount           Decimal          @db.Decimal(12, 2) // what the ground receives
   status           PayoutStatus   @default(DUE)
   reference        String?
   paidAt           DateTime?

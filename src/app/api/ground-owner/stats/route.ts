@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { num } from "@/lib/money-fields";
 import { NextRequest } from "next/server";
 import { getSession } from "@/lib/mobile-auth";
 
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    const monthlyRevenue = monthRevenueAgg._sum.totalAmount ?? 0;
+    const monthlyRevenue = num(monthRevenueAgg._sum.totalAmount);
     const avgRating      = reviewStats._avg.rating
       ? Math.round(reviewStats._avg.rating * 10) / 10
       : null;

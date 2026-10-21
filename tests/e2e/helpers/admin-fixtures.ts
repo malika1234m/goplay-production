@@ -9,7 +9,10 @@
 import * as fs from "fs";
 import * as path from "path";
 import { randomBytes } from "crypto";
-import { Pool } from "pg";
+import { Pool, types } from "pg";
+
+// Money columns are NUMERIC; read them as numbers like the app does (pg returns strings by default)
+types.setTypeParser(types.builtins.NUMERIC, (v) => parseFloat(v));
 import bcrypt from "bcryptjs";
 
 export const BASE = process.env.BASE_URL ?? "http://localhost:3000";

@@ -1,8 +1,7 @@
-import { Prisma } from "@prisma/client";
-import { db } from "@/lib/db";
+import { db, type DbTx } from "@/lib/db";
 
 /** Either the shared client or a transaction client — capacity reads work on both. */
-type Db = typeof db | Prisma.TransactionClient;
+type Db = typeof db | DbTx;
 
 export interface SlotUsage {
   /** Active courts at the facility. A facility with none defined is treated as one bookable unit. */
@@ -115,7 +114,7 @@ export async function slotUsage(opts: {
 export async function withFacilityDayLock<T>(
   facilityId: string,
   date: Date,
-  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  fn: (tx: DbTx) => Promise<T>,
 ): Promise<T> {
   const day = date.toISOString().slice(0, 10);
   return db.$transaction(async (tx) => {
@@ -128,7 +127,7 @@ export async function withFacilityDayLock<T>(
  * Whether a ground still takes bookings, read under a shared lock on its row. Taking a ground off
  * GoPlay locks the same row, so a booking can't slip in while that decision is being made.
  */
-export async function facilityTakesBookings(tx: Prisma.TransactionClient, facilityId: string): Promise<boolean> {
+export async function facilityTakesBookings(tx: DbTx, facilityId: string): Promise<boolean> {
   const rows = await tx.$queryRaw<{ status: string }[]>`SELECT status FROM "SportsFacility" WHERE id = ${facilityId} FOR SHARE`;
   return rows[0]?.status === "ACTIVE";
 }
@@ -137,7 +136,7 @@ export async function facilityTakesBookings(tx: Prisma.TransactionClient, facili
  * Inside withFacilityDayLock: why a ground's own (walk-in) booking can't take this window, or null.
  * Counts bookings and lobbies like a player booking does, so neither side can double-book the other.
  */
-export async function walkInSlotError(tx: Prisma.TransactionClient, o: { facilityId: string; date: Date; startTime: string; endTime: string; courtId: string | null }): Promise<string | null> {
+export async function walkInSlotError(tx: DbTx, o: { facilityId: string; date: Date; startTime: string; endTime: string; courtId: string | null }): Promise<string | null> {
   if (!(await facilityTakesBookings(tx, o.facilityId))) return "This ground isn't taking bookings right now.";
   const usage = await slotUsage({ facilityId: o.facilityId, date: o.date, startTime: o.startTime, endTime: o.endTime, courtId: o.courtId, client: tx });
   if (usage.courtTaken || usage.free <= 0) {

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { num } from "@/lib/money-fields";
 import { getDefaultCommissionRate } from "@/lib/settings";
 
 // GoPlay's money, for the admin dashboard. Players pay grounds directly (cash or bank transfer),
@@ -74,10 +75,10 @@ export async function financeSummary() {
     .reduce((s, p) => s + p.collectedAmount - p.amount, 0));
 
   const commission = {
-    total:       round(cAll._sum.platformFee ?? 0),
-    month:       round(cMonth._sum.platformFee ?? 0),
-    lastMonth:   round(cLast._sum.platformFee ?? 0),
-    outstanding: round(cOpen._sum.platformFee ?? 0),
+    total:       round(num(cAll._sum.platformFee)),
+    month:       round(num(cMonth._sum.platformFee)),
+    lastMonth:   round(num(cLast._sum.platformFee)),
+    outstanding: round(num(cOpen._sum.platformFee)),
   };
   const lobbyMargin   = { total: margin(), month: margin(m0, next), lastMonth: margin(m1, m0) };
   const lobbyRetained = { total: kept(), month: kept(m0, next), lastMonth: kept(m1, m0) };
@@ -96,16 +97,16 @@ export async function financeSummary() {
     lobbyRetained,
     // Money that is the grounds' (paid to them directly), shown for scale only
     bookingValue: {
-      total:     round(bAll._sum.totalAmount ?? 0),
-      month:     round(bMonth._sum.totalAmount ?? 0),
-      lastMonth: round(bLast._sum.totalAmount ?? 0),
-      change:    change(bMonth._sum.totalAmount ?? 0, bLast._sum.totalAmount ?? 0),
+      total:     round(num(bAll._sum.totalAmount)),
+      month:     round(num(bMonth._sum.totalAmount)),
+      lastMonth: round(num(bLast._sum.totalAmount)),
+      change:    change(num(bMonth._sum.totalAmount), num(bLast._sum.totalAmount)),
       bookings:  bAll._count,
     },
     // Lobby money GoPlay is holding: owed to grounds (payouts due) or still in open lobbies
     lobbyHeld: {
       payoutsDue: round(payouts.filter((p) => p.status === "DUE").reduce((s, p) => s + p.amount, 0)),
-      inOpenLobbies: round(held._sum.amountPaid ?? 0),
+      inOpenLobbies: round(num(held._sum.amountPaid)),
     },
     defaultCommissionRate: Math.round(defaultRate * 10000) / 100,
   };
@@ -132,7 +133,7 @@ export async function financeTrend(days: number) {
   }
   for (const b of bookings) {
     const p = points.get(b.bookingDate.toISOString().slice(0, 10));
-    if (p) p.bookingValue += b._sum.totalAmount ?? 0;
+    if (p) p.bookingValue += num(b._sum.totalAmount);
   }
   for (const f of fees) {
     const p = points.get(f.booking.bookingDate.toISOString().slice(0, 10));
@@ -171,7 +172,7 @@ export async function financeByFacility() {
   for (const r of retained) lobby.set(r.facilityId, (lobby.get(r.facilityId) ?? 0) + r.amount);
 
   return facilities.map((f) => {
-    const commission  = round(fe.get(f.id)?._sum.platformFee ?? 0);
+    const commission  = round(num(fe.get(f.id)?._sum.platformFee));
     const lobbyMargin = round(lobby.get(f.id) ?? 0);
     return {
       facilityId:     f.id,
@@ -183,9 +184,9 @@ export async function financeByFacility() {
       commissionRate: f.commissionRate ?? Math.round(defaultRate * 10000) / 100,
       customRate:     f.commissionRate != null,
       bookings:       bk.get(f.id)?._count ?? 0,
-      bookingValue:   round(bk.get(f.id)?._sum.totalAmount ?? 0),
+      bookingValue:   round(num(bk.get(f.id)?._sum.totalAmount)),
       commission,
-      outstanding:    round(op.get(f.id)?._sum.platformFee ?? 0),
+      outstanding:    round(num(op.get(f.id)?._sum.platformFee)),
       lobbyMargin,
       goplay:         round(commission + lobbyMargin),
     };

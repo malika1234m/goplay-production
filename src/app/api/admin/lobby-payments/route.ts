@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { num } from "@/lib/money-fields";
 import { auth } from "@/lib/auth";
 import { getPlatformPaymentDetails } from "@/lib/lobby-payments";
 import { financeSummary } from "@/lib/admin-finance";
@@ -51,7 +52,7 @@ export async function GET() {
     db.openMatchSpot.groupBy({ by: ["refundStatus"], where: { match: { payee: "PLATFORM" }, refundStatus: { in: ["NEEDED", "PROCESSED"] } }, _sum: { refundAmount: true }, _count: true }),
   ]);
 
-  const received = paidSpots._sum.amountPaid ?? 0;
+  const received = num(paidSpots._sum.amountPaid);
   const payoutBy   = (st: string) => payoutTotals.find((t) => t.status === st);
   const refundBy   = (st: string) => refundTotals.find((t) => t.refundStatus === st);
 
@@ -64,16 +65,16 @@ export async function GET() {
       // Counts and totals are over every lobby, not just the lists shown
       receiptsToCheck: receipts.length,
       payoutsDue:      payoutBy("DUE")?._count ?? 0,
-      payoutsDueTotal: payoutBy("DUE")?._sum.amount ?? 0,
+      payoutsDueTotal: num(payoutBy("DUE")?._sum.amount),
       refundsDue:      refundBy("NEEDED")?._count ?? 0,
-      refundsDueTotal: refundBy("NEEDED")?._sum.refundAmount ?? 0,
+      refundsDueTotal: num(refundBy("NEEDED")?._sum.refundAmount),
       received,
-      paidOut:         payoutBy("PAID")?._sum.amount ?? 0,
-      refunded:        refundBy("PROCESSED")?._sum.refundAmount ?? 0,
+      paidOut:         num(payoutBy("PAID")?._sum.amount),
+      refunded:        num(refundBy("PROCESSED")?._sum.refundAmount),
       // What GoPlay keeps: filled lobbies (collected minus the ground's payout) plus what the
       // cancellation policy kept from players who left — the same figure as the Earnings page
       goplayEarned:    finance.lobbyMargin.total + finance.lobbyRetained.total,
-      commission:      (payoutBy("DUE")?._sum.commissionAmount ?? 0) + (payoutBy("PAID")?._sum.commissionAmount ?? 0),
+      commission:      (num(payoutBy("DUE")?._sum.commissionAmount)) + (num(payoutBy("PAID")?._sum.commissionAmount)),
     },
   });
 }

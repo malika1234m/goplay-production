@@ -1,5 +1,4 @@
-import type { Prisma } from "@prisma/client";
-import { db } from "@/lib/db";
+import { db, type DbTx } from "@/lib/db";
 import { facilityTakesBookings, slotUsage, withFacilityDayLock } from "@/lib/slot-capacity";
 import { createNotification } from "@/lib/notify";
 import { sendMatchFoundEmail, sendMatchExpiredEmail, sendNewBookingAlertEmail } from "@/lib/email";
@@ -67,7 +66,7 @@ export function publicLobby<T extends PriceableLobby>(m: T): Omit<T, "serviceFee
 }
 
 /** Lock a lobby's row for the rest of the transaction; joins, leaves, fills and expiry queue behind it. */
-export async function lockLobby(tx: Prisma.TransactionClient, matchId: string): Promise<string | null> {
+export async function lockLobby(tx: DbTx, matchId: string): Promise<string | null> {
   const rows = await tx.$queryRaw<{ status: string }[]>`SELECT status FROM "OpenMatch" WHERE id = ${matchId} FOR UPDATE`;
   return rows[0]?.status ?? null;
 }
