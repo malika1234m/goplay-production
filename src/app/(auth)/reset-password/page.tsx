@@ -167,9 +167,9 @@ export default function ResetPasswordPage() {
       <Suspense>
         <ResetPasswordForm />
       </Suspense>
-      <p className="text-center text-sm text-slate-400 mt-6">
+      <p className="text-center text-sm text-slate-500 mt-6">
         Remembered it?{" "}
-        <Link href="/login" className="text-white font-medium hover:text-green-300 transition-colors">
+        <Link href="/login" className="text-green-700 font-semibold hover:text-green-800 transition-colors">
           Sign in
         </Link>
       </p>

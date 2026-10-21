@@ -3,9 +3,10 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
 import Turnstile, { turnstileEnabled } from "@/components/security/Turnstile";
 import GoogleButton from "@/components/auth/GoogleButton";
+import AuthTabs from "@/components/auth/AuthTabs";
 
 // ── Validators ────────────────────────────────────────────────────────────────
 function validateName(v: string) {
@@ -52,13 +53,13 @@ function passwordStrength(v: string): { label: string; color: string; width: str
 }
 
 // ── Field wrapper ─────────────────────────────────────────────────────────────
-function FieldError({ msg }: { msg: string }) {
+function FieldError({ id, msg }: { id: string; msg: string }) {
   if (!msg) return null;
-  return <p className="text-xs text-red-500 mt-1">{msg}</p>;
+  return <p id={id} className="text-xs text-red-600 mt-1">{msg}</p>;
 }
 
 function inputClass(err: string) {
-  return `w-full px-4 py-3 rounded-xl border text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 transition ${
+  return `w-full h-12 px-4 rounded-xl border bg-white text-slate-900 placeholder-slate-400 text-base sm:text-sm focus:outline-none focus:ring-2 transition ${
     err
       ? "border-red-300 focus:ring-red-300"
       : "border-slate-200 focus:ring-green-500 focus:border-transparent"
@@ -115,106 +116,132 @@ function RegisterForm() {
     }
   };
 
+  // Accessible wiring for a field: its error is announced and linked to the input
+  const fieldA11y = (field: keyof typeof touched) => {
+    const err = touched[field] ? errors[field] : "";
+    return { "aria-invalid": !!err, "aria-describedby": err ? `reg-${field}-error` : undefined };
+  };
+
   return (
     <div className="w-full max-w-md">
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">Create your account</h1>
-          <p className="text-slate-500 text-sm mt-1">Join thousands of players on GoPlay</p>
+      <div className="bg-white rounded-3xl shadow-xl shadow-slate-900/10 ring-1 ring-slate-100 p-6 sm:p-8 space-y-6">
+        <AuthTabs />
+
+        <div>
+          <p className="font-scoreboard text-sm font-bold uppercase tracking-[0.2em] text-green-600">Join the squad</p>
+          <h1 className="font-scoreboard text-4xl font-bold uppercase tracking-tight text-slate-900">Create your account</h1>
+          <p className="text-slate-500 text-sm mt-1">Book grounds and join open matches across Sri Lanka. It&apos;s free.</p>
         </div>
 
-        <div className="flex flex-col gap-4 mb-4"><GoogleButton label="Sign up with Google" /></div>
+        <GoogleButton label="Sign up with Google" />
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {/* Full name */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Full name</label>
+            <label htmlFor="reg-name" className="block text-sm font-medium text-slate-700 mb-1.5">Full name</label>
             <input
+              id="reg-name"
               type="text"
+              autoComplete="name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               onBlur={() => touch("name")}
               placeholder="Malika Perera"
+              {...fieldA11y("name")}
               className={inputClass(touched.name ? errors.name : "")}
             />
-            {touched.name && <FieldError msg={errors.name} />}
+            {touched.name && <FieldError id="reg-name-error" msg={errors.name} />}
           </div>
 
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Email address</label>
+            <label htmlFor="reg-email" className="block text-sm font-medium text-slate-700 mb-1.5">Email address</label>
             <input
+              id="reg-email"
               type="email"
+              autoComplete="email"
+              inputMode="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               onBlur={() => touch("email")}
               placeholder="you@example.com"
+              {...fieldA11y("email")}
               className={inputClass(touched.email ? errors.email : "")}
             />
-            {touched.email && <FieldError msg={errors.email} />}
+            {touched.email && <FieldError id="reg-email-error" msg={errors.email} />}
           </div>
 
           {/* Phone */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+            <label htmlFor="reg-phone" className="block text-sm font-medium text-slate-700 mb-1.5">
               Phone number <span className="text-slate-400 font-normal">(optional)</span>
             </label>
             <input
+              id="reg-phone"
               type="tel"
+              autoComplete="tel"
+              inputMode="tel"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               onBlur={() => touch("phone")}
-              placeholder="+94 77 123 4567"
+              placeholder="077 123 4567"
+              {...fieldA11y("phone")}
               className={inputClass(touched.phone ? errors.phone : "")}
             />
-            {touched.phone && <FieldError msg={errors.phone} />}
+            {touched.phone && <FieldError id="reg-phone-error" msg={errors.phone} />}
           </div>
 
           {/* Password */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+            <label htmlFor="reg-password" className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
             <div className="relative">
               <input
+                id="reg-password"
                 type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 onBlur={() => touch("password")}
-                placeholder="Min 8 characters"
-                className={inputClass(touched.password ? errors.password : "")}
+                placeholder="8+ characters and a number"
+                {...fieldA11y("password")}
+                className={inputClass(touched.password ? errors.password : "") + " pr-12"}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <EyeOff className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
               </button>
             </div>
 
-            {/* Strength bar */}
+            {/* Strength meter: four segments, like a fitness bar */}
             {form.password && (
-              <div className="mt-2">
-                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-300 ${strength.color}`}
-                    style={{ width: strength.width }}
-                  />
+              <div className="mt-2" aria-live="polite">
+                <div className="grid grid-cols-4 gap-1.5" aria-hidden="true">
+                  {[25, 50, 75, 100].map((step) => (
+                    <span key={step} className={`h-1.5 rounded-full transition-colors duration-300 ${
+                      parseInt(strength.width) >= step ? strength.color : "bg-slate-100"
+                    }`} />
+                  ))}
                 </div>
-                <p className={`text-xs mt-1 ${
-                  strength.label === "Strong" ? "text-green-600"
-                  : strength.label === "Good" ? "text-blue-500"
-                  : strength.label === "Fair" ? "text-yellow-600"
-                  : "text-red-500"
-                }`}>{strength.label}</p>
+                <p className={`text-xs mt-1 font-medium ${
+                  strength.label === "Strong" ? "text-green-700"
+                  : strength.label === "Good" ? "text-blue-700"
+                  : strength.label === "Fair" ? "text-amber-700"
+                  : "text-red-600"
+                }`}>Password strength: {strength.label}</p>
               </div>
             )}
-            {touched.password && <FieldError msg={errors.password} />}
+            {touched.password && <FieldError id="reg-password-error" msg={errors.password} />}
           </div>
 
           <Turnstile key={captchaKey} action="register" onToken={setCaptcha} />
 
           {serverError && (
-            <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3">
+            <div role="alert" className="bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl px-4 py-3">
               {serverError}
             </div>
           )}
@@ -222,23 +249,24 @@ function RegisterForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mt-1"
+            className="group w-full h-12 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 mt-1 shadow-lg shadow-green-600/25"
           >
-            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {loading && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
             {loading ? "Creating account..." : "Create account"}
+            {!loading && <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />}
           </button>
 
-          <p className="text-xs text-slate-400 text-center">
+          <p className="text-xs text-slate-500 text-center">
             By creating an account you agree to our{" "}
-            <Link href="/terms" className="text-slate-600 underline">Terms</Link> and{" "}
-            <Link href="/privacy" className="text-slate-600 underline">Privacy Policy</Link>.
+            <Link href="/terms" className="text-slate-700 underline">Terms</Link> and{" "}
+            <Link href="/privacy" className="text-slate-700 underline">Privacy Policy</Link>.
           </p>
         </form>
       </div>
 
-      <p className="text-center text-sm text-slate-400 mt-6">
+      <p className="text-center text-sm text-slate-500 mt-6">
         Already have an account?{" "}
-        <Link href="/login" className="text-white font-medium hover:text-green-300 transition-colors">
+        <Link href="/login" className="text-green-700 font-semibold hover:text-green-800 transition-colors">
           Sign in
         </Link>
       </p>
@@ -248,7 +276,7 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div className="w-full max-w-md h-96 bg-white rounded-2xl animate-pulse" />}>
+    <Suspense fallback={<div className="w-full max-w-md h-[640px] bg-white rounded-3xl animate-pulse" />}>
       <RegisterForm />
     </Suspense>
   );
