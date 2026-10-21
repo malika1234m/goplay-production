@@ -9,7 +9,7 @@ import { test, expect, type APIRequestContext, type BrowserContext, type Page } 
 import * as fs from "fs";
 import * as path from "path";
 import {
-  BASE, PASSWORD, ACCOUNTS, OWNER, GROUND, assertLocal, seedAccounts, groundFixture, seedBooking, snapshot, cleanup, closeDb, q,
+  BASE, PASSWORD, ACCOUNTS, OWNER, assertLocal, seedAccounts, groundFixture, seedBooking, snapshot, cleanup, closeDb, q,
 } from "./helpers/admin-fixtures";
 
 test.describe.configure({ mode: "serial" });
@@ -201,7 +201,7 @@ test.describe("Users and ground owners", () => {
     await visit(page, `${BASE}/admin/users?user=${ground.ownerUserId}`);
     const panel = page.getByRole("dialog");
     await expect(panel.getByText("As a ground owner")).toBeVisible();
-    await expect(panel.getByText(GROUND.name).first()).toBeVisible();
+    await expect(panel.getByText(ground.name).first()).toBeVisible();
     await expect(panel.getByText("Commission owed")).toBeVisible();
     await page.close();
   });

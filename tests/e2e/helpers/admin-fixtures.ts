@@ -79,11 +79,21 @@ export async function seedAccounts() {
 }
 
 export async function groundFixture() {
-  const [g] = await q<{ id: string; ownerId: string; hourlyRate: number; ownerUserId: string }>(
-    `select f.id, f."ownerId", f."hourlyRate", o."userId" as "ownerUserId" from "SportsFacility" f join "GroundOwnerProfile" o on o.id = f."ownerId" where f.name = $1`,
-    [GROUND.name],
+  // The demo ground when this machine has the demo data; otherwise (a fresh seed, as in CI) any live
+  // ground of the seed owner with a court and a sport
+  const [g] = await q<{ id: string; name: string; ownerId: string; hourlyRate: number; ownerUserId: string }>(
+    `select f.id, f.name, f."ownerId", f."hourlyRate", o."userId" as "ownerUserId"
+       from "SportsFacility" f
+       join "GroundOwnerProfile" o on o.id = f."ownerId"
+       join "User" u on u.id = o."userId"
+      where u.email = $2 and f.status = 'ACTIVE'
+        and exists (select 1 from "FacilityCourt" c where c."facilityId" = f.id and c."isActive")
+        and exists (select 1 from "_SportsCategoryToSportsFacility" x where x."B" = f.id)
+      order by (f.name = $1) desc, f."createdAt"
+      limit 1`,
+    [GROUND.name, OWNER.email],
   );
-  if (!g) throw new Error(`Seed ground "${GROUND.name}" not found. Run the seed first.`);
+  if (!g) throw new Error(`No live ground with a court and a sport for ${OWNER.email}. Run the seed first.`);
   const [court] = await q<{ id: string }>(`select id from "FacilityCourt" where "facilityId" = $1 and "isActive" order by "sortOrder", "createdAt" limit 1`, [g.id]);
   // Implicit many-to-many: "A" is the category, "B" the facility
   const [cat]   = await q<{ id: string; minPlayers: number }>(
