@@ -42,6 +42,24 @@ const ADS = {
   font: ["https://fonts.gstatic.com"],
 };
 
+// Pages that handle passwords or carry a reset token in the URL. They get a CSP
+// with no ad or map hosts, so no third-party code ever runs next to those forms.
+const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password", "/force-change-password"];
+
+const AUTH_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "connect-src 'self' https://challenges.cloudflare.com",
+  "frame-src https://challenges.cloudflare.com",
+  "font-src 'self' data:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "upgrade-insecure-requests",
+].join("; ");
+
 // Seed/demo facility images are served from the dev machine, and the mobile
 // app reaches it as 10.0.2.2 (the Android emulator's alias for the host).
 // Those hosts are allowed in development only, so `/grounds` renders in a
@@ -128,6 +146,11 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Listed last so these override the site-wide CSP above (the last matching header wins)
+      ...AUTH_PAGES.map((source) => ({
+        source,
+        headers: [{ key: "Content-Security-Policy", value: AUTH_CSP }],
+      })),
     ];
   },
 };
