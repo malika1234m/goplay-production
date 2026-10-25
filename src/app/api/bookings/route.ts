@@ -298,21 +298,24 @@ export async function POST(req: NextRequest) {
       type:    "info",
     });
 
-    // Online bookings: the owner hears again (with email) once the receipt is uploaded
-    await createNotification({
-      userId:  facility.owner.user.id,
-      title:   "New Booking Received",
-      message: paymentMethod === "ONLINE"
-        ? `${session.user.name ?? "A player"} has booked ${facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime}. Payment: bank transfer (Rs. ${totalAmount.toLocaleString()}) — receipt to follow.`
-        : `${session.user.name ?? "A player"} has booked ${facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime}. Payment: Cash on Arrival (Rs. ${totalAmount.toLocaleString()}).`,
-      type:    "info",
-    });
+    // Online bookings reach the owner only once the player sends a receipt (submitBookingReceipt):
+    // until then it is just a held slot, and an unpaid hold isn't a booking to act on
+    if (paymentMethod === "ON_ARRIVAL") {
+      await createNotification({
+        userId:  facility.owner.user.id,
+        title:   "New Booking Received",
+        message: `${session.user.name ?? "A player"} has booked ${facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime}. Payment: Cash on Arrival (Rs. ${totalAmount.toLocaleString()}).`,
+        type:    "info",
+      });
+    }
 
     // SMS: booking received
     if (contactNumber) {
       await sendSMS(
         contactNumber,
-        `GoPlay: Your booking at ${facility.name} on ${bookingDate} from ${startTime} to ${endTime} has been received. Awaiting confirmation from the ground owner.`
+        paymentMethod === "ONLINE"
+          ? `GoPlay: Your slot at ${facility.name} on ${bookingDate} from ${startTime} to ${endTime} is held. Transfer the amount and send the receipt in the app to confirm it.`
+          : `GoPlay: Your booking at ${facility.name} on ${bookingDate} from ${startTime} to ${endTime} has been received. Awaiting confirmation from the ground owner.`
       );
     }
 
@@ -334,12 +337,14 @@ export async function POST(req: NextRequest) {
       name: session.user.name ?? "Player",
       ...emailOpts,
     });
-    void sendNewBookingAlertEmail({
-      to:         facility.owner.user.email ?? "",
-      ownerName:  facility.owner.user.name  ?? "Owner",
-      playerName: session.user.name ?? "A player",
-      ...emailOpts,
-    });
+    if (paymentMethod === "ON_ARRIVAL") {
+      void sendNewBookingAlertEmail({
+        to:         facility.owner.user.email ?? "",
+        ownerName:  facility.owner.user.name  ?? "Owner",
+        playerName: session.user.name ?? "A player",
+        ...emailOpts,
+      });
+    }
 
     if (paymentMethod === "ONLINE") {
       const receiptWindowMinutes = await getReceiptWindowMinutes();

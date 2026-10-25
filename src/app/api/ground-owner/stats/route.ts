@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { num } from "@/lib/money-fields";
 import { NextRequest } from "next/server";
 import { getSession } from "@/lib/mobile-auth";
+import { heldWithoutReceiptWhere } from "@/lib/payment-review";
 
 export async function GET(req: NextRequest) {
   try {
@@ -51,6 +52,7 @@ export async function GET(req: NextRequest) {
             lt:  new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1),
           },
           status: { in: ["CONFIRMED", "PENDING"] },
+          NOT:    heldWithoutReceiptWhere,
         },
         include: {
           user:     { select: { name: true } },

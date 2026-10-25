@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { db } from "@/lib/db";
 import { sendPushToUser } from "@/lib/push";
 
@@ -16,6 +17,13 @@ export async function createNotification(input: NotifyInput): Promise<void> {
     data: { userId, title, message, type, link },
   });
 
-  // Fire push notification without awaiting so the API response is never delayed
-  void sendPushToUser(userId, title, message, link ? { link } : undefined);
+  // Send the push after the response so it never delays it. A bare un-awaited promise can be cut
+  // off when a serverless function finishes; after() keeps the invocation alive until it's sent.
+  // Outside a request (scripts) after() throws, so the push is simply awaited there.
+  const push = () => sendPushToUser(userId, title, message, link ? { link } : undefined);
+  try {
+    after(push);
+  } catch {
+    await push();
+  }
 }

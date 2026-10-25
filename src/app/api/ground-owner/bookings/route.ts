@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { walkInSlotError, withFacilityDayLock } from "@/lib/slot-capacity";
 import { getSession } from "@/lib/mobile-auth";
 import { activeBookingWindow } from "@/lib/booking-window";
+import { heldWithoutReceiptWhere } from "@/lib/payment-review";
 import { BookingStatus } from "@prisma/client";
 
 const VALID_BOOKING_STATUSES = new Set<string>(Object.values(BookingStatus));
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest) {
     const where = {
       facilityId: { in: facilityIds },
       archivedAt: null,
+      NOT:        heldWithoutReceiptWhere,
       ...(status && { status }),
       ...(Object.keys(dateFilter).length > 0 && { bookingDate: dateFilter }),
     };

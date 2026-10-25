@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
-import { reviewableFacilityIds } from "@/lib/payment-review";
+import { heldWithoutReceiptWhere, reviewableFacilityIds } from "@/lib/payment-review";
 import { paymentDetailsSelect, resolvePaymentDetails } from "@/lib/payment-details";
 import { slotInstant } from "@/lib/local-time";
 import { activeBookingWindow } from "@/lib/booking-window";
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
         select:  { id: true, bookingDate: true, startTime: true, endTime: true, totalAmount: true, contactNumber: true, specialRequests: true, user: player, facility, court },
       }),
       db.facilityBooking.findMany({
-        where:   { facilityId: { in: ids }, status: "PENDING", paymentMethod: "ONLINE", paymentStatus: { in: ["PENDING", "REJECTED"] }, ...win },
+        where:   { facilityId: { in: ids }, status: "PENDING", paymentMethod: "ONLINE", paymentStatus: { in: ["PENDING", "REJECTED"] }, NOT: heldWithoutReceiptWhere, ...win },
         orderBy: { createdAt: "asc" },
         select:  {
           id: true, bookingDate: true, startTime: true, endTime: true, totalAmount: true, paymentStatus: true, createdAt: true,

@@ -310,6 +310,18 @@ export async function createPaymentComplaint(opts: {
  * "Pay online" bookings still holding a slot without a usable receipt: none uploaded within
  * the window, or rejected and not re-uploaded within the window. An open complaint keeps the hold.
  */
+/**
+ * A "Pay online" slot the player is holding but hasn't sent a receipt for yet. It isn't a booking
+ * the ground can act on, so owner and worker booking lists leave it out until a receipt arrives
+ * (or the player opens a complaint). Schedules still show it, since the slot is taken.
+ */
+export const heldWithoutReceiptWhere = {
+  status:        "PENDING" as const,
+  paymentMethod: "ONLINE" as const,
+  paymentStatus: "PENDING" as const,
+  complaints:    { none: { status: "OPEN" as const } },
+};
+
 export function staleUnpaidBookingWhere(cutoff: Date) {
   return {
     status:        "PENDING" as const,
