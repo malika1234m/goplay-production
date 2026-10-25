@@ -11,6 +11,16 @@ import PhoneVerifyDialog from "@/components/booking/PhoneVerifyDialog";
 import EmailOtpDialog from "@/components/booking/EmailOtpDialog";
 import type { PaymentDetails } from "@/components/payments/types";
 
+interface HeldBooking {
+  id:            string;
+  facilityId:    string;
+  paymentMethod: string;
+  paymentStatus: string;
+  bookingDate:   string;
+  startTime:     string;
+  endTime:       string;
+}
+
 interface OpenMatchSlotInfo {
   id:               string;
   categoryName:     string;
@@ -67,6 +77,19 @@ export default function BookingForm({
     fetch("/api/user/profile").then((r) => r.json()).then((d) => setOnlineOnly(!!d.user?.requiresOnlinePayment)).catch(() => {});
   }, [session]);
   const paymentMethods = onlineOnly ? { ...groundMethods, cash: false } : groundMethods;
+
+  // A "Pay online" booking here that still waits for its receipt (e.g. the player pressed Back on the
+  // checkout page): its slot is held, so point them back to the checkout instead of a blocked form
+  const [heldBooking, setHeldBooking] = useState<HeldBooking | null>(null);
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/user/bookings?status=PENDING")
+      .then((r) => r.json())
+      .then((d: { bookings?: HeldBooking[] }) => setHeldBooking(
+        d.bookings?.find((b) => b.facilityId === facilityId && b.paymentMethod === "ONLINE" && ["PENDING", "REJECTED"].includes(b.paymentStatus)) ?? null,
+      ))
+      .catch(() => {});
+  }, [session, facilityId]);
 
   // Sri Lanka dates: between midnight and 05:30 a UTC date would still be yesterday
   const today   = slDateString();
@@ -295,6 +318,26 @@ export default function BookingForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {heldBooking && (
+        <Link
+          href={`/my-bookings/${heldBooking.id}/pay`}
+          className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 transition-colors hover:bg-amber-100"
+        >
+          <Clock className="w-5 h-5 text-amber-600 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-amber-900">
+              {heldBooking.paymentStatus === "REJECTED" ? "Your receipt needs another look" : "Your slot is held — finish paying"}
+            </p>
+            <p className="text-xs text-amber-800">
+              {new Date(heldBooking.bookingDate).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Colombo" })} · {heldBooking.startTime}–{heldBooking.endTime}. Send the receipt to keep it.
+            </p>
+          </div>
+          <span className="flex items-center text-sm font-semibold text-amber-900 shrink-0">
+            Continue <ChevronRight className="w-4 h-4" />
+          </span>
+        </Link>
+      )}
+
       {/* Court selection — only shown when facility has courts */}
       {courts.length > 0 && (
         <div>

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { getClientIp, reserveLoginAttempt } from "@/lib/rateLimiter";
 import { signMobileToken } from "@/lib/mobile-auth";
+import { APP_HEADER } from "@/lib/turnstile";
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,6 +52,33 @@ export async function POST(req: NextRequest) {
       return Response.json(
         { error: "This account cannot sign in from the mobile app." },
         { status: 403 }
+      );
+    }
+
+    // The partner app is for owners and workers: a player gets told why, and an applicant sees where
+    // their application stands instead of an empty dashboard
+    if (req.headers.get(APP_HEADER) === "partner" && user.role === "USER") {
+      await attempt.release();   // the password was right, so this doesn't count towards the limit
+      const application = await db.providerApplication.findFirst({
+        where:   { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        select:  { status: true },
+      });
+      if (application?.status === "PENDING") {
+        return Response.json(
+          { error: "Your ground owner application is still being reviewed.", code: "APPLICATION_PENDING" },
+          { status: 403 },
+        );
+      }
+      if (application?.status === "REJECTED") {
+        return Response.json(
+          { error: "Your ground owner application was not approved.", code: "APPLICATION_REJECTED" },
+          { status: 403 },
+        );
+      }
+      return Response.json(
+        { error: "This is a player account. Use the GoPlay app to book grounds, or apply to list your ground.", code: "PLAYER_ACCOUNT" },
+        { status: 403 },
       );
     }
 
