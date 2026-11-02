@@ -123,7 +123,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     // confirmed is not a strike: only a confirmed booking was something the player relied on.
     if (status === "CANCELLED") {
       const facility = booking.facility;
-      const strike   = booking.status === "CONFIRMED";
+      // Walk-ins are the ground's own entries, so removing one lets no player down
+      const strike   = booking.status === "CONFIRMED" && !booking.specialRequests?.startsWith("[Walk-in]");
 
       // Reset strike window if 90 days have passed
       const resetDue = facility.strikeResetAt

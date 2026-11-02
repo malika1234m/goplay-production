@@ -191,7 +191,8 @@ export async function PUT(
         if (daysSince >= STRIKE_RESET_DAYS) currentStrikes = 0;
       }
       // Declining a request that was never confirmed is not a strike: only a confirmed booking was relied on
-      const strike     = booking.status === "CONFIRMED";
+      // Walk-ins are the ground's own entries, so removing one lets no player down
+      const strike     = booking.status === "CONFIRMED" && !booking.specialRequests?.startsWith("[Walk-in]");
       const newStrikes = strike ? currentStrikes + 1 : currentStrikes;
       const suspend    = strike && newStrikes >= STRIKE_SUSPEND_THRESHOLD;
 
