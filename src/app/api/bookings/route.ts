@@ -190,7 +190,9 @@ export async function POST(req: NextRequest) {
     if (!schedule) {
       return Response.json({ error: "The ground is closed on this day." }, { status: 400 });
     }
-    const openMins = toMinsValidation(schedule.openTime), closeMins = toMinsValidation(schedule.closeTime);
+    // "00:00" is midnight at the end of the day, as the availability API reads it
+    const dayMins = (t: string) => (t === "00:00" ? 1440 : toMinsValidation(t));
+    const openMins = dayMins(schedule.openTime), closeMins = dayMins(schedule.closeTime);
     const startMins = toMinsValidation(startTime), endMins = toMinsValidation(endTime);
     if (startMins < openMins || endMins > closeMins) {
       return Response.json({ error: `The ground is open ${schedule.openTime}–${schedule.closeTime} on this day.` }, { status: 400 });
