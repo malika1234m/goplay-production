@@ -121,12 +121,14 @@ export async function PUT(
 
       await createNotification({
         userId:  booking.user.id,
+        link:    "/my-bookings",
         title:   "Booking Completed",
         message: `Your session at ${booking.facility.name} is marked as completed. Thanks for playing!`,
         type:    "info",
       });
       await createNotification({
         userId:  ownerId,
+        link:    "/ground-owner/bookings",
         title:   "Booking Completed by Worker",
         message: `${workerName} marked the booking by ${booking.user.name} on ${dateStr} (${booking.startTime}–${booking.endTime}) as completed.`,
         type:    "info",
@@ -145,12 +147,14 @@ export async function PUT(
       const updated = await db.facilityBooking.findUniqueOrThrow({ where: { id } });
       await createNotification({
         userId:  booking.user.id,
+        link:    "/my-bookings",
         title:   "Booking Confirmed",
         message: `Your booking at ${booking.facility.name} has been confirmed!`,
         type:    "success",
       });
       await createNotification({
         userId:  ownerId,
+        link:    "/ground-owner/bookings",
         title:   "Booking Confirmed by Worker",
         message: `${workerName} confirmed the booking by ${booking.user.name} on ${dateStr} (${booking.startTime}–${booking.endTime}).`,
         type:    "info",
@@ -244,11 +248,12 @@ export async function PUT(
       const cancelMsg = isOnlinePaid
         ? `Your booking at ${booking.facility.name} on ${dateStr} was cancelled. The ground will refund your full payment by bank transfer.`
         : `Your booking at ${booking.facility.name} on ${dateStr} was cancelled.`;
-      await createNotification({ userId: booking.user.id, title: "Booking Cancelled", message: cancelMsg, type: "warning" });
+      await createNotification({ userId: booking.user.id, title: "Booking Cancelled", message: cancelMsg, type: "warning", link: "/my-bookings" });
 
       // Notify owner
       await createNotification({
         userId:  ownerId,
+        link:    "/ground-owner/bookings",
         title:   "Booking Cancelled by Worker",
         message: `${workerName} cancelled the booking by ${booking.user.name} on ${dateStr} (${booking.startTime}–${booking.endTime}). Strike ${newStrikes}/${STRIKE_SUSPEND_THRESHOLD} on your facility.`,
         type:    "warning",
@@ -293,6 +298,7 @@ export async function PUT(
       await notifyAdmins("No-show to review", `${workerName} (worker at ${booking.facility.name}) reported ${booking.user.name} as a no-show on ${dateStr} ${booking.startTime}.`, "/admin/trust");
       await createNotification({
         userId:  ownerId,
+        link:    "/ground-owner/bookings",
         title:   "No-Show Marked by Worker",
         message: `${workerName} marked ${booking.user.name}'s booking on ${dateStr} as a no-show. GoPlay reviews every report.`,
         type:    "info",

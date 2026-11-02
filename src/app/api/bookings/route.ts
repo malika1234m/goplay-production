@@ -319,6 +319,7 @@ export async function POST(req: NextRequest) {
     // Notification
     await createNotification({
       userId:  session.user.id,
+      link:    "/my-bookings",
       title:   "Booking Received",
       message: `Your booking at ${booking.facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime} is pending confirmation.`,
       type:    "info",
@@ -329,6 +330,7 @@ export async function POST(req: NextRequest) {
     if (paymentMethod === "ON_ARRIVAL") {
       await createNotification({
         userId:  facility.owner.user.id,
+        link:    "/ground-owner/bookings",
         title:   "New Booking Received",
         message: `${session.user.name ?? "A player"} has booked ${facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime}. Payment: Cash on Arrival (Rs. ${totalAmount.toLocaleString()}).`,
         type:    "info",

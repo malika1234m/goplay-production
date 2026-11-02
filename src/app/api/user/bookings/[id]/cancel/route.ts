@@ -102,6 +102,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     await createNotification({
       userId:  session.user.id,
+      link:    "/my-bookings",
       title:   "Booking Cancelled",
       message: `Your booking at ${booking.facility.name} on ${dateStr} has been cancelled.${refundNote ? " " + refundNote : ""}`,
       type:    "warning",
@@ -109,6 +110,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     await createNotification({
       userId:  booking.facility.owner.user.id,
+      link:    "/ground-owner/bookings",
       title:   "Booking Cancelled by Player",
       message: `A player cancelled their booking at ${booking.facility.name} on ${dateStr} (${booking.startTime}–${booking.endTime}). The slot is now free.${needsRefund ? ` Please refund Rs. ${refundAmount.toLocaleString()} (${policy.refundPercent}%) to the player and mark it refunded.` : ""}`,
       type:    "warning",

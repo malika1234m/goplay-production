@@ -190,6 +190,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
       await createNotification({
         userId:  booking.userId,
+        link:    "/my-bookings",
         title:   `Booking ${status.charAt(0) + status.slice(1).toLowerCase()}`,
         message: messages[status],
         type:    status === "CONFIRMED" ? "success" : status === "CANCELLED" ? "warning" : "info",
