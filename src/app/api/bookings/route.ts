@@ -316,12 +316,16 @@ export async function POST(req: NextRequest) {
 
     const courtLabel = booking.court ? ` — ${booking.court.name}` : "";
 
+    // "Sat, Nov 7" rather than the raw 2026-11-07 in every message the player and owner read
+    const dateLabel = new Date(bookingDate).toLocaleDateString("en-US", {
+      weekday: "short", month: "short", day: "numeric",
+    });
     // Notification
     await createNotification({
       userId:  session.user.id,
       link:    "/my-bookings",
       title:   "Booking Received",
-      message: `Your booking at ${booking.facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime} is pending confirmation.`,
+      message: `Your booking at ${booking.facility.name}${courtLabel} on ${dateLabel} from ${startTime} to ${endTime} is pending confirmation.`,
       type:    "info",
     });
 
@@ -332,7 +336,7 @@ export async function POST(req: NextRequest) {
         userId:  facility.owner.user.id,
         link:    "/ground-owner/bookings",
         title:   "New Booking Received",
-        message: `${session.user.name ?? "A player"} has booked ${facility.name}${courtLabel} on ${bookingDate} from ${startTime} to ${endTime}. Payment: Cash on Arrival (Rs. ${totalAmount.toLocaleString()}).`,
+        message: `${session.user.name ?? "A player"} has booked ${facility.name}${courtLabel} on ${dateLabel} from ${startTime} to ${endTime}. Payment: Cash on Arrival (Rs. ${totalAmount.toLocaleString()}).`,
         type:    "info",
       });
     }
@@ -342,15 +346,12 @@ export async function POST(req: NextRequest) {
       await sendSMS(
         contactNumber,
         paymentMethod === "ONLINE"
-          ? `GoPlay: Your slot at ${facility.name} on ${bookingDate} from ${startTime} to ${endTime} is held. Transfer the amount and send the receipt in the app to confirm it.`
-          : `GoPlay: Your booking at ${facility.name} on ${bookingDate} from ${startTime} to ${endTime} has been received. Awaiting confirmation from the ground owner.`
+          ? `GoPlay: Your slot at ${facility.name} on ${dateLabel} from ${startTime} to ${endTime} is held. Transfer the amount and send the receipt in the app to confirm it.`
+          : `GoPlay: Your booking at ${facility.name} on ${dateLabel} from ${startTime} to ${endTime} has been received. Awaiting confirmation from the ground owner.`
       );
     }
 
     // Email notifications (fire-and-forget — won't fail the booking if email errors)
-    const dateLabel = new Date(bookingDate).toLocaleDateString("en-US", {
-      weekday: "short", month: "short", day: "numeric",
-    });
     const emailOpts = {
       facilityName:  facility.name,
       date:          dateLabel,
