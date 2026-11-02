@@ -186,8 +186,10 @@ export async function PUT(
         const daysSince = (Date.now() - fac.strikeResetAt.getTime()) / 86_400_000;
         if (daysSince >= STRIKE_RESET_DAYS) currentStrikes = 0;
       }
-      const newStrikes = currentStrikes + 1;
-      const suspend    = newStrikes >= STRIKE_SUSPEND_THRESHOLD;
+      // Declining a request that was never confirmed is not a strike: only a confirmed booking was relied on
+      const strike     = booking.status === "CONFIRMED";
+      const newStrikes = strike ? currentStrikes + 1 : currentStrikes;
+      const suspend    = strike && newStrikes >= STRIKE_SUSPEND_THRESHOLD;
 
       const cancelled = await moveBooking(id, booking.status, {
         status:        "CANCELLED",
@@ -199,14 +201,16 @@ export async function PUT(
       });
       if (!cancelled) return changedElsewhere();
 
-      await db.sportsFacility.update({
-        where: { id: facilityId },
-        data: {
-          cancelStrikeCount: newStrikes,
-          strikeResetAt:     new Date(),
-          ...(suspend && { isListingSuspended: true }),
-        },
-      });
+      if (strike) {
+        await db.sportsFacility.update({
+          where: { id: facilityId },
+          data: {
+            cancelStrikeCount: newStrikes,
+            strikeResetAt:     new Date(),
+            ...(suspend && { isListingSuspended: true }),
+          },
+        });
+      }
 
 
       // Admin notifications
@@ -224,7 +228,7 @@ export async function PUT(
           message: `${booking.facility.name} reached ${newStrikes} cancellation strikes (latest by worker ${workerName}) and has been automatically suspended.`,
           type:    "error",
         });
-      } else {
+      } else if (strike) {
         adminMsgs.push({
           title:   "Worker Cancelled a Booking",
           message: `${workerName} cancelled booking for ${booking.user.name} at ${booking.facility.name} on ${dateStr}. Strike ${newStrikes}/${STRIKE_SUSPEND_THRESHOLD} on this facility.`,

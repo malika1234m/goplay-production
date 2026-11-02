@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/mobile-auth";
-import { sendBookingCancelledEmail } from "@/lib/email";
+import { sendBookingCancelledEmail, sendPlayerCancelledAlertEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notify";
 import { slotInstant } from "@/lib/local-time";
 import {
@@ -23,7 +23,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         facility: {
           select: {
             name:  true,
-            owner: { select: { user: { select: { id: true } } } },
+            owner: { select: { user: { select: { id: true, name: true, email: true } } } },
           },
         },
         user: {
@@ -135,6 +135,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       endTime:      booking.endTime,
       cancelledBy:  "player",
       refundNeeded: needsRefund,
+    });
+
+    void sendPlayerCancelledAlertEmail({
+      to:           booking.facility.owner.user.email ?? "",
+      ownerName:    booking.facility.owner.user.name ?? "Owner",
+      playerName:   session.user.name ?? "A player",
+      facilityName: booking.facility.name,
+      date:         dateStr,
+      startTime:    booking.startTime,
+      endTime:      booking.endTime,
+      refundAmount: needsRefund ? refundAmount : undefined,
     });
 
     return Response.json({

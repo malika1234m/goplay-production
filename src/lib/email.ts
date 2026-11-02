@@ -107,10 +107,10 @@ export async function sendNewBookingAlertEmail(opts: {
   const html = layout(`
     <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">New Booking Request 🏟️</h2>
     <p style="color:#475569;font-size:14px;margin:0 0 24px">
-      Hi ${opts.ownerName}, <strong>${opts.playerName}</strong> has requested a booking at <strong>${opts.facilityName}</strong>.
+      Hi ${escapeHtml(opts.ownerName)}, <strong>${escapeHtml(opts.playerName)}</strong> has requested a booking at <strong>${escapeHtml(opts.facilityName)}</strong>.
     </p>
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:10px;padding:16px;border:1px solid #e2e8f0">
-      ${infoRow("Player", opts.playerName)}
+      ${infoRow("Player", escapeHtml(opts.playerName))}
       ${infoRow("Date", opts.date)}
       ${infoRow("Time", `${opts.startTime} – ${opts.endTime}`)}
       ${infoRow("Amount", `Rs. ${opts.totalAmount.toLocaleString()}`)}
@@ -204,6 +204,32 @@ export async function sendBookingCancelledEmail(opts: {
     ${button("https://goplay.lk/grounds", "Find Another Ground")}
   `);
   await send(opts.to, `Booking Cancelled — ${opts.facilityName}`, html);
+}
+
+// ── Player cancelled (to ground owner) ─────────────────────────────────────
+export async function sendPlayerCancelledAlertEmail(opts: {
+  to: string; ownerName: string; playerName: string; facilityName: string;
+  date: string; startTime: string; endTime: string; refundAmount?: number;
+}) {
+  const refundNote = opts.refundAmount
+    ? `<p style="color:#dc2626;font-size:13px;margin:12px 0 0;background:#fef2f2;padding:12px;border-radius:8px">
+        💳 The player paid by bank transfer. Please refund Rs. ${opts.refundAmount.toLocaleString()} and mark it refunded in your dashboard.
+      </p>`
+    : "";
+  const html = layout(`
+    <h2 style="margin:0 0 4px;color:#0f172a;font-size:20px">Booking Cancelled by Player</h2>
+    <p style="color:#475569;font-size:14px;margin:0 0 24px">
+      Hi ${escapeHtml(opts.ownerName)}, <strong>${escapeHtml(opts.playerName)}</strong> cancelled their booking at <strong>${escapeHtml(opts.facilityName)}</strong>. The slot is free again.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#fff7ed;border-radius:10px;padding:16px;border:1px solid #fed7aa">
+      ${infoRow("Player", escapeHtml(opts.playerName))}
+      ${infoRow("Date", opts.date)}
+      ${infoRow("Time", `${opts.startTime} – ${opts.endTime}`)}
+    </table>
+    ${refundNote}
+    ${button("https://goplay.lk/ground-owner/bookings", "Manage Bookings")}
+  `);
+  await send(opts.to, `Booking Cancelled by Player — ${opts.facilityName}`, html);
 }
 
 // ── 7. Commission request email (to ground owner) ─────────────────────────

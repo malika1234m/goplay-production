@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { bookingsInBlock, blockedByBookingsMessage } from "@/lib/blocked-dates";
 import { getSession } from "@/lib/mobile-auth";
 import { createNotification } from "@/lib/notify";
 
@@ -75,6 +76,9 @@ export async function POST(req: NextRequest) {
         owner: { include: { user: { select: { id: true } } } },
       },
     });
+
+    const clash = await bookingsInBlock(facilityId, date, startTime?.trim(), endTime?.trim());
+    if (clash > 0) return Response.json({ error: blockedByBookingsMessage(clash) }, { status: 409 });
 
     const entry = await db.blockedDate.create({
       data: {

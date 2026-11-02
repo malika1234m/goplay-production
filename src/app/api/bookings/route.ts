@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Too many requests. Please slow down." }, { status: 429 });
     }
 
-    if (session.user.role === "GROUND_OWNER") {
-      return Response.json({ error: "Ground owners cannot book sports grounds." }, { status: 403 });
+    if (session.user.role === "GROUND_OWNER" || session.user.role === "GROUND_WORKER") {
+      return Response.json({ error: "Ground owner and worker accounts cannot book grounds. Use a player account to book." }, { status: 403 });
     }
 
     const currentUser = await db.user.findUnique({
@@ -46,6 +46,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return Response.json({ error: "Invalid request body." }, { status: 400 });
+    }
     const {
       facilityId,
       courtId,
@@ -56,10 +60,13 @@ export async function POST(req: NextRequest) {
       contactEmail,
       specialRequests,
       paymentMethod = "ON_ARRIVAL",
-    } = await req.json();
+    } = body;
 
     if (!facilityId || !bookingDate || !startTime || !endTime) {
       return Response.json({ error: "facilityId, bookingDate, startTime and endTime are required." }, { status: 400 });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(bookingDate)) || Number.isNaN(new Date(bookingDate).getTime())) {
+      return Response.json({ error: "bookingDate must be a date in YYYY-MM-DD format." }, { status: 400 });
     }
 
     const TIME_RE = /^\d{2}:\d{2}$/;
@@ -173,6 +180,23 @@ export async function POST(req: NextRequest) {
     // so this holds on a UTC server as well as a Sri Lanka one.
     if (slotInstant(startOfDay, startTime).getTime() <= Date.now()) {
       return Response.json({ error: "That time has already passed. Please pick a later slot." }, { status: 400 });
+    }
+
+    // Only the hourly slots the availability API offers can be booked: inside the day's opening
+    // hours and starting on the hour grid that begins at opening time
+    const schedule = await db.facilityAvailability.findFirst({
+      where: { facilityId, dayOfWeek: startOfDay.getUTCDay(), isOpen: true },
+    });
+    if (!schedule) {
+      return Response.json({ error: "The ground is closed on this day." }, { status: 400 });
+    }
+    const openMins = toMinsValidation(schedule.openTime), closeMins = toMinsValidation(schedule.closeTime);
+    const startMins = toMinsValidation(startTime), endMins = toMinsValidation(endTime);
+    if (startMins < openMins || endMins > closeMins) {
+      return Response.json({ error: `The ground is open ${schedule.openTime}–${schedule.closeTime} on this day.` }, { status: 400 });
+    }
+    if ((startMins - openMins) % 60 !== 0 || (endMins - startMins) % 60 !== 0) {
+      return Response.json({ error: "Pick one of the hourly slots shown for this ground." }, { status: 400 });
     }
 
 

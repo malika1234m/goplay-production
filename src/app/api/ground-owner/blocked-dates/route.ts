@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
+import { bookingsInBlock, blockedByBookingsMessage } from "@/lib/blocked-dates";
 import { getSession } from "@/lib/mobile-auth";
 
 async function getOwnedFacilityIds(userId: string) {
@@ -75,6 +76,9 @@ export async function POST(req: NextRequest) {
     if (!facilityIds.includes(facilityId)) {
       return Response.json({ error: "Not found." }, { status: 404 });
     }
+
+    const clash = await bookingsInBlock(facilityId, date, startTime?.trim(), endTime?.trim());
+    if (clash > 0) return Response.json({ error: blockedByBookingsMessage(clash) }, { status: 409 });
 
     const entry = await db.blockedDate.create({
       data: {

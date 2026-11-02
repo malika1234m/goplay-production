@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { getSession } from "@/lib/mobile-auth";
+import { getSession, signMobileToken } from "@/lib/mobile-auth";
+import { nowToSecond } from "@/lib/google-auth";
 import bcrypt from "bcryptjs";
 
 export async function PUT(req: NextRequest) {
@@ -10,7 +11,7 @@ export async function PUT(req: NextRequest) {
       return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { currentPassword, newPassword, confirmPassword } = await req.json();
+    const { currentPassword, newPassword, confirmPassword, signOutOtherDevices } = await req.json();
 
     if (!currentPassword || !newPassword || !confirmPassword) {
       return Response.json({ error: "All fields are required." }, { status: 400 });
@@ -30,7 +31,7 @@ export async function PUT(req: NextRequest) {
 
     const user = await db.user.findUnique({
       where:  { id: session.user.id },
-      select: { password: true, mustChangePassword: true },
+      select: { password: true, mustChangePassword: true, name: true, email: true, role: true },
     });
     if (!user) return Response.json({ error: "User not found." }, { status: 404 });
 
@@ -42,10 +43,18 @@ export async function PUT(req: NextRequest) {
     }
 
     const hashed = await bcrypt.hash(newPassword, 12);
+
+    // App builds that can store a replacement token ask for every other device to be signed out
+    // (see /api/user/password); everyone else keeps today's behaviour
+    const signOutOthers = signOutOtherDevices === true;
     await db.user.update({
       where: { id: session.user.id },
-      data:  { password: hashed, mustChangePassword: false },
+      data:  { password: hashed, mustChangePassword: false, ...(signOutOthers ? { sessionsValidAfter: nowToSecond() } : {}) },
     });
+    if (signOutOthers) {
+      const token = await signMobileToken({ id: session.user.id, name: user.name, email: user.email, role: user.role });
+      return Response.json({ message: "Password updated. Other devices have been signed out.", token });
+    }
 
     return Response.json({ message: "Password updated successfully." });
   } catch (err) {

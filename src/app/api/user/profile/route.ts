@@ -44,6 +44,13 @@ export async function PUT(req: NextRequest) {
 
     const { name, phone } = await req.json();
     if (!name?.trim()) return Response.json({ error: "Name is required." }, { status: 400 });
+    if (name.trim().length < 2 || name.trim().length > 50) {
+      return Response.json({ error: "Name must be between 2 and 50 characters." }, { status: 400 });
+    }
+    // Same rule as registration: grounds use this number to reach the player
+    if (phone?.trim() && !/^(?:\+94|0)7[0-9]{8}$/.test(phone.replace(/[\s\-().]/g, ""))) {
+      return Response.json({ error: "Enter a valid Sri Lankan mobile number." }, { status: 400 });
+    }
 
     const user = await db.user.update({
       where: { id: session.user.id },

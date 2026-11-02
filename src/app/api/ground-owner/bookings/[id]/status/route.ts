@@ -119,26 +119,30 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       });
     }
 
-    // Owner cancellation: apply strike system + full refund
+    // Owner cancellation: apply strike system + full refund. Declining a request that was never
+    // confirmed is not a strike: only a confirmed booking was something the player relied on.
     if (status === "CANCELLED") {
       const facility = booking.facility;
+      const strike   = booking.status === "CONFIRMED";
 
       // Reset strike window if 90 days have passed
       const resetDue = facility.strikeResetAt
         ? (now.getTime() - facility.strikeResetAt.getTime()) / 86_400_000 >= STRIKE_RESET_DAYS
         : true;
       const currentStrikes = resetDue ? 0 : facility.cancelStrikeCount;
-      const newStrikes     = currentStrikes + 1;
-      const suspend        = newStrikes >= STRIKE_SUSPEND_THRESHOLD;
+      const newStrikes     = strike ? currentStrikes + 1 : currentStrikes;
+      const suspend        = strike && newStrikes >= STRIKE_SUSPEND_THRESHOLD;
 
-      await db.sportsFacility.update({
-        where: { id: booking.facilityId },
-        data: {
-          cancelStrikeCount:  newStrikes,
-          strikeResetAt:      resetDue ? now : undefined,
-          isListingSuspended: suspend ? true : undefined,
-        },
-      });
+      if (strike) {
+        await db.sportsFacility.update({
+          where: { id: booking.facilityId },
+          data: {
+            cancelStrikeCount:  newStrikes,
+            strikeResetAt:      resetDue ? now : undefined,
+            isListingSuspended: suspend ? true : undefined,
+          },
+        });
+      }
 
       const dateStr = new Date(booking.bookingDate).toLocaleDateString("en-US", {
         weekday: "short", month: "short", day: "numeric",
@@ -159,7 +163,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           message: `${booking.facility.name} has reached ${newStrikes} cancellation strikes in 90 days and has been automatically suspended.`,
           type:    "error" as const,
         });
-      } else {
+      } else if (strike) {
         adminMessages.push({
           title:   "Owner Cancellation Strike",
           message: `${booking.facility.name} cancelled a booking (strike ${newStrikes}/${STRIKE_SUSPEND_THRESHOLD}). ${STRIKE_SUSPEND_THRESHOLD - newStrikes} more will suspend the listing.`,
